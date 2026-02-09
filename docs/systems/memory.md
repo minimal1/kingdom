@@ -21,7 +21,7 @@
 │  Layer 2: Task Memory (작업 단위)        │
 │  state/results/{task-id}.json           │
 │  수명: 작업 완료 후 7일 보관              │
-│  관리: 내관이 아카이브                    │
+│  관리: 내관이 보존 기간 경과 후 삭제       │
 ├─────────────────────────────────────────┤
 │  Layer 3: Shared Memory (영구)           │
 │  memory/shared/ + memory/generals/      │

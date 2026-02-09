@@ -328,9 +328,9 @@ process_pending_events() {
       continue
     fi
 
-    # 2. 병사 수 확인 (max_soldiers)
+    # 2. 병사 수 확인 (max_soldiers) — sessions.json 기준 (soldier.md/내관과 일치)
     local max_soldiers=$(get_config "king" "concurrency.max_soldiers")
-    local active_soldiers=$(tmux list-sessions 2>/dev/null | grep -c "^soldier-" || echo 0)
+    local active_soldiers=$(wc -l < "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
     if (( active_soldiers >= max_soldiers )); then
       log "[EVENT] [king] Max soldiers reached ($active_soldiers/$max_soldiers), deferring event: $event_id"
       continue
@@ -960,7 +960,7 @@ state/king/
 
 ## 공통 함수 참조 (`common.sh`)
 
-> `log()`, `get_config()`, `update_heartbeat()`, `emit_event()`는 `bin/lib/common.sh`에 정의 — 상세: [systems/common-functions.md](../systems/common-functions.md)
+> `log()`, `get_config()`, `update_heartbeat()`, `emit_event()`는 `bin/lib/common.sh`에 정의. (common-functions.md는 구현 단계에서 작성 예정)
 
 ---
 

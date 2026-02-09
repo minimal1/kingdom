@@ -36,7 +36,7 @@
        ▼
 ┌──────────────┐
 │ tmux 세션     │  tmux new-session -d -s soldier-{id}
-│ 생성          │  + sessions.json에 등록
+│ 생성          │  (장군의 spawn_soldier가 sessions.json에 등록)
 └──────┬───────┘
        ▼
 ┌──────────────┐
@@ -65,9 +65,10 @@
 
 ```bash
 #!/bin/bash
-# bin/spawn-soldier.sh — 병사 생성 + 실행
-# 호출: 장군의 spawn_soldier 함수에서 호출
-# 인자: TASK_ID, PROMPT_FILE, WORK_DIR
+# bin/spawn-soldier.sh — 병사 tmux 세션 생성
+# 호출: 장군의 spawn_soldier() 함수에서 호출
+# 역할: tmux 세션 생성 + soldier-id 파일 기록만 담당
+# 세션 등록(sessions.json)은 장군의 spawn_soldier()가 수행 (레이어드 구조)
 
 source "$BASE_DIR/bin/lib/common.sh"
 
@@ -77,16 +78,6 @@ WORK_DIR="$3"  # 장군의 workspace 경로
 SOLDIER_ID="soldier-$(date +%s)-$$"
 
 # ── Pre-flight Checks ──
-if [ ! -f "$PROMPT_FILE" ]; then
-  log "[ERROR] [soldier] Prompt file not found: $PROMPT_FILE"
-  exit 1
-fi
-
-if [ ! -d "$WORK_DIR" ]; then
-  log "[ERROR] [soldier] Work directory not found: $WORK_DIR"
-  exit 1
-fi
-
 if ! command -v claude &> /dev/null; then
   log "[ERROR] [soldier] claude command not found"
   exit 1
@@ -107,21 +98,7 @@ if ! tmux new-session -d -s "$SOLDIER_ID" \
   exit 1
 fi
 
-# ── Session Registration ──
-# sessions.json: 활성 세션 레지스트리 (내관이 주기적으로 종료 세션 정리)
-# flock: 내관의 check_and_clean_sessions와 경쟁 조건 방지
-local lock_file="$BASE_DIR/state/sessions.lock"
-local session_entry=$(jq -n \
-  --arg id "$SOLDIER_ID" \
-  --arg task "$TASK_ID" \
-  --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '{id: $id, task_id: $task, started_at: $started}')
-(
-  flock -x 200
-  echo "$session_entry" >> "$BASE_DIR/state/sessions.json"
-) 200>"$lock_file"
-
-# soldier_id를 파일에 기록 (장군의 wait_for_soldier가 timeout 시 kill용)
+# soldier_id를 파일에 기록 (장군의 spawn_soldier가 읽어 세션 등록, wait_for_soldier가 timeout 시 kill용)
 echo "$SOLDIER_ID" > "$BASE_DIR/state/results/${TASK_ID}-soldier-id"
 
 log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
@@ -270,7 +247,7 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 
 | 단계 | 담당 | 동작 |
 |------|------|------|
-| 등록 | 장군 (`spawn_soldier`) | 병사 spawn 시 append |
+| 등록 | 장군 (`spawn_soldier`) | `bin/spawn-soldier.sh` 호출 후 append |
 | 활용 | 왕 (`max_soldiers` 체크) | `wc -l`로 활성 병사 수 확인 |
 | 활용 | 내관 (`session-checker.sh`) | `tmux has-session`으로 생존 여부 확인 |
 | 정리 | 내관 (`session-checker.sh`) | 종료된 세션 행 제거 (주기적) |

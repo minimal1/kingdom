@@ -445,8 +445,7 @@ check_awaiting_responses() {
 state/envoy/
 ├── heartbeat                    # 생존 확인
 ├── thread-mappings.json         # { "task-001": { "thread_ts": "...", "channel": "..." } }
-├── awaiting-responses.json      # [ { "task_id": "...", "thread_ts": "...", "asked_at": "..." } ]
-└── report-sent.json             # { "daily": "2026-02-07", "weekly": "2026-02-07" }
+└── awaiting-responses.json      # [ { "task_id": "...", "thread_ts": "...", "asked_at": "..." } ]
 ```
 
 ### 스레드 관리 함수 (`thread-manager.sh`)
@@ -491,23 +490,6 @@ remove_awaiting_response() {
   echo "$tmp" > "$AWAITING_FILE"
 }
 
-# ── 리포트 발송 기록 ──────────────────────────────
-
-REPORT_SENT_FILE="$BASE_DIR/state/envoy/report-sent.json"
-
-already_sent_today() {
-  local report_type="$1"  # "daily" or "weekly"
-  local today=$(date +%Y-%m-%d)
-  local last_sent=$(jq -r --arg t "$report_type" '.[$t] // ""' "$REPORT_SENT_FILE")
-  [ "$last_sent" = "$today" ]
-}
-
-mark_sent_today() {
-  local report_type="$1"
-  local today=$(date +%Y-%m-%d)
-  local tmp=$(jq --arg t "$report_type" --arg d "$today" '.[$t] = $d' "$REPORT_SENT_FILE")
-  echo "$tmp" > "$REPORT_SENT_FILE"
-}
 ```
 
 ---
@@ -545,11 +527,9 @@ trap 'RUNNING=false; log "[SYSTEM] [envoy] Shutting down..."; exit 0' SIGTERM SI
 # ── 타이머 ───────────────────────────────────────
 LAST_OUTBOUND=0      # 아웃바운드: 메시지 큐 소비
 LAST_THREAD_CHECK=0  # 스레드: awaiting 응답 확인
-LAST_REPORT_CHECK=0  # 리포트: 스케줄 확인
 
 OUTBOUND_INTERVAL=5       # 5초  — 내부 메시지는 빠르게 전달
 THREAD_CHECK_INTERVAL=30  # 30초 — awaiting 스레드 확인 (needs_human 시에만 활성)
-REPORT_CHECK_INTERVAL=60  # 60초 — 리포트 스케줄 확인
 
 log "[SYSTEM] [envoy] Started."
 
@@ -567,12 +547,6 @@ while $RUNNING; do
   if (( now - LAST_THREAD_CHECK >= THREAD_CHECK_INTERVAL )); then
     check_awaiting_responses
     LAST_THREAD_CHECK=$now
-  fi
-
-  # ── 3. 리포트 스케줄 확인 (60초) ────────────────
-  if (( now - LAST_REPORT_CHECK >= REPORT_CHECK_INTERVAL )); then
-    check_report_schedule
-    LAST_REPORT_CHECK=$now
   fi
 
   sleep 5  # 메인 루프 틱
@@ -642,7 +616,7 @@ process_outbound_queue() {
 | `thread_update` | 장군/병사 경유 | 스레드 답글 |
 | `human_input_request` | 왕 (needs_human 감지 시) | 스레드 답글 + awaiting 등록 |
 | `notification` | 왕/장군/내관 | 스레드 답글 또는 채널 메시지 |
-| `report` | 사절 자체 (스케줄) | 채널 메시지 |
+| `report` | 내관 (generate_daily_report) | 채널 메시지 |
 
 ---
 
@@ -681,60 +655,26 @@ process_outbound_queue() {
 
 ## 리포트
 
-### 일일 리포트 (매일 18:00)
+### 리포트 발송 (레이어드)
+
+리포트 데이터 수집 및 메시지 생성은 **내관**이 담당한다 (chamberlain.md의 `generate_daily_report`). 사절은 큐에 도착한 `report` 타입 메시지를 Slack으로 발송하는 역할만 수행한다.
+
+```
+내관 (09:00) → generate_daily_report → queue/messages/pending/ (type: "report")
+                                              ↓
+사절 (5초 폴링) → process_report → Slack 채널에 발송
+```
+
+#### 리포트 메시지 예시
 
 ```
 📊 [일일 리포트] 2026-02-07
 
 처리: 5건 (PR 리뷰 3, Jira 1, 테스트 1)
 실패: 1건 (Jira QP-890 — API timeout)
-대기: 2건 (PR #1301 리뷰 중, QP-891 구현 중)
 사람 대기: 0건
 
 소요 시간 (평균): PR 리뷰 12분, Jira 작업 45분
-```
-
-### 주간 리포트 (매주 금요일 18:00)
-
-```
-📊 [주간 리포트] 2026-02-03 ~ 02-07
-
-총 처리: 23건 (성공 21, 실패 2)
-성공률: 91.3%
-평균 소요 시간: 18분
-가장 많은 작업: PR 리뷰 (15건)
-```
-
-### 리포트 데이터 수집
-
-사절은 리포트 생성 시 다음 파일들을 읽어 집계:
-
-| 데이터 | 소스 |
-|--------|------|
-| 완료 작업 | `queue/tasks/completed/*.json` |
-| 실패 작업 | `queue/tasks/completed/*.json` (status=failed) |
-| 진행 중 작업 | `queue/tasks/in_progress/*.json` |
-| 대기 중 작업 | `queue/tasks/pending/*.json` |
-| 시스템 메트릭 | `state/resources.json` |
-
-```bash
-check_report_schedule() {
-  local now_hour=$(date +%H:%M)
-  local now_dow=$(date +%a)
-
-  local daily_time=$(get_config "schedule.daily_report")  # "18:00"
-  local weekly_day=$(get_config "schedule.weekly_report")  # "FRI 18:00"
-
-  if [ "$now_hour" = "$daily_time" ] && ! already_sent_today "daily"; then
-    generate_daily_report
-    mark_sent_today "daily"
-  fi
-
-  if [[ "$now_dow" == "Fri" && "$now_hour" == "18:00" ]] && ! already_sent_today "weekly"; then
-    generate_weekly_report
-    mark_sent_today "weekly"
-  fi
-}
 ```
 
 ---
@@ -748,14 +688,9 @@ slack:
   default_channel: "dev-eddy"            # 채널 이름
   default_channel_id: "C0XXXXXXXX"       # 채널 ID (API 호출용)
 
-schedule:
-  daily_report: "18:00"
-  weekly_report: "FRI 18:00"
-
 intervals:
   outbound_seconds: 5         # 메시지 큐 소비
   thread_check_seconds: 30    # awaiting 스레드 확인
-  report_check_seconds: 60    # 리포트 스케줄
 ```
 
 ## 장애 대응
@@ -816,6 +751,5 @@ bin/
 ├── envoy.sh                             # 메인 polling loop
 └── lib/envoy/
     ├── slack-api.sh                     # Slack API 공통 함수 (send, read)
-    ├── thread-manager.sh                # 스레드 매핑, awaiting 관리
-    └── report-generator.sh              # 리포트 생성 및 데이터 집계
+    └── thread-manager.sh                # 스레드 매핑, awaiting 관리
 ```

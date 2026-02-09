@@ -213,6 +213,8 @@ pick_next_task() {
 
 ### spawn_soldier + wait_for_soldier
 
+장군의 `spawn_soldier()`는 pre-flight 검증 후 `bin/spawn-soldier.sh`를 호출하는 **레이어드 구조**이다. tmux 세션 생성은 스크립트가 담당하고, 세션 등록/대기는 함수에 유지한다.
+
 ```bash
 # bin/lib/general/common.sh
 
@@ -220,21 +222,28 @@ spawn_soldier() {
   local task_id="$1"
   local prompt_file="$2"
   local work_dir="$3"
-  local soldier_id="soldier-$(date +%s)-$$"
-  local raw_file="$BASE_DIR/state/results/${task_id}-raw.json"
 
-  # workspace에서 실행 → .claude/plugins.json을 통해 CC Plugin 자동 로드
-  # --dangerously-skip-permissions: 자동화 환경에서 모든 도구 승인 없이 실행
-  # 결과 파일은 프롬프트 지시에 따라 병사가 Write 도구로 직접 생성 (-raw.json)
-  # stdout/stderr는 로그 파일로 캡처 (디버깅용)
-  tmux new-session -d -s "$soldier_id" \
-    "cd '$work_dir' && claude -p \
-      --dangerously-skip-permissions \
-      < '$prompt_file' \
-      > '$BASE_DIR/logs/sessions/${soldier_id}.log' 2>&1; \
-     tmux wait-for -S ${soldier_id}-done"
+  # ── Pre-flight 검증 (장군 함수에서 수행) ──
+  if [ ! -f "$prompt_file" ]; then
+    log "[ERROR] [$GENERAL_DOMAIN] Prompt file not found: $prompt_file"
+    return 1
+  fi
+  if [ ! -d "$work_dir" ]; then
+    log "[ERROR] [$GENERAL_DOMAIN] Work directory not found: $work_dir"
+    return 1
+  fi
 
-  # 세션 등록 (flock: 내관의 정리와 경쟁 조건 방지)
+  # ── 병사 생성 (스크립트 위임) ──
+  "$BASE_DIR/bin/spawn-soldier.sh" "$task_id" "$prompt_file" "$work_dir"
+  local exit_code=$?
+
+  if [ $exit_code -ne 0 ]; then
+    log "[ERROR] [$GENERAL_DOMAIN] spawn-soldier.sh failed for task: $task_id"
+    return 1
+  fi
+
+  # ── 세션 등록 (장군 함수에서 수행 — flock으로 내관과 경쟁 조건 방지) ──
+  local soldier_id=$(cat "$BASE_DIR/state/results/${task_id}-soldier-id")
   local lock_file="$BASE_DIR/state/sessions.lock"
   local session_entry=$(jq -n \
     --arg id "$soldier_id" \
@@ -245,9 +254,6 @@ spawn_soldier() {
     flock -x 200
     echo "$session_entry" >> "$BASE_DIR/state/sessions.json"
   ) 200>"$lock_file"
-
-  # soldier_id를 파일에 기록 (wait/kill용)
-  echo "$soldier_id" > "$BASE_DIR/state/results/${task_id}-soldier-id"
 }
 
 wait_for_soldier() {

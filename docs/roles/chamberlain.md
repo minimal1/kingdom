@@ -515,7 +515,7 @@ create_alert_message() {
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{
       id: $id,
-      type: "system_alert",
+      type: "notification",
       task_id: null,
       content: $content,
       urgency: $urgency,
@@ -741,14 +741,14 @@ generate_daily_report() {
     --argjson st "$soldiers_timeout" \
     --argjson avg "$avg_durations" \
     '{
-      type: "daily_report",
+      report_type: "daily",
       date: $date,
       tasks: {created: $tc, completed: $tcomp, failed: $tf, needs_human: $tn},
       soldiers: {spawned: $ss, timeout: $st},
       avg_duration_by_general: $avg
     }')
 
-  # 사절에게 리포트 메시지 생성
+  # 사절에게 리포트 메시지 생성 (type: "report" — 사절의 process_report 핸들러가 처리)
   local msg_id="msg-daily-report-$(date +%s)"
   jq -n \
     --arg id "$msg_id" \
@@ -756,7 +756,7 @@ generate_daily_report() {
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{
       id: $id,
-      type: "daily_report",
+      type: "report",
       task_id: null,
       content: $content,
       urgency: "low",

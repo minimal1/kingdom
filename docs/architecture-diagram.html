@@ -594,19 +594,13 @@
       <div class="icon" style="font-size:16px; font-weight:bold; letter-spacing:1px;">GH</div>
       <div class="name">GitHub</div>
       <div class="detail">PR, Review, Comment</div>
-      <div class="detail" style="color:#3d6a9a">gh CLI &middot; 2min polling</div>
+      <div class="detail" style="color:#3d6a9a">gh CLI &middot; 1min polling</div>
     </div>
     <div class="ext-node jira">
       <div class="icon">&#x1F4CB;</div>
       <div class="name">Jira</div>
       <div class="detail">Ticket, Assign, Update</div>
-      <div class="detail" style="color:#3d6a9a">jira CLI &middot; 5min polling</div>
-    </div>
-    <div class="ext-node slack">
-      <div class="icon">&#x1F4AC;</div>
-      <div class="name">Slack</div>
-      <div class="detail">DM, Mention, Response</div>
-      <div class="detail" style="color:#3d6a9a">MCP &middot; 1min polling</div>
+      <div class="detail" style="color:#3d6a9a">curl &middot; 5min polling</div>
     </div>
   </div>
 
@@ -637,13 +631,13 @@
             <span class="role-badge badge-always">ALWAYS-ON</span>
           </div>
           <div class="role-desc">
-            외부 시스템(GitHub, Jira, Slack) 변화를 주기적으로 감지.<br>
+            외부 시스템(GitHub, Jira) 변화를 주기적으로 감지.<br>
             이벤트를 JSON으로 변환하여 큐에 적재. 중복 필터링.
           </div>
           <div class="role-tech">
             <span class="tech-tag">Bash loop</span>
             <span class="tech-tag">tmux: sentinel</span>
-            <span class="tech-tag">gh / jira CLI</span>
+            <span class="tech-tag">gh / curl</span>
           </div>
         </div>
 
@@ -725,7 +719,7 @@
         </div>
 
         <div class="flow-desc" style="margin:4px 0">
-          <strong>"어떻게"</strong> &mdash; 도메인 메모리 로딩 &rarr; 프롬프트 조립 &rarr; 병사 생성 &rarr; 품질 게이트 (80점)
+          <strong>"어떻게"</strong> &mdash; 도메인 메모리 로딩 &rarr; 프롬프트 조립 &rarr; 병사 생성 &rarr; 2-tier 품질 (CC Plugin 도메인 + 장군 완료 확인)
         </div>
 
         <div class="v-arrow">
@@ -767,6 +761,16 @@
       <!-- ═══ Right Column: Side Roles + Data Stores ═══ -->
       <div class="right-column">
 
+        <!-- Slack (사절 영역 외부 시스템) -->
+        <div class="ext-node slack" style="width:auto; margin-bottom:8px;">
+          <div class="icon">&#x1F4AC;</div>
+          <div class="name">Slack</div>
+          <div class="detail">DM, Mention, Response</div>
+          <div class="detail" style="color:#3d6a9a">Slack Web API &middot; 5s/30s polling</div>
+        </div>
+
+        <div class="conn-label">&#x2195; Slack Web API (curl)</div>
+
         <!-- Envoy -->
         <div class="role-node role-envoy">
           <div class="role-header">
@@ -777,10 +781,10 @@
           <div class="role-desc">
             Slack 기반 대외 소통 창구.<br>
             알림 발송 &middot; 사람 응답 수신<br>
-            일일/주간 리포트 자동 발송
+            내관이 생성한 리포트 발송
           </div>
           <div class="role-tech">
-            <span class="tech-tag">Slack MCP</span>
+            <span class="tech-tag">Slack Web API (curl)</span>
             <span class="tech-tag">5s polling</span>
           </div>
         </div>
@@ -827,7 +831,7 @@
           <div class="store-item"><span class="dot dot-active"></span> resources.json (내관 갱신)</div>
           <div class="store-item"><span class="dot dot-active"></span> sessions.json (활성 세션)</div>
           <div class="store-item"><span class="dot dot-done"></span> results/{task-id}.json</div>
-          <div class="store-item"><span class="dot dot-queue"></span> sentinel/*-last-check.json</div>
+          <div class="store-item"><span class="dot dot-queue"></span> sentinel/*-state.json</div>
         </div>
 
       </div>
@@ -850,7 +854,7 @@
           <div class="mem-title">Layer 2: Task Memory</div>
           <div class="mem-desc">
             작업별 결과 파일 (JSON)<br>
-            완료 후 7일 보관 &rarr; 아카이브<br>
+            완료 후 7일 보관 &rarr; 삭제<br>
             왕/장군이 참조
           </div>
           <div class="mem-path">state/results/{task-id}.json</div>
@@ -911,11 +915,11 @@
   <div class="memory-layer" style="margin-top:24px;">
     <div class="layer-title">&#x1F504; END-TO-END DATA FLOW</div>
     <div style="font-size:12px; color:#7f8ea3; line-height:2.2; padding:0 8px;">
-      <span class="flow-num">1</span> <strong style="color:#58a6ff">파수꾼</strong>이 GitHub/Jira/Slack 변화 감지 &rarr; <code style="color:#4a6fa5">event.json</code> 생성<br>
+      <span class="flow-num">1</span> <strong style="color:#58a6ff">파수꾼</strong>이 GitHub/Jira 변화 감지 &rarr; <code style="color:#4a6fa5">event.json</code> 생성<br>
       <span class="flow-num">2</span> <strong style="color:#ffd700">왕</strong>이 이벤트 소비 &rarr; 리소스/충돌 확인 &rarr; 적합한 장군에게 <code style="color:#4a6fa5">task.json</code> 배정<br>
       <span class="flow-num">3</span> <strong style="color:#ff7b32">장군</strong>이 도메인 메모리 로딩 &rarr; 프롬프트 조립 &rarr; <code style="color:#4a6fa5">claude -p</code>로 <strong style="color:#8b5cf6">병사</strong> 생성<br>
       <span class="flow-num">4</span> <strong style="color:#8b5cf6">병사</strong>가 실제 작업 수행 (코드 리뷰/테스트/구현) &rarr; <code style="color:#4a6fa5">result.json</code> 저장<br>
-      <span class="flow-num">5</span> <strong style="color:#ff7b32">장군</strong>이 품질 게이트 (80점) 검증 &rarr; 통과 시 <strong style="color:#ffd700">왕</strong>에게 보고, 미달 시 재시도 (max 2)<br>
+      <span class="flow-num">5</span> <strong style="color:#ff7b32">장군</strong>이 task 완료 확인 &rarr; 성공 시 <strong style="color:#ffd700">왕</strong>에게 보고, 실패 시 재시도 (max 2)<br>
       <span class="flow-num">6</span> <strong style="color:#ffd700">왕</strong>이 결과 확인 &rarr; <strong style="color:#ec4899">사절</strong>에게 Slack 알림 요청<br>
       <span class="flow-num">7</span> <strong style="color:#2dd4bf">내관</strong>이 전체 시스템 건강 상태를 지속 모니터링 &rarr; <strong style="color:#ffd700">왕</strong>에게 리소스 정보 제공
     </div>

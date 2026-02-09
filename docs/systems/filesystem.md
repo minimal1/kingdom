@@ -34,13 +34,11 @@
 │       │   └── resource-check.sh
 │       ├── general/
 │       │   ├── common.sh
-│       │   ├── prompt-builder.sh
-│       │   └── quality-gate.sh
+│       │   └── prompt-builder.sh
 │       ├── soldier/                  # (현재 빈 디렉토리 — 향후 확장용)
 │       ├── envoy/
 │       │   ├── slack-api.sh              # Slack API 공통 함수
-│       │   ├── thread-manager.sh         # 스레드 매핑, awaiting 관리
-│       │   └── report-generator.sh
+│       │   └── thread-manager.sh         # 스레드 매핑, awaiting 관리
 │       └── chamberlain/
 │           ├── metrics-collector.sh
 │           ├── session-checker.sh
@@ -98,8 +96,7 @@
 │   ├── envoy/                        # 사절 상태
 │   │   ├── heartbeat                 # 생존 확인
 │   │   ├── thread-mappings.json      # task_id ↔ thread_ts 매핑
-│   │   ├── awaiting-responses.json   # needs_human 응답 대기 스레드 목록
-│   │   └── report-sent.json          # 리포트 발송 기록 (중복 발송 방지)
+│   │   └── awaiting-responses.json   # needs_human 응답 대기 스레드 목록
 │   └── chamberlain/                  # 내관 상태
 │       ├── events-offset             # events.log 마지막 읽은 라인 번호 (커서)
 │       ├── daily-cleanup             # 만료 파일 정리 마지막 실행일

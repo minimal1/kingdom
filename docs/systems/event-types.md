@@ -25,6 +25,8 @@
 > GitHub 이벤트 타입은 Notifications API의 `reason` 필드 기반으로 결정.
 > Jira 이벤트 타입은 `changelog` 분석으로 결정.
 > `github.pr.comment`, `github.pr.state_change`, `github.notification.*`는 현재 구독 장군 없음 — 왕이 경고 로그 후 폐기.
+> `github.issue.mentioned`, `github.issue.assigned`는 **현재 파수꾼이 미생성** — Notifications API에서 issue 이벤트는 감지 가능하나 파수꾼의 파싱 로직 미구현 상태. 향후 구현 시 gen-jira의 subscribes에 추가 예정.
+> `jira.ticket.commented`는 **현재 파수꾼이 미생성** — Jira REST API의 changelog에서 코멘트 변경 감지 로직 미구현 상태.
 > 상세: [roles/sentinel.md](../roles/sentinel.md)
 
 ### 사절 (Envoy) → 왕
@@ -65,8 +67,8 @@ queue/events/pending/
   왕이 시작 시 각 장군 매니페스트의 subscribes를 읽어 ROUTING_TABLE 구성.
   예:
     github.pr.*           → gen-pr   (gen-pr.yaml의 subscribes에 선언)
-    github.issue.*        → gen-jira (gen-jira.yaml의 subscribes에 선언)
     jira.ticket.*         → gen-jira (gen-jira.yaml의 subscribes에 선언)
+    github.issue.*        → (현재 구독 장군 없음 — 파수꾼 미생성 + gen-jira subscribes 미포함)
   매칭 실패 시 → 경고 로그, 이벤트를 completed로 이동 (폐기)
 ```
 

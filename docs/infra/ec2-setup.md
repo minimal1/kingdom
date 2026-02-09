@@ -43,20 +43,20 @@ sudo yum install -y git
   | sudo tee /etc/yum.repos.d/github-cli.repo \
   && sudo yum install -y gh
 
-# 5. Jira CLI
-# https://github.com/ankitpokhrel/jira-cli
-go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
-# 또는 brew install jira-cli
-
-# 6. Node.js 22+ (빌드/테스트용)
+# 5. Node.js 22+ (빌드/테스트용)
 curl -fsSL https://fnm.vercel.app/install | bash
 fnm install 22
 
-# 7. jq (JSON 처리)
+# 6. jq (JSON 처리)
 sudo yum install -y jq
 
-# 8. yq (YAML 처리)
-pip install yq
+# 7. yq (YAML 처리 — mikefarah/yq Go 바이너리)
+# king/chamberlain이 `yq eval` 구문을 사용하므로 mikefarah 버전 필수
+wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+chmod +x /usr/local/bin/yq
+
+# 8. bc (chamberlain의 evaluate_health에서 부동소수점 비교에 사용)
+sudo yum install -y bc
 ```
 
 ## 인증 설정
@@ -65,20 +65,28 @@ pip install yq
 # Claude Code — headless 인증
 export CLAUDE_CODE_API_KEY="sk-ant-..."
 
-# GitHub — Personal Access Token
-echo "$GITHUB_TOKEN" | gh auth login --with-token
+# GitHub — gh CLI 표준 환경변수
+export GH_TOKEN="ghp_..."
+echo "$GH_TOKEN" | gh auth login --with-token
 
-# Jira — CLI 로그인
-jira init  # 또는 환경변수 설정
+# Jira — curl + Basic Auth (REST API)
+# jira-cli는 사용하지 않음. 파수꾼이 curl로 직접 Jira REST API 호출.
+# Base64 인코딩: echo -n "eddy@chequer.io:$JIRA_API_TOKEN" | base64
+export JIRA_API_TOKEN="..."
+export JIRA_URL="https://chequer.atlassian.net"
 
-# Slack — Claude Code Slack MCP plugin 설정
-# → .mcp.json에서 설정
+# Slack — Slack Web API (curl)
+# 사절이 curl로 Slack Web API를 호출. Bot User OAuth Token 필요.
+# 발급: https://api.slack.com/apps → OAuth & Permissions → Install to Workspace
+export SLACK_BOT_TOKEN="xoxb-..."
 
 # 환경변수 영구화
 cat >> ~/.bashrc << 'EOF'
 export CLAUDE_CODE_API_KEY="..."
-export GITHUB_TOKEN="..."
+export GH_TOKEN="..."
 export JIRA_API_TOKEN="..."
+export JIRA_URL="https://chequer.atlassian.net"
+export SLACK_BOT_TOKEN="xoxb-..."
 EOF
 ```
 
@@ -108,9 +116,58 @@ mkdir -p $BASE_DIR/queue/events/dispatched
 mkdir -p $BASE_DIR/queue/tasks/in_progress
 mkdir -p $BASE_DIR/queue/messages/sent
 mkdir -p $BASE_DIR/state/{results,sentinel,king}
+mkdir -p $BASE_DIR/state/sentinel/seen            # 중복 방지 인덱스
+mkdir -p $BASE_DIR/state/envoy                     # 사절 상태 (thread-mappings, awaiting)
+mkdir -p $BASE_DIR/state/prompts                   # 임시 프롬프트
+mkdir -p $BASE_DIR/state/chamberlain               # 내관 상태
+mkdir -p $BASE_DIR/config/generals/templates       # 프롬프트 템플릿
 mkdir -p $BASE_DIR/memory/{shared,generals/{pr-review,test-code,jira-ticket}}
 mkdir -p $BASE_DIR/logs/{sessions,analysis}
-mkdir -p $BASE_DIR/state/chamberlain
+
+# 초기 상태 파일 생성
+echo '{}' > $BASE_DIR/state/resources.json
+touch $BASE_DIR/state/sessions.json                # JSONL (빈 파일)
+echo '{}' > $BASE_DIR/state/envoy/thread-mappings.json
+echo '[]' > $BASE_DIR/state/envoy/awaiting-responses.json
+echo '{}' > $BASE_DIR/state/envoy/report-sent.json
+echo '{}' > $BASE_DIR/state/king/schedule-sent.json
+echo "0" > $BASE_DIR/state/chamberlain/events-offset
 
 echo "Lil Eddy directory structure created at $BASE_DIR"
+```
+
+## systemd 서비스 설정
+
+`start.sh`를 OS 레벨로 보호하여, EC2 재부팅 시 자동으로 시스템을 시작한다.
+
+```ini
+# /etc/systemd/system/lil-eddy.service
+[Unit]
+Description=Lil Eddy - Autonomous Dev Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/lil-eddy
+ExecStart=/opt/lil-eddy/bin/start.sh
+ExecStop=/opt/lil-eddy/bin/stop.sh
+Restart=always
+RestartSec=10
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/lil-eddy/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# systemd 등록
+sudo cp lil-eddy.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable lil-eddy
+sudo systemctl start lil-eddy
+
+# 상태 확인
+sudo systemctl status lil-eddy
 ```

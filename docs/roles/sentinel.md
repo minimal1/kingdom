@@ -63,7 +63,7 @@
 
 모든 watcher가 공유하는 유틸리티. `common.sh`의 공통 함수를 기반으로, 파수꾼 전용 기능을 추가한다.
 
-> `log()`, `get_config()`, `update_heartbeat()`, 기본 `emit_event()`는 `bin/lib/common.sh`에 정의 — 상세: [systems/common-functions.md](../systems/common-functions.md)
+> `log()`, `get_config()`, `update_heartbeat()`, 기본 `emit_event()`는 `bin/lib/common.sh`에 정의. (common-functions.md는 구현 단계에서 작성 예정)
 
 ```bash
 # common.sh에서 제공하는 함수 (모든 역할 공통):
@@ -489,7 +489,7 @@ done
 - `queue/events/dispatched/` — 왕이 처리 중인 이벤트
 - `state/sentinel/seen/{event-id}` — 과거 처리 완료 이벤트 (빈 파일, 30일 보관)
 
-`completed/` 디렉토리는 확인하지 않는다. completed 파일은 7일 후 아카이브되므로, 이후 재감지를 방지하기 위해 별도의 `seen/` 인덱스를 사용.
+`completed/` 디렉토리는 확인하지 않는다. completed 파일은 7일 후 삭제되므로, 이후 재감지를 방지하기 위해 별도의 `seen/` 인덱스를 사용.
 
 > 상세: [systems/data-lifecycle.md](../systems/data-lifecycle.md)
 

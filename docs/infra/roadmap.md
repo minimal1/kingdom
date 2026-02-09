@@ -12,8 +12,9 @@
 - [ ] `claude -p "hello world"` 정상 동작 테스트
 - [ ] tmux 세션 매니저 스크립트 (`start.sh`, `stop.sh`, `status.sh`)
 - [ ] 파일 시스템 디렉토리 구조 생성 (초기화 스크립트)
-- [ ] 내관 기본 구현 (`chamberlain.sh` — 리소스 모니터링)
+- [ ] 내관 기본 구현 (`chamberlain.sh` — 리소스 모니터링 + heartbeat 감시 + 세션 정리)
 - [ ] `state/resources.json` 갱신 확인
+- [ ] heartbeat 감시 동작 확인 (Phase 2 전제조건: 파수꾼/사절 감시)
 
 **검증**: `bin/start.sh`로 시작, `bin/status.sh`로 상태 확인, `bin/stop.sh`로 종료.
 
@@ -24,10 +25,10 @@
 **목표**: 외부 이벤트를 감지하고, 사람에게 알림을 보낼 수 있다.
 
 - [ ] 파수꾼: GitHub polling (`gh` CLI)
-- [ ] 파수꾼: Jira polling (`jira` CLI)
+- [ ] 파수꾼: Jira polling (curl + REST API)
 - [ ] 파수꾼: 중복 방지 메커니즘
 - [ ] 이벤트 큐 동작 확인 (event.json 생성 → pending 디렉토리)
-- [ ] 사절: Slack 메시지 발송 (MCP)
+- [ ] 사절: Slack 메시지 발송 (Slack Web API)
 - [ ] 사절: 기본 알림 형식 구현
 - [ ] 연동 테스트: 새 PR 생성 → 이벤트 감지 → Slack 알림
 
@@ -45,7 +46,7 @@
 - [ ] 왕: 병사 수 제한 (max_soldiers)
 - [ ] 장군 공통: 루프 프레임워크 (`lib/general/common.sh`)
 - [ ] 장군 공통: 프롬프트 빌더 (`lib/general/prompt-builder.sh`)
-- [ ] 장군 공통: 병사 생성기 (`spawn-soldier.sh`)
+- [ ] 장군 공통: 병사 생성 (장군 `spawn_soldier()` → 검증 후 `bin/spawn-soldier.sh` 호출)
 - [ ] PR Review 장군: friday 플러그인 연동
 - [ ] Jira Ticket 장군: sunday 플러그인 연동
 - [ ] 품질 게이트 기본 구현
@@ -63,7 +64,7 @@
 - [ ] 메모리 관리 고도화 (크기 제한, 정리 규칙)
 - [ ] 내관: 자동 복구 (세션 재시작)
 - [ ] 내관: 로그 로테이션
-- [ ] 사절: 일일/주간 리포트 자동 발송
+- [ ] 리포트: 내관이 데이터 수집 + 메시지 생성, 사절이 Slack 발송
 - [ ] 사절: 사람 응답 수신 (승인/거부)
 - [ ] 에러 복구 메커니즘 (재시도, 에스컬레이션)
 - [ ] 실패 분석 자동 수집

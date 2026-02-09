@@ -133,8 +133,10 @@ ETag 기반 폴링이므로 **API 레벨에서 중복이 방지됨**. 이전에 
 
 ### 공통: seen 인덱스
 
+기본 `emit_event()`(common.sh)는 큐 적재만 수행하며, seen 마킹은 포함하지 않는다. 파수꾼의 `sentinel_emit_event()`(watcher-common.sh)가 래퍼로 seen 마킹을 추가한다.
+
 ```bash
-# emit_event() — 이벤트 생성 시 인덱스도 함께 생성
+# bin/lib/common.sh — 기본 emit_event (seen 마킹 없음)
 emit_event() {
   local event_json="$1"
   local event_id=$(echo "$event_json" | jq -r '.id')
@@ -143,10 +145,18 @@ emit_event() {
   echo "$event_json" > "queue/events/pending/.tmp-${event_id}.json"
   mv "queue/events/pending/.tmp-${event_id}.json" "queue/events/pending/${event_id}.json"
 
+  log "[EVENT] Emitted: $event_id"
+}
+
+# bin/lib/sentinel/watcher-common.sh — 파수꾼 전용 래퍼 (seen 마킹 추가)
+sentinel_emit_event() {
+  local event_json="$1"
+  local event_id=$(echo "$event_json" | jq -r '.id')
+
+  emit_event "$event_json"
+
   # 중복 방지 인덱스 마킹 (빈 파일)
   touch "state/sentinel/seen/${event_id}"
-
-  log "[EVENT] [sentinel] Emitted: $event_id"
 }
 
 # is_duplicate() — 활성 큐 + seen 인덱스 확인
