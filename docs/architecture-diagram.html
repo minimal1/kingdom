@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lil Eddy - Architecture Blueprint</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0e17;
+    color: #c8d6e5;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    overflow-x: hidden;
+  }
+
+  .canvas {
+    width: 1400px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 40px 20px;
+    position: relative;
+  }
+
+  /* Title */
+  .title-block {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .title-block h1 {
+    font-size: 28px;
+    color: #f8f9fa;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .title-block .subtitle {
+    font-size: 13px;
+    color: #636e80;
+    font-style: italic;
+  }
+  .title-block .version {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 10px;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #636e80;
+  }
+
+  /* ── External Zone ── */
+  .external-zone {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 24px;
+  }
+  .ext-node {
+    width: 160px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1.5px solid;
+    position: relative;
+  }
+  .ext-node.github {
+    background: rgba(36, 41, 46, 0.6);
+    border-color: #58a6ff;
+  }
+  .ext-node.jira {
+    background: rgba(0, 82, 204, 0.15);
+    border-color: #4c9aff;
+  }
+  .ext-node.slack {
+    background: rgba(74, 21, 75, 0.2);
+    border-color: #e01e5a;
+  }
+  .ext-node .icon { font-size: 22px; margin-bottom: 6px; }
+  .ext-node .name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .ext-node .detail { font-size: 10px; color: #636e80; margin-top: 4px; }
+
+  /* ── Arrow connectors ── */
+  .arrow-down {
+    text-align: center;
+    color: #3d5a80;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 8px 0;
+  }
+  .arrow-down .line { color: #2d4a6a; }
+
+  /* ── EC2 Boundary ── */
+  .ec2-boundary {
+    border: 2px solid #1a2744;
+    border-radius: 16px;
+    padding: 24px 28px 32px;
+    position: relative;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(10, 14, 23, 0.95) 100%);
+  }
+  .ec2-label {
+    position: absolute;
+    top: -12px;
+    left: 32px;
+    background: #0a0e17;
+    padding: 0 12px;
+    font-size: 12px;
+    color: #4a6fa5;
+    letter-spacing: 1px;
+  }
+  .ec2-label .specs {
+    color: #3d5060;
+    font-size: 10px;
+    margin-left: 8px;
+  }
+
+  /* ── Role Nodes ── */
+  .role-node {
+    border-radius: 12px;
+    padding: 16px 18px;
+    position: relative;
+    border: 1.5px solid;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .role-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .role-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .role-icon { font-size: 18px; }
+  .role-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .role-name-en {
+    font-size: 10px;
+    color: #4a6080;
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .role-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .badge-always {
+    background: rgba(46, 160, 67, 0.2);
+    color: #3fb950;
+    border: 1px solid rgba(46, 160, 67, 0.3);
+  }
+  .badge-ephemeral {
+    background: rgba(210, 153, 34, 0.2);
+    color: #d29922;
+    border: 1px solid rgba(210, 153, 34, 0.3);
+  }
+  .role-desc {
+    font-size: 11px;
+    color: #7f8ea3;
+    line-height: 1.5;
+  }
+  .role-tech {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #4a6080;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .tech-tag {
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(30, 40, 60, 0.8);
+    border: 1px solid #1e2d44;
+  }
+
+  /* Role colors */
+  .role-sentinel {
+    background: rgba(88, 166, 255, 0.06);
+    border-color: #1e4976;
+  }
+  .role-king {
+    background: rgba(255, 215, 0, 0.06);
+    border-color: #5c4a1e;
+  }
+  .role-general {
+    background: rgba(255, 123, 50, 0.06);
+    border-color: #5c3a1e;
+  }
+  .role-soldier {
+    background: rgba(139, 92, 246, 0.06);
+    border-color: #3b2e6e;
+  }
+  .role-envoy {
+    background: rgba(236, 72, 153, 0.06);
+    border-color: #5c1e3a;
+  }
+  .role-chamberlain {
+    background: rgba(45, 212, 191, 0.06);
+    border-color: #1e5c50;
+  }
+
+  /* ── Layout Grid ── */
+  .main-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .flow-row {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .flow-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .flow-side {
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ── Queue/State visualization ── */
+  .data-store {
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px dashed #1e2d44;
+    background: rgba(10, 14, 23, 0.6);
+  }
+  .store-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a6fa5;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .store-item {
+    font-size: 10px;
+    color: #4a6080;
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .store-item .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-pending { background: #f59e0b; }
+  .dot-active { background: #3fb950; }
+  .dot-done { background: #4a6080; }
+  .dot-queue { background: #58a6ff; }
+
+  /* ── Flow arrows between sections ── */
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+  }
+  .flow-arrow .arrow-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2d4a6a;
+    font-size: 10px;
+  }
+  .flow-arrow .arrow-line {
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, #1e3a5c, #3d6a9a, #1e3a5c);
+  }
+  .flow-arrow .arrow-label {
+    color: #3d6a9a;
+    white-space: nowrap;
+    font-size: 10px;
+  }
+
+  .v-arrow {
+    text-align: center;
+    color: #2d4a6a;
+    font-size: 18px;
+    padding: 2px 0;
+    opacity: 0.6;
+  }
+
+  /* ── Generals Row ── */
+  .generals-row {
+    display: flex;
+    gap: 12px;
+  }
+  .generals-row .role-node {
+    flex: 1;
+  }
+
+  /* ── Soldiers container ── */
+  .soldiers-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .soldier-slot {
+    width: 100px;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px dashed #3b2e6e;
+    background: rgba(139, 92, 246, 0.04);
+  }
+  .soldier-slot .slot-label {
+    font-size: 10px;
+    color: #7c6db5;
+  }
+  .soldier-slot .slot-icon {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  /* ── Bottom systems ── */
+  .bottom-systems {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .bottom-systems .data-store {
+    flex: 1;
+  }
+
+  /* ── Side panel (Envoy + Chamberlain) ── */
+  .side-roles {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ── Connection labels ── */
+  .conn-label {
+    font-size: 9px;
+    color: #3d6a9a;
+    text-align: center;
+    padding: 2px 0;
+  }
+
+  /* ── Section dividers ── */
+  .section-label {
+    font-size: 10px;
+    color: #2d4a6a;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    margin: 12px 0 8px;
+    position: relative;
+  }
+  .section-label::before,
+  .section-label::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 80px;
+    height: 1px;
+    background: #1a2744;
+  }
+  .section-label::before { right: calc(50% + 60px); }
+  .section-label::after { left: calc(50% + 60px); }
+
+  /* ── Memory Layer ── */
+  .memory-layer {
+    margin-top: 24px;
+    padding: 16px 20px;
+    border: 1px solid #1a2744;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.5);
+  }
+  .memory-layer .layer-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a6fa5;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .memory-layers {
+    display: flex;
+    gap: 16px;
+  }
+  .mem-layer {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid;
+  }
+  .mem-layer.volatile {
+    border-color: #5c3a1e;
+    background: rgba(255, 123, 50, 0.04);
+  }
+  .mem-layer.task {
+    border-color: #3b2e6e;
+    background: rgba(139, 92, 246, 0.04);
+  }
+  .mem-layer.permanent {
+    border-color: #1e5c50;
+    background: rgba(45, 212, 191, 0.04);
+  }
+  .mem-layer .mem-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #c8d6e5;
+    margin-bottom: 4px;
+  }
+  .mem-layer .mem-desc {
+    font-size: 10px;
+    color: #4a6080;
+    line-height: 1.5;
+  }
+  .mem-layer .mem-path {
+    font-size: 9px;
+    color: #2d4a6a;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    margin-top: 32px;
+    padding: 16px 20px;
+    border: 1px solid #1a2744;
+    border-radius: 12px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .legend-title {
+    font-size: 11px;
+    color: #4a6fa5;
+    font-weight: 600;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: #636e80;
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1.5px solid;
+  }
+
+  /* ── Horizontal flow connector ── */
+  .h-connector {
+    display: flex;
+    align-items: center;
+    color: #2d4a6a;
+    font-size: 10px;
+    gap: 4px;
+    padding: 0 4px;
+  }
+  .h-connector .h-line {
+    width: 20px;
+    height: 1px;
+    background: #2d4a6a;
+  }
+
+  /* ── Main Layout ── */
+  .architecture-body {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .center-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .right-column {
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 0;
+  }
+
+  /* ── Plugin badges ── */
+  .plugin-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    background: rgba(88, 166, 255, 0.1);
+    color: #58a6ff;
+    border: 1px solid rgba(88, 166, 255, 0.2);
+  }
+
+  /* ── Horizontal arrow with label ── */
+  .h-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    justify-content: center;
+  }
+  .h-flow .line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #2d4a6a, transparent);
+  }
+  .h-flow .label {
+    font-size: 9px;
+    color: #3d6a9a;
+    white-space: nowrap;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: relative;
+  }
+  .tooltip .tip-text {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2744;
+    color: #c8d6e5;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    width: 200px;
+    z-index: 10;
+    line-height: 1.5;
+  }
+  .tooltip:hover .tip-text {
+    display: block;
+  }
+
+  /* Flow description */
+  .flow-desc {
+    font-size: 10px;
+    color: #3d5a80;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* Numbered flow */
+  .flow-num {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #1e3a5c;
+    color: #58a6ff;
+    font-size: 9px;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <!-- Title -->
+  <div class="title-block">
+    <h1>LIL EDDY</h1>
+    <div class="subtitle">"주니어 시절의 나를 만들어, 쉴새없이 일하게 한다"</div>
+    <div class="version">Architecture Blueprint v1.0 &mdash; 2026.02.07</div>
+  </div>
+
+  <!-- External Systems -->
+  <div class="section-label">EXTERNAL SYSTEMS</div>
+  <div class="external-zone">
+    <div class="ext-node github">
+      <div class="icon" style="font-size:16px; font-weight:bold; letter-spacing:1px;">GH</div>
+      <div class="name">GitHub</div>
+      <div class="detail">PR, Review, Comment</div>
+      <div class="detail" style="color:#3d6a9a">gh CLI &middot; 2min polling</div>
+    </div>
+    <div class="ext-node jira">
+      <div class="icon">&#x1F4CB;</div>
+      <div class="name">Jira</div>
+      <div class="detail">Ticket, Assign, Update</div>
+      <div class="detail" style="color:#3d6a9a">jira CLI &middot; 5min polling</div>
+    </div>
+    <div class="ext-node slack">
+      <div class="icon">&#x1F4AC;</div>
+      <div class="name">Slack</div>
+      <div class="detail">DM, Mention, Response</div>
+      <div class="detail" style="color:#3d6a9a">MCP &middot; 1min polling</div>
+    </div>
+  </div>
+
+  <!-- Arrow into EC2 -->
+  <div class="arrow-down">
+    <div class="line">&#x2502;</div>
+    <div style="font-size:10px; color:#3d6a9a;">events (JSON)</div>
+    <div>&#x25BC;</div>
+  </div>
+
+  <!-- EC2 Boundary -->
+  <div class="ec2-boundary">
+    <div class="ec2-label">
+      EC2 INSTANCE
+      <span class="specs">M5.xlarge &middot; 4 vCPU &middot; 16GB RAM &middot; Amazon Linux 2023</span>
+    </div>
+
+    <div class="architecture-body">
+
+      <!-- ═══ Center Column: Main Flow ═══ -->
+      <div class="center-column">
+
+        <!-- 1. Sentinel -->
+        <div class="role-node role-sentinel">
+          <div class="role-header">
+            <span class="role-icon">&#x1F6E1;</span>
+            <span class="role-name">파수꾼 <span class="role-name-en">Sentinel</span></span>
+            <span class="role-badge badge-always">ALWAYS-ON</span>
+          </div>
+          <div class="role-desc">
+            외부 시스템(GitHub, Jira, Slack) 변화를 주기적으로 감지.<br>
+            이벤트를 JSON으로 변환하여 큐에 적재. 중복 필터링.
+          </div>
+          <div class="role-tech">
+            <span class="tech-tag">Bash loop</span>
+            <span class="tech-tag">tmux: sentinel</span>
+            <span class="tech-tag">gh / jira CLI</span>
+          </div>
+        </div>
+
+        <div class="v-arrow">
+          <div class="flow-desc"><span class="flow-num">1</span>event.json &rarr; queue/events/pending/</div>
+          &#x25BC;
+        </div>
+
+        <!-- 2. King -->
+        <div class="role-node role-king">
+          <div class="role-header">
+            <span class="role-icon">&#x1F451;</span>
+            <span class="role-name">왕 <span class="role-name-en">King</span></span>
+            <span class="role-badge badge-always">ALWAYS-ON</span>
+          </div>
+          <div class="role-desc">
+            <strong>"무엇을, 누구에게"</strong> &mdash; 이벤트를 소비하고 적합한 장군에게 배정.<br>
+            우선순위 판단 &middot; 리소스 확인 &middot; 병사 수 제한 &middot; 결과 확인 &middot; 재시도/에스컬레이션
+          </div>
+          <div class="role-tech">
+            <span class="tech-tag">Bash loop (규칙 기반, LLM 미사용)</span>
+            <span class="tech-tag">tmux: king</span>
+            <span class="tech-tag">10s polling</span>
+          </div>
+        </div>
+
+        <div class="v-arrow">
+          <div class="flow-desc"><span class="flow-num">2</span>task.json &rarr; queue/tasks/pending/ &middot; 라우팅: PR&rarr;gen-pr, Jira&rarr;gen-jira</div>
+          &#x25BC;
+        </div>
+
+        <!-- 3. Generals -->
+        <div class="section-label" style="margin:4px 0">GENERALS (Domain Experts)</div>
+        <div class="generals-row">
+          <div class="role-node role-general">
+            <div class="role-header">
+              <span class="role-icon">&#x2694;</span>
+              <span class="role-name">gen-pr</span>
+              <span class="plugin-badge">friday</span>
+            </div>
+            <div class="role-desc">
+              PR Review 전문.<br>
+              레포별 리뷰 패턴 기억.
+            </div>
+            <div class="role-tech">
+              <span class="tech-tag">Bash + claude -p</span>
+            </div>
+          </div>
+
+          <div class="role-node role-general">
+            <div class="role-header">
+              <span class="role-icon">&#x2694;</span>
+              <span class="role-name">gen-test</span>
+              <span class="plugin-badge">new</span>
+            </div>
+            <div class="role-desc">
+              Test Code 전문.<br>
+              프레임워크별 패턴 기억.
+            </div>
+            <div class="role-tech">
+              <span class="tech-tag">Bash + claude -p</span>
+            </div>
+          </div>
+
+          <div class="role-node role-general">
+            <div class="role-header">
+              <span class="role-icon">&#x2694;</span>
+              <span class="role-name">gen-jira</span>
+              <span class="plugin-badge">sunday</span>
+            </div>
+            <div class="role-desc">
+              Jira Ticket 전문.<br>
+              코드베이스 구조 기억.
+            </div>
+            <div class="role-tech">
+              <span class="tech-tag">Bash + claude -p</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-desc" style="margin:4px 0">
+          <strong>"어떻게"</strong> &mdash; 도메인 메모리 로딩 &rarr; 프롬프트 조립 &rarr; 병사 생성 &rarr; 품질 게이트 (80점)
+        </div>
+
+        <div class="v-arrow">
+          <div class="flow-desc"><span class="flow-num">3</span>spawn_soldier &rarr; claude -p "$prompt"</div>
+          &#x25BC;
+        </div>
+
+        <!-- 4. Soldiers -->
+        <div class="section-label" style="margin:4px 0">SOLDIERS (Workers)</div>
+        <div class="soldiers-container">
+          <div class="soldier-slot">
+            <div class="slot-icon">&#x1F6E1;</div>
+            <div class="slot-label">soldier-001</div>
+            <div style="font-size:9px; color:#4a6080; margin-top:4px;">claude -p</div>
+          </div>
+          <div class="soldier-slot">
+            <div class="slot-icon">&#x1F6E1;</div>
+            <div class="slot-label">soldier-002</div>
+            <div style="font-size:9px; color:#4a6080; margin-top:4px;">claude -p</div>
+          </div>
+          <div class="soldier-slot">
+            <div class="slot-icon">&#x1F6E1;</div>
+            <div class="slot-label">soldier-003</div>
+            <div style="font-size:9px; color:#4a6080; margin-top:4px;">claude -p</div>
+          </div>
+        </div>
+        <div class="flow-desc" style="margin-top:4px">
+          <span class="role-badge badge-ephemeral">EPHEMERAL</span>
+          일회성 실행 &middot; max 3 concurrent &middot; 30min timeout &middot; 코드 수정/테스트/PR 생성
+        </div>
+
+        <div class="v-arrow">
+          <div class="flow-desc"><span class="flow-num">4</span>result.json &rarr; state/results/{task-id}.json</div>
+          &#x25B2; 왕이 결과 polling (10s)
+        </div>
+
+      </div>
+
+      <!-- ═══ Right Column: Side Roles + Data Stores ═══ -->
+      <div class="right-column">
+
+        <!-- Envoy -->
+        <div class="role-node role-envoy">
+          <div class="role-header">
+            <span class="role-icon">&#x1F4E8;</span>
+            <span class="role-name">사절 <span class="role-name-en">Envoy</span></span>
+            <span class="role-badge badge-always">ALWAYS-ON</span>
+          </div>
+          <div class="role-desc">
+            Slack 기반 대외 소통 창구.<br>
+            알림 발송 &middot; 사람 응답 수신<br>
+            일일/주간 리포트 자동 발송
+          </div>
+          <div class="role-tech">
+            <span class="tech-tag">Slack MCP</span>
+            <span class="tech-tag">5s polling</span>
+          </div>
+        </div>
+
+        <div class="conn-label">&larr; queue/messages/ 감시</div>
+
+        <!-- Chamberlain -->
+        <div class="role-node role-chamberlain">
+          <div class="role-header">
+            <span class="role-icon">&#x1F3DB;</span>
+            <span class="role-name">내관 <span class="role-name-en">Chamberlain</span></span>
+            <span class="role-badge badge-always">ALWAYS-ON</span>
+          </div>
+          <div class="role-desc">
+            시스템 리소스 모니터링 (30s)<br>
+            CPU/Memory/Disk &middot; 세션 추적<br>
+            Health: green/yellow/orange/red<br>
+            자동 복구 (sentinel 재시작)
+          </div>
+          <div class="role-tech">
+            <span class="tech-tag">Bash loop</span>
+            <span class="tech-tag">top/free/df</span>
+          </div>
+        </div>
+
+        <div class="conn-label">&rarr; state/resources.json 갱신</div>
+
+        <!-- File Queue -->
+        <div class="data-store">
+          <div class="store-title">&#x1F4C1; QUEUE (File-based)</div>
+          <div class="store-item"><span class="dot dot-queue"></span> queue/events/ &mdash; 파수꾼&rarr;왕</div>
+          <div class="store-item"><span class="dot dot-pending"></span> queue/tasks/ &mdash; 왕&rarr;장군</div>
+          <div class="store-item"><span class="dot dot-active"></span> queue/messages/ &mdash; *&rarr;사절</div>
+          <div style="margin-top:6px; font-size:9px; color:#2d4a6a; line-height:1.5;">
+            상태 전이 = 디렉토리 이동<br>
+            pending &rarr; dispatched &rarr; completed<br>
+            원자성: Write-then-Rename
+          </div>
+        </div>
+
+        <!-- State -->
+        <div class="data-store">
+          <div class="store-title">&#x1F4CA; STATE</div>
+          <div class="store-item"><span class="dot dot-active"></span> resources.json (내관 갱신)</div>
+          <div class="store-item"><span class="dot dot-active"></span> sessions.json (활성 세션)</div>
+          <div class="store-item"><span class="dot dot-done"></span> results/{task-id}.json</div>
+          <div class="store-item"><span class="dot dot-queue"></span> sentinel/*-last-check.json</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Memory Layer ── -->
+    <div class="memory-layer">
+      <div class="layer-title">&#x1F9E0; 3-TIER MEMORY SYSTEM</div>
+      <div class="memory-layers">
+        <div class="mem-layer volatile">
+          <div class="mem-title">Layer 1: Session Memory</div>
+          <div class="mem-desc">
+            CC 내부 컨텍스트 (휘발성)<br>
+            병사 세션 동안만 유지<br>
+            /compact 자동 압축
+          </div>
+          <div class="mem-path">수명: 병사 세션 종료 시 소멸</div>
+        </div>
+        <div class="mem-layer task">
+          <div class="mem-title">Layer 2: Task Memory</div>
+          <div class="mem-desc">
+            작업별 결과 파일 (JSON)<br>
+            완료 후 7일 보관 &rarr; 아카이브<br>
+            왕/장군이 참조
+          </div>
+          <div class="mem-path">state/results/{task-id}.json</div>
+        </div>
+        <div class="mem-layer permanent">
+          <div class="mem-title">Layer 3: Shared Memory</div>
+          <div class="mem-desc">
+            영구 메모리 (파일 기반)<br>
+            프로젝트 컨텍스트 + 도메인 패턴<br>
+            병사가 추가, 장군이 활용
+          </div>
+          <div class="mem-path">memory/shared/ + memory/generals/{domain}/</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Bottom: Filesystem ── -->
+    <div class="bottom-systems">
+      <div class="data-store">
+        <div class="store-title">&#x1F4DD; LOGS</div>
+        <div class="store-item"><span class="dot dot-active"></span> system.log [SYSTEM]</div>
+        <div class="store-item"><span class="dot dot-queue"></span> events.log [EVENT]</div>
+        <div class="store-item"><span class="dot dot-pending"></span> tasks.log [TASK/ACTION]</div>
+        <div class="store-item"><span class="dot dot-done"></span> metrics.log [METRIC]</div>
+        <div class="store-item"><span class="dot dot-active"></span> sessions/{name}.log</div>
+        <div style="margin-top:4px; font-size:9px; color:#2d4a6a;">100MB 로테이션 &middot; 30일 보관</div>
+      </div>
+      <div class="data-store">
+        <div class="store-title">&#x1F527; WORKSPACE</div>
+        <div class="store-item"><span class="dot dot-active"></span> workspace/{general}/{repo}/</div>
+        <div style="margin-top:4px; font-size:9px; color:#2d4a6a;">
+          장군별 격리 클론<br>
+          장군+병사 R/W 접근<br>
+          격리로 충돌 불가
+        </div>
+      </div>
+      <div class="data-store">
+        <div class="store-title">&#x1F9E9; PLUGINS</div>
+        <div class="store-item"><span class="dot dot-queue"></span> friday/ &mdash; PR Review</div>
+        <div class="store-item"><span class="dot dot-pending"></span> sunday/ &mdash; Jira Ticket</div>
+        <div class="store-item"><span class="dot dot-done"></span> saturday/ &mdash; Refactoring</div>
+        <div class="store-item"><span class="dot dot-active"></span> lil-eddy/ &mdash; 전용 플러그인</div>
+      </div>
+      <div class="data-store">
+        <div class="store-title">&#x2699; CONFIG</div>
+        <div class="store-item"><span class="dot dot-active"></span> system.yaml</div>
+        <div class="store-item"><span class="dot dot-queue"></span> sentinel.yaml</div>
+        <div class="store-item"><span class="dot dot-pending"></span> king.yaml (routing)</div>
+        <div class="store-item"><span class="dot dot-done"></span> generals.yaml</div>
+        <div class="store-item"><span class="dot dot-active"></span> envoy.yaml (Slack)</div>
+        <div class="store-item"><span class="dot dot-queue"></span> chamberlain.yaml</div>
+      </div>
+    </div>
+
+  </div><!-- ec2-boundary -->
+
+  <!-- ── Data Flow Summary ── -->
+  <div class="memory-layer" style="margin-top:24px;">
+    <div class="layer-title">&#x1F504; END-TO-END DATA FLOW</div>
+    <div style="font-size:12px; color:#7f8ea3; line-height:2.2; padding:0 8px;">
+      <span class="flow-num">1</span> <strong style="color:#58a6ff">파수꾼</strong>이 GitHub/Jira/Slack 변화 감지 &rarr; <code style="color:#4a6fa5">event.json</code> 생성<br>
+      <span class="flow-num">2</span> <strong style="color:#ffd700">왕</strong>이 이벤트 소비 &rarr; 리소스/충돌 확인 &rarr; 적합한 장군에게 <code style="color:#4a6fa5">task.json</code> 배정<br>
+      <span class="flow-num">3</span> <strong style="color:#ff7b32">장군</strong>이 도메인 메모리 로딩 &rarr; 프롬프트 조립 &rarr; <code style="color:#4a6fa5">claude -p</code>로 <strong style="color:#8b5cf6">병사</strong> 생성<br>
+      <span class="flow-num">4</span> <strong style="color:#8b5cf6">병사</strong>가 실제 작업 수행 (코드 리뷰/테스트/구현) &rarr; <code style="color:#4a6fa5">result.json</code> 저장<br>
+      <span class="flow-num">5</span> <strong style="color:#ff7b32">장군</strong>이 품질 게이트 (80점) 검증 &rarr; 통과 시 <strong style="color:#ffd700">왕</strong>에게 보고, 미달 시 재시도 (max 2)<br>
+      <span class="flow-num">6</span> <strong style="color:#ffd700">왕</strong>이 결과 확인 &rarr; <strong style="color:#ec4899">사절</strong>에게 Slack 알림 요청<br>
+      <span class="flow-num">7</span> <strong style="color:#2dd4bf">내관</strong>이 전체 시스템 건강 상태를 지속 모니터링 &rarr; <strong style="color:#ffd700">왕</strong>에게 리소스 정보 제공
+    </div>
+  </div>
+
+  <!-- ── Legend ── -->
+  <div class="legend">
+    <div class="legend-title">LEGEND</div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(88,166,255,0.1); border-color:#1e4976;"></div>
+      파수꾼 (Sentinel)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(255,215,0,0.1); border-color:#5c4a1e;"></div>
+      왕 (King)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(255,123,50,0.1); border-color:#5c3a1e;"></div>
+      장군 (General)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(139,92,246,0.1); border-color:#3b2e6e;"></div>
+      병사 (Soldier)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(236,72,153,0.1); border-color:#5c1e3a;"></div>
+      사절 (Envoy)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(45,212,191,0.1); border-color:#1e5c50;"></div>
+      내관 (Chamberlain)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:rgba(10,14,23,0.6); border-color:#1e2d44; border-style:dashed;"></div>
+      Data Store
+    </div>
+    <div class="legend-item">
+      <span class="role-badge badge-always">ALWAYS-ON</span> 상주 프로세스
+    </div>
+    <div class="legend-item">
+      <span class="role-badge badge-ephemeral">EPHEMERAL</span> 일회성 프로세스
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center; margin-top:32px; font-size:10px; color:#2d4a6a;">
+    /opt/lil-eddy/ &mdash; File-based Message Passing &middot; tmux Process Management &middot; Claude Code -p Headless Execution
+  </div>
+
+</div>
+</body>
+</html>
