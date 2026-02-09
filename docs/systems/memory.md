@@ -47,17 +47,17 @@ memory/
 │   └── decisions.md               # 시스템 운영 중 축적된 결정
 │
 └── generals/                      # 장군별 전용
-    ├── pr-review/
+    ├── gen-pr/
     │   ├── patterns.md            # 공통 리뷰 패턴
     │   ├── repo-frontend.md       # querypie/frontend 컨텍스트
     │   └── repo-backend.md        # querypie/backend 컨텍스트
     │
-    ├── test-code/
+    ├── gen-test/
     │   ├── frameworks.md          # 테스트 프레임워크 정보
     │   ├── patterns.md            # 테스트 작성 패턴
     │   └── coverage-rules.md      # 커버리지 기준
     │
-    └── jira-ticket/
+    └── gen-jira/
         ├── codebase-map.md        # 코드베이스 구조
         ├── past-tickets.md        # 이전 티켓 처리 패턴
         └── conventions.md         # 컨벤션 (브랜치, 커밋 등)

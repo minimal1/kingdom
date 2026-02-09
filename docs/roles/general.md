@@ -700,7 +700,7 @@ task.json 수신
   → success: 최종 결과를 왕에게 보고
 ```
 
-**전문 메모리 예시** (`memory/generals/pr-review/`):
+**전문 메모리 예시** (`memory/generals/gen-pr/`):
 ```
 patterns.md         — 공통 리뷰 패턴 (자주 발견되는 이슈)
 repo-frontend.md    — querypie/frontend 전용 컨텍스트
@@ -731,7 +731,7 @@ task.json 수신 (스케줄 기반)
   → failed: 재시도 or 에스컬레이션
 ```
 
-**전문 메모리 예시** (`memory/generals/test-code/`):
+**전문 메모리 예시** (`memory/generals/gen-test/`):
 ```
 frameworks.md       — 프로젝트별 테스트 프레임워크 (Jest, Vitest 등)
 patterns.md         — 효과적인 테스트 패턴
@@ -761,7 +761,7 @@ task.json 수신
   → failed: 재시도 or 에스컬레이션
 ```
 
-**전문 메모리 예시** (`memory/generals/jira-ticket/`):
+**전문 메모리 예시** (`memory/generals/gen-jira/`):
 ```
 codebase-map.md     — 레포지토리 구조, 주요 모듈
 past-tickets.md     — 이전 처리한 티켓 패턴

@@ -7,7 +7,7 @@
 | 카테고리 | 접두사 | 설명 | 파일 |
 |---------|--------|------|------|
 | System | `[SYSTEM]` | 시스템 시작/중지, 세션 생성/종료 | `logs/system.log` |
-| Event | `[EVENT]` | 이벤트 감지, 상태 변경 | `logs/events.log` |
+| Event | - | 내부 이벤트 (JSONL 형식, [internal-events.md](internal-events.md) 참조) | `logs/events.log` |
 | Task | `[TASK]` | 작업 배정, 시작, 완료, 실패 | `logs/tasks.log` |
 | Action | `[ACTION]` | 구체적 행동 (git, PR create 등) | `logs/tasks.log` |
 | Metric | `[METRIC]` | 정량적 지표 (시간, 토큰 등) | `logs/metrics.log` |

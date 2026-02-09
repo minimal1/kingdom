@@ -108,9 +108,9 @@
 │   │   ├── project-context.md
 │   │   └── decisions.md
 │   └── generals/
-│       ├── pr-review/
-│       ├── test-code/
-│       └── jira-ticket/
+│       ├── gen-pr/
+│       ├── gen-test/
+│       └── gen-jira/
 │
 ├── logs/                             # 로그
 │   ├── system.log                    # 텍스트 로그 (log 함수)

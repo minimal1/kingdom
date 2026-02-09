@@ -41,7 +41,7 @@ queue/events/
 ### 상태 전이
 ```
 pending → dispatched → completed
-                    ↘ failed (재시도 후에도 실패)
+                    ↘ failed → completed/ (실패 사유는 결과 파일에 포함, 별도 failed/ 디렉토리 없음)
 ```
 
 ### 이벤트 스키마

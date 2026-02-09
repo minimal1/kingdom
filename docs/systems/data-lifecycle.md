@@ -82,6 +82,10 @@ pending ──왕이 읽고 task 생성──→ dispatched ──작업 완료�
 | `logs/system.log.old` | 내관 (rotate) | **7일 후 삭제** |
 | `logs/events.log` | 모든 역할 (emit_internal_event) | 상주 (매일 00:00 일별 분할) |
 | `logs/events-YYYYMMDD.log` | 내관 (rotate) | **7일 후 삭제** |
+| `logs/tasks.log` | 왕/장군 (작업 로그) | 상주 (100MB 초과 시 .old 로테이션) |
+| `logs/tasks.log.old` | 내관 (rotate) | **7일 후 삭제** |
+| `logs/metrics.log` | 내관 (메트릭 수집) | 상주 (100MB 초과 시 .old 로테이션) |
+| `logs/metrics.log.old` | 내관 (rotate) | **7일 후 삭제** |
 | `logs/sessions/{soldier-id}.log` | 병사 (stdout/stderr) | **7일 후 삭제** |
 
 ### 사절 상태 (`state/envoy/`)
