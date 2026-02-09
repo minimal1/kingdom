@@ -5,7 +5,7 @@
 ## 전체 디렉토리 트리
 
 ```
-/opt/lil-eddy/
+/opt/kingdom/
 │
 ├── bin/                              # 실행 스크립트
 │   ├── start.sh                      # 전체 시스템 시작 + 필수 세션 watchdog (60초)
@@ -143,7 +143,7 @@
     ├── friday/
     ├── saturday/
     ├── sunday/
-    └── lil-eddy/                     # 전용 플러그인
+    └── kingdom/                     # 전용 플러그인
 ```
 
 ## 디렉토리별 역할 접근 권한

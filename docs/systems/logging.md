@@ -83,7 +83,7 @@ tmux pipe-pane -t "$SESSION_NAME" "cat >> logs/sessions/${SESSION_NAME}.log"
 ### 일일 리포트 (매일 18:00, 사절이 Slack 발송)
 
 ```
-📊 Lil Eddy 일일 리포트 (2026-02-07)
+📊 Kingdom 일일 리포트 (2026-02-07)
 
 처리: 8건 | 성공: 7건 | 실패: 1건
 - PR 리뷰: 5건 (평균 3분)
@@ -97,7 +97,7 @@ tmux pipe-pane -t "$SESSION_NAME" "cat >> logs/sessions/${SESSION_NAME}.log"
 ### 주간 리포트 (매주 금요일)
 
 ```
-📈 Lil Eddy 주간 리포트 (W06)
+📈 Kingdom 주간 리포트 (W06)
 
 총 처리: 35건 | 성공률: 91%
 개선 포인트: timeout 발생 3건 → 병사 타임아웃 40분으로 조정 검토

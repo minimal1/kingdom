@@ -1,6 +1,6 @@
 # EC2 인스턴스 설정
 
-> Lil Eddy가 살 집을 짓는다.
+> Kingdom가 살 집을 짓는다.
 
 ## 권장 사양
 
@@ -106,7 +106,7 @@ EOF
 #!/bin/bash
 set -e
 
-BASE_DIR="/opt/lil-eddy"
+BASE_DIR="/opt/kingdom"
 
 # 디렉토리 구조 생성
 mkdir -p $BASE_DIR/{bin,config,queue,state,memory,logs,workspace,plugins}
@@ -133,7 +133,7 @@ echo '{}' > $BASE_DIR/state/envoy/report-sent.json
 echo '{}' > $BASE_DIR/state/king/schedule-sent.json
 echo "0" > $BASE_DIR/state/chamberlain/events-offset
 
-echo "Lil Eddy directory structure created at $BASE_DIR"
+echo "Kingdom directory structure created at $BASE_DIR"
 ```
 
 ## systemd 서비스 설정
@@ -141,21 +141,21 @@ echo "Lil Eddy directory structure created at $BASE_DIR"
 `start.sh`를 OS 레벨로 보호하여, EC2 재부팅 시 자동으로 시스템을 시작한다.
 
 ```ini
-# /etc/systemd/system/lil-eddy.service
+# /etc/systemd/system/kingdom.service
 [Unit]
-Description=Lil Eddy - Autonomous Dev Agent
+Description=Kingdom - Autonomous Dev Agent
 After=network.target
 
 [Service]
 Type=simple
 User=ec2-user
-WorkingDirectory=/opt/lil-eddy
-ExecStart=/opt/lil-eddy/bin/start.sh
-ExecStop=/opt/lil-eddy/bin/stop.sh
+WorkingDirectory=/opt/kingdom
+ExecStart=/opt/kingdom/bin/start.sh
+ExecStop=/opt/kingdom/bin/stop.sh
 Restart=always
 RestartSec=10
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=/opt/lil-eddy/.env
+EnvironmentFile=/opt/kingdom/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -163,11 +163,11 @@ WantedBy=multi-user.target
 
 ```bash
 # systemd 등록
-sudo cp lil-eddy.service /etc/systemd/system/
+sudo cp kingdom.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable lil-eddy
-sudo systemctl start lil-eddy
+sudo systemctl enable kingdom
+sudo systemctl start kingdom
 
 # 상태 확인
-sudo systemctl status lil-eddy
+sudo systemctl status kingdom
 ```

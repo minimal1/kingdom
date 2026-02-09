@@ -189,7 +189,7 @@ find_general() {
 #!/bin/bash
 # bin/king.sh — 왕 메인 루프
 
-BASE_DIR="/opt/lil-eddy"
+BASE_DIR="/opt/kingdom"
 source "$BASE_DIR/bin/lib/common.sh"          # 공통 함수 (log, get_config, update_heartbeat, emit_event)
 source "$BASE_DIR/bin/lib/king/router.sh"      # 라우팅 테이블, find_general
 source "$BASE_DIR/bin/lib/king/resource-check.sh"

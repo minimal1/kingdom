@@ -159,7 +159,7 @@ emit_internal_event() {
 | `message.human_response` | envoy | 사람이 Slack 스레드에 응답 | `task_id`, `thread_ts` |
 
 ```json
-{"ts": "...", "type": "message.sent", "actor": "envoy", "data": {"msg_id": "msg-20260207-001", "task_id": "task-20260207-001", "channel": "#lil-eddy"}}
+{"ts": "...", "type": "message.sent", "actor": "envoy", "data": {"msg_id": "msg-20260207-001", "task_id": "task-20260207-001", "channel": "#kingdom"}}
 ```
 
 ---

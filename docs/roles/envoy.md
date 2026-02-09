@@ -35,7 +35,7 @@
 ### 개념
 
 ```
-#lil-eddy 채널
+#kingdom 채널
 │
 ├─ 📌 "[시작] PR #1234 리뷰 — querypie/frontend"       ← 채널 메시지 (스레드 부모)
 │   └─ 🧵 스레드:
@@ -515,7 +515,7 @@ remove_awaiting_response() {
 #!/bin/bash
 # bin/envoy.sh — 사절 메인 루프 (단일 루프)
 
-BASE_DIR="/opt/lil-eddy"
+BASE_DIR="/opt/kingdom"
 source "$BASE_DIR/bin/lib/common.sh"              # 공통 함수 (emit_event, get_config, update_heartbeat, log)
 source "$BASE_DIR/bin/lib/envoy/slack-api.sh"      # Slack API 호출
 source "$BASE_DIR/bin/lib/envoy/thread-manager.sh"  # 스레드 매핑, awaiting 관리
@@ -728,7 +728,7 @@ intervals:
 
 #### 비공개 채널을 사용하는 경우
 
-비공개 채널(`#lil-eddy`가 private인 경우) 추가 스코프:
+비공개 채널(`#kingdom`가 private인 경우) 추가 스코프:
 
 | 스코프 | 용도 |
 |--------|------|

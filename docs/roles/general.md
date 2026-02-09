@@ -615,7 +615,7 @@ workspace/
 [
   {
     "name": "friday",
-    "path": "/opt/lil-eddy/plugins/friday"
+    "path": "/opt/kingdom/plugins/friday"
   }
 ]
 ```

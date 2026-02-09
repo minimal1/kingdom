@@ -1,4 +1,4 @@
-# Lil Eddy - Architecture Blueprint
+# Kingdom - Architecture Blueprint
 
 > "주니어 시절의 나를 만들어, 쉴새없이 일하게 한다"
 
@@ -9,7 +9,7 @@ EC2 인스턴스에 Eddy의 로컬 개발 환경을 재현하고, Claude Code �
 
 ## 구성 원칙
 
-| 인간의 요소 | Lil Eddy 매핑 | 구현체 |
+| 인간의 요소 | Kingdom 매핑 | 구현체 |
 |------------|--------------|--------|
 | 지능 | LLM + Prompt | Claude Code + Plugins/Skills |
 | 기억 | Memory 관리 | File-based Memory + CLAUDE.md |
@@ -53,7 +53,7 @@ EC2 인스턴스에 Eddy의 로컬 개발 환경을 재현하고, Claude Code �
     │  │  tmux: chamberlain│  ← 내관 (Resource Monitor)                │
     │  └───────────────────┘                                           │
     │                                                                   │
-    │  📁 /opt/lil-eddy/                                               │
+    │  📁 /opt/kingdom/                                               │
     │     ├── queue/           ← 이벤트/작업/메시지 큐                  │
     │     ├── state/           ← 상태 저장소                            │
     │     ├── logs/            ← 로그                                   │

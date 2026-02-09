@@ -368,7 +368,7 @@ GET  /rest/api/3/issue/{key}?expand=changelog  — 변경 이력 상세
 #!/bin/bash
 # bin/sentinel.sh — 파수꾼 메인 루프
 
-BASE_DIR="/opt/lil-eddy"
+BASE_DIR="/opt/kingdom"
 source "$BASE_DIR/bin/lib/common.sh"                    # 공통 함수 (emit_event, get_config, update_heartbeat, log)
 source "$BASE_DIR/bin/lib/sentinel/watcher-common.sh"   # 파수꾼 전용 (sentinel_emit_event, is_duplicate, load_state 등)
 
