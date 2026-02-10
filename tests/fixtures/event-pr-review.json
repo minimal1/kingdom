@@ -1,0 +1,14 @@
+{
+  "id": "evt-github-12345678",
+  "type": "github.pr.review_requested",
+  "source": "github",
+  "priority": "normal",
+  "created_at": "2026-02-07T10:00:00Z",
+  "data": {
+    "repo": "chequer-io/querypie-frontend",
+    "pr_number": 1234,
+    "title": "feat: add user authentication",
+    "url": "https://github.com/chequer-io/querypie-frontend/pull/1234",
+    "reason": "review_requested"
+  }
+}

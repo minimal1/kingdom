@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Mock git - simulates clone/fetch without network
+
+echo "git $*" >> "${MOCK_LOG:-/dev/null}"
+
+case "$1" in
+  "clone")
+    # Create the target directory
+    local_dir="${@: -1}"
+    mkdir -p "$local_dir"
+    exit 0
+    ;;
+  "-C")
+    # git -C <dir> <cmd>
+    case "$3" in
+      "fetch")
+        exit 0
+        ;;
+    esac
+    ;;
+  *)
+    exit 0
+    ;;
+esac

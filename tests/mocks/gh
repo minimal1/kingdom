@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Mock gh CLI - returns canned responses
+
+# 호출 기록
+echo "gh $*" >> "${MOCK_LOG:-/dev/null}"
+
+case "$*" in
+  "api /notifications"*)
+    if [[ -n "$MOCK_GH_NOTIFICATIONS" ]]; then
+      cat "$MOCK_GH_NOTIFICATIONS"
+    else
+      echo '[]'
+    fi
+    ;;
+  "api /user"*)
+    echo '{"login":"eddy"}'
+    ;;
+  "auth status"*)
+    echo "Logged in to github.com account eddy"
+    exit 0
+    ;;
+  *)
+    echo "mock-gh: unhandled: $*" >&2
+    exit 1
+    ;;
+esac

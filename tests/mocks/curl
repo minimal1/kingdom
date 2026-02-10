@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Mock curl - returns canned responses based on URL patterns
+
+echo "curl $*" >> "${MOCK_LOG:-/dev/null}"
+
+# -w 플래그 감지 (http_code 출력 요구)
+HAS_WRITE_OUT=false
+for arg in "$@"; do
+  if [[ "$arg" == *"%{http_code}"* ]]; then
+    HAS_WRITE_OUT=true
+    break
+  fi
+done
+
+# 인자에서 URL 추출
+url=""
+for arg in "$@"; do
+  if [[ "$arg" == http* ]]; then
+    url="$arg"
+    break
+  fi
+done
+
+case "$url" in
+  *"slack.com/api/auth.test"*)
+    echo '{"ok":true,"user":"kingdom-bot","team":"chequer"}'
+    ;;
+  *"slack.com/api/chat.postMessage"*)
+    echo '{"ok":true,"ts":"1707300000.000100","channel":"C123"}'
+    ;;
+  *"slack.com/api/conversations.replies"*)
+    if [[ -n "$MOCK_SLACK_REPLIES" ]]; then
+      cat "$MOCK_SLACK_REPLIES"
+    else
+      echo '{"ok":true,"messages":[]}'
+    fi
+    ;;
+  *"rest/api/3/myself"*)
+    echo '{"displayName":"Eddy","accountId":"123"}'
+    ;;
+  *"rest/api/3/search"*)
+    if [[ -n "$MOCK_JIRA_SEARCH" ]]; then
+      cat "$MOCK_JIRA_SEARCH"
+    else
+      echo '{"issues":[],"total":0}'
+    fi
+    ;;
+  *)
+    # 기본: 빈 응답
+    echo '{}'
+    ;;
+esac
+
+# -w 플래그가 있으면 HTTP 상태 코드 출력
+if $HAS_WRITE_OUT; then
+  echo "200"
+fi

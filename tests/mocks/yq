@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Mock yq - delegates to real yq if available, otherwise provides basic responses
+# 테스트에서는 실제 yq를 사용하는 것이 바람직하므로 real yq로 위임
+
+REAL_YQ="$(which -a yq | grep -v "$(dirname "$0")" | head -1)"
+
+if [[ -n "$REAL_YQ" ]]; then
+  exec "$REAL_YQ" "$@"
+else
+  echo "mock-yq: no real yq found" >&2
+  exit 1
+fi

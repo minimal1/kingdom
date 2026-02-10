@@ -1,0 +1,32 @@
+[
+  {
+    "id": "12345678",
+    "reason": "review_requested",
+    "subject": {
+      "title": "feat: add user authentication",
+      "url": "https://api.github.com/repos/chequer-io/querypie-frontend/pulls/1234",
+      "type": "PullRequest"
+    },
+    "repository": {
+      "full_name": "chequer-io/querypie-frontend",
+      "name": "querypie-frontend"
+    },
+    "updated_at": "2026-02-07T10:00:00Z",
+    "unread": true
+  },
+  {
+    "id": "12345679",
+    "reason": "assign",
+    "subject": {
+      "title": "Issue: Fix login button",
+      "url": "https://api.github.com/repos/chequer-io/querypie-frontend/issues/999",
+      "type": "Issue"
+    },
+    "repository": {
+      "full_name": "chequer-io/querypie-frontend",
+      "name": "querypie-frontend"
+    },
+    "updated_at": "2026-02-07T10:05:00Z",
+    "unread": true
+  }
+]

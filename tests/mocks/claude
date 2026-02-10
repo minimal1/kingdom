@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Mock claude CLI
+
+echo "claude $*" >> "${MOCK_LOG:-/dev/null}"
+
+case "$1" in
+  "-p")
+    # 파이프 모드: stdin 읽고 결과 출력
+    cat > /dev/null  # consume stdin
+    echo "mock-claude: task completed successfully"
+    ;;
+  "login")
+    echo "Already logged in"
+    ;;
+  *)
+    echo "mock-claude: $*"
+    ;;
+esac

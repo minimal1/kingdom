@@ -1,0 +1,30 @@
+{
+  "issues": [
+    {
+      "key": "QP-1234",
+      "fields": {
+        "summary": "Implement dark mode for settings page",
+        "status": { "name": "In Progress" },
+        "assignee": { "displayName": "Eddy", "accountId": "123" },
+        "priority": { "name": "High" },
+        "updated": "2026-02-07T10:00:00.000+0900",
+        "issuetype": { "name": "Task" },
+        "project": { "key": "QP" }
+      }
+    },
+    {
+      "key": "QP-1235",
+      "fields": {
+        "summary": "Fix pagination bug in user list",
+        "status": { "name": "To Do" },
+        "assignee": { "displayName": "Eddy", "accountId": "123" },
+        "priority": { "name": "Normal" },
+        "updated": "2026-02-07T09:30:00.000+0900",
+        "issuetype": { "name": "Bug" },
+        "project": { "key": "QP" }
+      }
+    }
+  ],
+  "total": 2,
+  "maxResults": 50
+}

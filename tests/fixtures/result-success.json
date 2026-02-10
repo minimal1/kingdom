@@ -1,0 +1,11 @@
+{
+  "task_id": "task-20260207-001",
+  "status": "success",
+  "general": "gen-pr",
+  "summary": "PR #1234 reviewed: 5 comments posted, approved",
+  "completed_at": "2026-02-07T10:03:20Z",
+  "metrics": {
+    "duration_seconds": 180,
+    "attempt": 0
+  }
+}

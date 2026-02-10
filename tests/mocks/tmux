@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Mock tmux - logs commands without executing
+
+echo "tmux $*" >> "${MOCK_LOG:-/dev/null}"
+
+case "$1" in
+  "has-session")
+    # MOCK_TMUX_SESSIONS에 세션 이름이 있으면 0, 없으면 1
+    session="${3:-$2}"
+    if [[ -n "$MOCK_TMUX_SESSIONS" && "$MOCK_TMUX_SESSIONS" == *"$session"* ]]; then
+      exit 0
+    else
+      exit 1
+    fi
+    ;;
+  "new-session")
+    exit 0
+    ;;
+  "kill-session")
+    exit 0
+    ;;
+  "list-sessions")
+    echo "${MOCK_TMUX_SESSIONS:-}"
+    ;;
+  "wait-for")
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
