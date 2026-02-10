@@ -1,0 +1,8 @@
+slack:
+  bot_token_env: "SLACK_BOT_TOKEN"
+  default_channel: "dev-eddy"
+
+intervals:
+  outbound_seconds: 5
+  thread_check_seconds: 30
+  loop_tick_seconds: 5

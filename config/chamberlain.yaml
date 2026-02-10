@@ -1,0 +1,38 @@
+monitoring:
+  interval_seconds: 30
+
+heartbeat:
+  threshold_seconds: 120
+
+thresholds:
+  cpu_yellow: 60
+  cpu_orange: 80
+  cpu_red: 90
+  memory_yellow: 60
+  memory_orange: 80
+  memory_red: 90
+  disk_warning: 85
+
+anomaly:
+  consecutive_failures: 3
+  timeout_spike: 5
+  event_stale_minutes: 30
+
+auto_recovery:
+  restart_sentinel: true
+  restart_others: false
+
+retention:
+  log_max_mb: 100
+  logs_days: 7
+  results_days: 7
+  queue_days: 7
+  prompts_days: 3
+  session_logs_days: 7
+  seen_days: 30
+
+daily_report:
+  hour: 9
+
+events_rotation:
+  hour: 0

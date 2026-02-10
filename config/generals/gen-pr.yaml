@@ -1,0 +1,15 @@
+name: gen-pr
+description: "PR review general"
+script: "bin/generals/gen-pr.sh"
+timeout_seconds: 1800
+
+cc_plugin:
+  name: friday
+  path: "plugins/friday"
+
+subscribes:
+  - github.pr.review_requested
+  - github.pr.mentioned
+  - github.pr.assigned
+
+schedules: []

@@ -1,0 +1,15 @@
+slack:
+  default_channel: "dev-eddy"
+
+retry:
+  max_attempts: 2
+  backoff_seconds: 60
+
+concurrency:
+  max_soldiers: 3
+
+intervals:
+  event_check_seconds: 10
+  result_check_seconds: 10
+  schedule_check_seconds: 60
+  loop_tick_seconds: 5

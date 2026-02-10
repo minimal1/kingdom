@@ -1,0 +1,17 @@
+polling:
+  github:
+    interval_seconds: 60
+    scope:
+      repos:
+        - chequer-io/querypie-frontend
+        - chequer-io/querypie-backend
+      filter_reasons:
+        - review_requested
+        - assign
+        - mention
+        - comment
+        - state_change
+  jira:
+    interval_seconds: 300
+    scope:
+      jql_base: "assignee = currentUser() AND project IN (QP, QPD)"
