@@ -7,8 +7,6 @@ GitHub PR 리뷰, Jira 티켓 구현, 테스트 코드 작성 등의 개발 업�
 
 ## Architecture
 
-![Kingdom Architecture](docs/architecture-diagram.png)
-
 6개의 역할이 파일 기반 메시지 패싱으로 협력한다:
 
 | 역할 | 영문 | 하는 일 |
@@ -20,90 +18,175 @@ GitHub PR 리뷰, Jira 티켓 구현, 테스트 코드 작성 등의 개발 업�
 | 사절 | Envoy | Slack을 통한 사람과의 소통 전담 |
 | 내관 | Chamberlain | 시스템 모니터링, 로그 관리, 자동 복구 |
 
+```
+GitHub/Jira ──→ 파수꾼 ──→ [queue/events/pending/]
+                                    │
+                              왕 (King)
+                         라우팅 + 태스크 생성
+                                    │
+                      [queue/tasks/pending/] ──→ 장군 (General)
+                                                   │
+                                              프롬프트 조립
+                                                   │
+                                              병사 (Soldier)
+                                           claude -p 실행
+                                                   │
+                                        [state/results/*.json]
+                                                   │
+                              왕 ──→ [queue/messages/pending/] ──→ 사절 ──→ Slack
+                                                                     │
+                              내관: 헬스체크, 로그 로테이션, 자동 복구
+```
+
 ## Tech Stack
 
 | 분류 | 기술 |
 |------|------|
-| AI | Claude Code (headless `-p` 모드) |
+| AI | Claude Code (headless `-p` 모드, OAuth 인증) |
 | 세션 관리 | tmux |
 | 스크립트 | Bash |
-| 메시지 큐 | File-based MQ (JSON) |
+| 메시지 큐 | File-based MQ (JSON, 디렉토리 이동 = 상태 전이) |
 | 외부 소통 | Slack Web API (curl) |
 | 코드 관리 | GitHub CLI (`gh`) |
 | 이슈 추적 | Jira REST API (curl) |
 | 설정 | YAML (`yq`) |
+| 테스트 | bats-core + bats-assert |
 
 ## Design Principles
 
 - **Polling, not Webhook** -- 외부 서버 노출 없이 안전하게 이벤트 감지
-- **파일 기반 JSON** -- 디렉토리 위치가 곧 상태 (`pending/` -> `completed/`)
+- **파일 기반 JSON** -- 디렉토리 위치가 곧 상태 (`pending/` → `completed/`)
+- **Atomic Write** -- Write-then-Rename 패턴으로 파일 손상 방지
 - **단순성 우선** -- Redis, RabbitMQ 등 외부 의존성 없음
 - **최소 외부 의존성** -- Bash, jq, yq, tmux, Claude Code만으로 동작
 - **플러거블 장군** -- YAML 매니페스트로 새 장군 추가 가능
+- **macOS/Linux 호환** -- portable wrapper (date, stat, flock)
 
-## Directory Structure
+## Project Structure
 
 ```
-/opt/kingdom/
-├── bin/            # 실행 스크립트 (역할별 메인 루프 + 공통 라이브러리)
-├── config/         # 시스템 설정 + 장군 매니페스트 + 프롬프트 템플릿
-├── queue/          # 파일 기반 메시지 큐 (events, tasks, messages)
-├── state/          # 상태 저장소 (heartbeat, 결과, 세션 레지스트리)
-├── memory/         # 영구 메모리 (공유 + 장군별 도메인 메모리)
-├── logs/           # 로그 (시스템, 이벤트, 세션별)
-├── workspace/      # 장군별 격리된 코드 작업 공간
-└── plugins/        # Claude Code 플러그인 (friday, saturday, sunday)
+kingdom/
+├── bin/                        # 실행 스크립트
+│   ├── start.sh / stop.sh / status.sh   # 시스템 관리
+│   ├── init-dirs.sh                     # 디렉토리 초기화
+│   ├── check-prerequisites.sh           # 환경 검증
+│   ├── sentinel.sh                      # 파수꾼 메인 루프
+│   ├── king.sh                          # 왕 메인 루프
+│   ├── envoy.sh                         # 사절 메인 루프
+│   ├── chamberlain.sh                   # 내관 메인 루프
+│   ├── spawn-soldier.sh                 # 병사 생성 (tmux + claude -p)
+│   ├── generals/                        # 장군 엔트리포인트
+│   │   ├── gen-pr.sh                    #   PR 리뷰
+│   │   ├── gen-jira.sh                  #   Jira 티켓 구현
+│   │   └── gen-test.sh                  #   테스트 작성
+│   └── lib/                             # 공유 라이브러리
+│       ├── common.sh                    #   로깅, 이벤트, 플랫폼 유틸
+│       ├── sentinel/                    #   watcher-common, github/jira-watcher
+│       ├── king/                        #   router, resource-check
+│       ├── general/                     #   common, prompt-builder
+│       ├── envoy/                       #   slack-api, thread-manager
+│       └── chamberlain/                 #   metrics, sessions, events, logs, recovery
+│
+├── config/                     # 설정 (YAML)
+│   ├── system.yaml / king.yaml / sentinel.yaml / envoy.yaml / chamberlain.yaml
+│   └── generals/               # 장군 매니페스트 + 프롬프트 템플릿
+│       ├── gen-pr.yaml / gen-jira.yaml / gen-test.yaml
+│       └── templates/          # default.md, gen-pr.md, gen-jira.md, gen-test.md
+│
+├── tests/                      # 테스트 (bats-core)
+│   ├── test_helper.bash        # 공통 setup/teardown
+│   ├── mocks/                  # gh, curl, tmux, claude, yq, git
+│   ├── fixtures/               # 테스트 JSON 데이터
+│   ├── test_*.sh               # 단위 테스트 (역할별)
+│   ├── lib/                    # 라이브러리 단위 테스트
+│   │   ├── sentinel/ king/ general/ envoy/ chamberlain/
+│   │   └── test_common.sh
+│   └── integration/            # 통합 테스트 (E2E 흐름)
+│
+├── docs/                       # 문서
+│   ├── guides/                 # 운영 가이드 (현행)
+│   ├── spec/                   # 설계 명세 (구현 기준)
+│   └── archive/                # 히스토리 (참고용)
+│
+└── (런타임 디렉토리 — init-dirs.sh가 생성)
+    ├── queue/                  # 파일 기반 메시지 큐
+    ├── state/                  # 상태 저장소
+    ├── memory/                 # 장군별 학습 메모리
+    ├── logs/                   # 시스템 로그
+    ├── workspace/              # 코드 작업 공간
+    └── plugins/                # CC 플러그인
 ```
 
 ## Requirements
 
 | 항목 | 스펙 |
 |------|------|
-| EC2 Instance | M5.xlarge (4 vCPU, 16GB RAM) |
+| EC2 Instance | M5.xlarge (4 vCPU, 16GB RAM) 또는 macOS Apple Silicon |
 | Storage | 100GB GP3 SSD |
-| OS | Amazon Linux 2023 또는 Ubuntu 22.04 |
-| Software | Claude Code, tmux, Git, gh CLI, jq, yq, bc, Node.js 22+ |
-| API Keys | Claude API, GitHub Token, Jira API Token, Slack Bot Token |
+| OS | Amazon Linux 2023, Ubuntu 22.04+, macOS 14+ |
+| Software | Claude Code, tmux, Git, gh CLI, jq, yq (mikefarah), bc, Node.js 22+ |
+| 인증 | Claude OAuth (Max Plan), GitHub (`gh auth`), Jira API Token, Slack Bot Token |
 
-## Status
+## Quick Start
 
-**설계 완료, 구현 준비 중**
+```bash
+# 1. 소스 배포
+cp -r bin config /opt/kingdom/
+chmod +x /opt/kingdom/bin/*.sh /opt/kingdom/bin/generals/*.sh
 
-모든 역할의 스펙, 시스템 설계, 인프라 설정이 문서화되었다.
+# 2. 디렉토리 초기화
+/opt/kingdom/bin/init-dirs.sh
+
+# 3. 환경 검증
+/opt/kingdom/bin/check-prerequisites.sh
+
+# 4. 시작
+/opt/kingdom/bin/start.sh
+
+# 5. 상태 확인
+/opt/kingdom/bin/status.sh
+```
+
+자세한 설치 가이드: [`docs/guides/install-guide.md`](docs/guides/install-guide.md)
+
+## Tests
+
+```bash
+# 전체 테스트 (208개)
+bats tests/test_*.sh tests/lib/*/test_*.sh tests/integration/test_*.sh
+```
+
+| 영역 | 테스트 수 |
+|------|----------|
+| 공통 라이브러리 + 초기화 | 21 |
+| 파수꾼 (Sentinel) | 15 |
+| 사절 (Envoy) | 17 |
+| 왕 (King) | 30 |
+| 장군 + 병사 | 28 |
+| 내관 (Chamberlain) | 46 |
+| 시스템 스크립트 | 14 |
+| 통합 테스트 (E2E) | 13 |
+| **합계** | **208** (macOS/Linux) |
 
 ## Documentation
 
 ```
 docs/
-├── architecture.md              # 전체 아키텍처 설계
-├── architecture-diagram.png     # 아키텍처 다이어그램
+├── guides/                         # 운영 가이드 (현행)
+│   ├── install-guide.md            #   Linux/macOS 설치 (systemd, launchd)
+│   └── local-install-guide.md      #   로컬 개발 테스트
 │
-├── roles/                       # 역할 스펙 (6종)
-│   ├── sentinel.md              # 파수꾼
-│   ├── king.md                  # 왕
-│   ├── general.md               # 장군
-│   ├── soldier.md               # 병사
-│   ├── envoy.md                 # 사절
-│   └── chamberlain.md           # 내관
+├── spec/                           # 설계 명세 (구현 기준)
+│   ├── architecture.md             #   전체 아키텍처
+│   ├── roles/                      #   역할 스펙 (6종)
+│   ├── systems/                    #   시스템 설계 (7종)
+│   └── examples/                   #   장군 동작 시나리오
 │
-├── systems/                     # 시스템 설계 (7종)
-│   ├── filesystem.md            # 파일 시스템 구조
-│   ├── message-passing.md       # 메시지 패싱
-│   ├── memory.md                # 3계층 메모리 전략
-│   ├── data-lifecycle.md        # 데이터 생명주기
-│   ├── logging.md               # 로깅 & 개선 체계
-│   ├── event-types.md           # 이벤트 타입 카탈로그
-│   └── internal-events.md       # 내부 이벤트 (JSONL)
-│
-├── infra/                       # 인프라
-│   ├── ec2-setup.md             # EC2 설정 가이드
-│   └── roadmap.md               # 구현 로드맵
-│
-├── examples/                    # 장군 동작 시나리오 예시
-│   ├── scenario-gen-pr.md       # 이벤트 기반 장군 (PR 리뷰)
-│   └── scenario-gen-test.md     # 스케줄 기반 장군 (테스트 작성)
-│
-└── confluence/                  # 히스토리 (컨셉 문서)
-    ├── 20260206-concept.md
-    └── 20260207-operation-design.md
+└── archive/                        # 히스토리 (참고용, 실제와 다를 수 있음)
+    ├── confluence/                  #   컨셉/동작 구상 초안
+    └── infra/                      #   EC2 설정 초안, 로드맵
 ```
+
+## Status
+
+**구현 완료** -- 208개 테스트 통과, EC2 배포 준비 완료.
