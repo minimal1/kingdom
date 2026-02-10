@@ -780,6 +780,7 @@ conventions.md      — 브랜치 네이밍, 커밋 컨벤션
 4. **스크립트 생성**: `bin/generals/gen-{domain}.sh` (GENERAL_DOMAIN 설정 + main_loop 호출)
 5. **메모리 디렉토리**: `memory/generals/{domain}/`
 6. **왕/센티널 코드 수정 불필요** — 매니페스트만 추가하면 왕이 자동 인식
+7. **시나리오 참고**: [docs/examples/](../examples/)에 이벤트 기반(gen-pr)과 스케줄 기반(gen-test) 장군의 전체 동작 시나리오가 있다
 
 ```yaml
 # config/generals/gen-docs.yaml (예: 문서 작성 장군)
@@ -884,3 +885,5 @@ config/generals/
 - [roles/soldier.md](soldier.md) — 병사 생명주기, raw 결과 출력
 - [systems/filesystem.md](../systems/filesystem.md) — workspace 디렉토리 구조
 - [systems/message-passing.md](../systems/message-passing.md) — 이벤트/작업 큐 구조
+- [examples/scenario-gen-pr.md](../examples/scenario-gen-pr.md) — 이벤트 기반 장군 동작 시나리오 (6건)
+- [examples/scenario-gen-test.md](../examples/scenario-gen-test.md) — 스케줄 기반 장군 동작 시나리오 (5건)

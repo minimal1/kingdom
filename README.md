@@ -99,6 +99,10 @@ docs/
 │   ├── ec2-setup.md             # EC2 설정 가이드
 │   └── roadmap.md               # 구현 로드맵
 │
+├── examples/                    # 장군 동작 시나리오 예시
+│   ├── scenario-gen-pr.md       # 이벤트 기반 장군 (PR 리뷰)
+│   └── scenario-gen-test.md     # 스케줄 기반 장군 (테스트 작성)
+│
 └── confluence/                  # 히스토리 (컨셉 문서)
     ├── 20260206-concept.md
     └── 20260207-operation-design.md
