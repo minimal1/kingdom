@@ -68,7 +68,7 @@
 #!/bin/bash
 # bin/spawn-soldier.sh — 병사 tmux 세션 생성
 # 호출: 장군의 spawn_soldier() 함수에서 호출
-# 역할: tmux 세션 생성 + soldier-id 파일 기록만 담당
+# 역할: 컨텍스트 파일 생성 + tmux 세션 생성 + soldier-id 파일 기록
 # 세션 등록(sessions.json)은 장군의 spawn_soldier()가 수행 (레이어드 구조)
 
 source "$BASE_DIR/bin/lib/common.sh"
@@ -77,6 +77,7 @@ TASK_ID="$1"
 PROMPT_FILE="$2"
 WORK_DIR="$3"  # 장군의 workspace 경로
 SOLDIER_ID="soldier-$(date +%s)-$$"
+RAW_FILE="$BASE_DIR/state/results/${TASK_ID}-raw.json"
 
 # ── Pre-flight Checks ──
 if ! command -v claude &> /dev/null; then
@@ -84,11 +85,19 @@ if ! command -v claude &> /dev/null; then
   exit 1
 fi
 
+# ── Context File ──
+# .kingdom-task.json을 workspace에 생성 (CLAUDE.md가 병사에게 이 파일을 읽으라고 지시)
+jq -n \
+  --arg task_id "$TASK_ID" \
+  --arg result_path "$RAW_FILE" \
+  '{task_id: $task_id, result_path: $result_path}' \
+  > "$WORK_DIR/.kingdom-task.json"
+
 # ── Session Creation ──
 # workspace에서 실행 → .claude/plugins.json이 CC Plugin을 자동 로드
+# workspace/CLAUDE.md가 자동 로드되어 결과 보고 방식을 지시
 # --dangerously-skip-permissions: 자동화 환경에서 모든 도구 승인 없이 실행 (리스크 인지)
-# 결과 파일은 프롬프트 지시에 따라 병사가 Write 도구로 직접 생성 (-raw.json)
-# stdout/stderr는 로그 파일로 캡처 (디버깅용)
+# stdout+stderr → 로그 파일 (병사는 Write 도구로 결과를 직접 생성)
 if ! tmux new-session -d -s "$SOLDIER_ID" \
   "cd '$WORK_DIR' && claude -p \
     --dangerously-skip-permissions \
@@ -132,23 +141,13 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 ## 레포지토리 컨텍스트
 {레포별 특수 사항 — load_repo_memory}
 {예: "TypeScript strict mode, pnpm 사용"}
-
-## 출력 요구사항
-결과를 아래 경로에 Write 도구로 JSON 파일을 생성할 것:
-  state/results/{task-id}-raw.json
-스키마:
-```json
-{"task_id": "...", "status": "success|failed|needs_human",
- "summary": "...", "error": "...", "question": "...",
- "details": {...}, "memory_updates": [...]}
-```
 ```
 
-> 프롬프트 템플릿은 `config/generals/templates/{general-domain}.md`에 위치. 상세: [roles/general.md — build_prompt](general.md#build_prompt)
+> **출력 요구사항은 프롬프트에 포함하지 않는다.** `workspace/CLAUDE.md`가 결과 스키마와 `.kingdom-task.json` 컨텍스트 파일 읽기를 지시하므로, 프롬프트 템플릿에서 별도로 출력 형식을 지시할 필요 없다. 상세: [roles/general.md — build_prompt](general.md#build_prompt)
 
 ## 결과 스키마
 
-병사는 프롬프트의 출력 요구사항에 따라 Write 도구로 `state/results/{task-id}-raw.json`에 직접 결과를 저장한다. stdout/stderr는 `logs/sessions/{soldier-id}.log`로 캡처되어 디버깅용으로 보존된다.
+병사는 `workspace/CLAUDE.md`의 지시에 따라 `.kingdom-task.json`에서 `task_id`와 `result_path`를 읽고, Write 도구로 `state/results/{task-id}-raw.json`에 직접 결과를 저장한다. stdout+stderr는 `logs/sessions/{soldier-id}.log`로 캡처되어 디버깅용으로 보존된다.
 
 `status` 필드에 따라 필수 필드가 다르다:
 

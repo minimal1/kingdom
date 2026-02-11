@@ -53,3 +53,40 @@ teardown() {
   assert_output --partial "Spawned"
   assert_output --partial "task-003"
 }
+
+@test "spawn-soldier: creates .kingdom-task.json in work dir" {
+  mkdir -p "$BASE_DIR/workspace/gen-pr"
+  local prompt_file="$BASE_DIR/state/prompts/task-004.md"
+  echo "test" > "$prompt_file"
+
+  "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh" "task-004" "$prompt_file" "$BASE_DIR/workspace/gen-pr"
+
+  assert [ -f "$BASE_DIR/workspace/gen-pr/.kingdom-task.json" ]
+}
+
+@test "spawn-soldier: .kingdom-task.json contains task_id and result_path" {
+  mkdir -p "$BASE_DIR/workspace/gen-pr"
+  local prompt_file="$BASE_DIR/state/prompts/task-005.md"
+  echo "test" > "$prompt_file"
+
+  "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh" "task-005" "$prompt_file" "$BASE_DIR/workspace/gen-pr"
+
+  local ctx="$BASE_DIR/workspace/gen-pr/.kingdom-task.json"
+  run jq -r '.task_id' "$ctx"
+  assert_output "task-005"
+  run jq -r '.result_path' "$ctx"
+  assert_output "$BASE_DIR/state/results/task-005-raw.json"
+}
+
+@test "spawn-soldier: does not use --json-schema" {
+  run grep -- '--json-schema' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_failure
+}
+
+@test "spawn-soldier: stdout goes to session log" {
+  run grep 'logs/sessions/' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+  # stdout+stderr both go to log (2>&1)
+  run grep '2>&1' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+}

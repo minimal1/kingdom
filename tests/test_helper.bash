@@ -28,6 +28,9 @@ setup_kingdom_env() {
     mkdir -p "$BASE_DIR/memory/generals/$g"
     mkdir -p "$BASE_DIR/workspace/$g"
   done
+
+  # workspace/CLAUDE.md 생성 (테스트 환경)
+  echo "# Kingdom Soldier (test)" > "$BASE_DIR/workspace/CLAUDE.md"
 }
 
 teardown_kingdom_env() {

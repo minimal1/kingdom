@@ -111,6 +111,26 @@ teardown() {
   assert_output "5"
 }
 
+@test "init-dirs: copies workspace CLAUDE.md" {
+  # workspace-claude.md 소스 파일 배치
+  mkdir -p "$BASE_DIR/config"
+  cp "${BATS_TEST_DIRNAME}/../config/workspace-claude.md" "$BASE_DIR/config/workspace-claude.md"
+
+  run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
+  assert_success
+  assert [ -f "$BASE_DIR/workspace/CLAUDE.md" ]
+  # 내용이 소스와 동일한지 확인
+  run diff "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
+  assert_success
+}
+
+@test "init-dirs: skips CLAUDE.md copy when source missing" {
+  # config/workspace-claude.md가 없는 상태
+  run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
+  assert_success
+  assert [ ! -f "$BASE_DIR/workspace/CLAUDE.md" ]
+}
+
 @test "init-dirs: output message" {
   run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
   assert_output --partial "Kingdom directories initialized"

@@ -12,13 +12,23 @@ PROMPT_FILE="$2"
 WORK_DIR="$3"
 SOLDIER_ID="soldier-$(date +%s)-$$"
 
+RAW_FILE="$BASE_DIR/state/results/${TASK_ID}-raw.json"
+
 # Pre-flight checks
 if ! command -v claude &> /dev/null; then
   log "[ERROR] [soldier] claude command not found"
   exit 1
 fi
 
+# Write context file for soldier (CLAUDE.md instructs soldier to read this)
+jq -n \
+  --arg task_id "$TASK_ID" \
+  --arg result_path "$RAW_FILE" \
+  '{task_id: $task_id, result_path: $result_path}' \
+  > "$WORK_DIR/.kingdom-task.json"
+
 # Session creation
+# stdout+stderr → session log (soldier writes result via Write tool, not stdout)
 if ! tmux new-session -d -s "$SOLDIER_ID" \
   "cd '$WORK_DIR' && claude -p \
     --dangerously-skip-permissions \

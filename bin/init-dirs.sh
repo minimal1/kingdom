@@ -31,6 +31,12 @@ for manifest in "$BASE_DIR"/config/generals/*.yaml; do
   mkdir -p "$BASE_DIR/workspace/$gen_name"
 done
 
+# workspace/CLAUDE.md 배치 (병사에게 결과 보고 방법을 지시)
+if [ -f "$BASE_DIR/config/workspace-claude.md" ]; then
+  mkdir -p "$BASE_DIR/workspace"
+  cp "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
+fi
+
 # --- Initial State Files (only if missing) ---
 
 # sessions.json: JSONL format (empty file)

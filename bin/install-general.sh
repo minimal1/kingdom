@@ -44,8 +44,8 @@ done <<< "$(yq eval '.subscribes[]' "$PACKAGE_DIR/manifest.yaml" 2>/dev/null || 
 while IFS= read -r plugin; do
   [ -z "$plugin" ] && continue
   if [ -f "$HOME/.claude/settings.json" ]; then
-    found=$(jq -r --arg n "$plugin" '.enabledPlugins // [] | map(select(. == $n or endswith("/" + $n))) | length' "$HOME/.claude/settings.json")
-    [ "$found" -eq 0 ] && echo "WARN: Plugin '$plugin' not in global settings. Install before running."
+    found=$(jq -r --arg n "$plugin" '.enabledPlugins // {} | keys[] | select(startswith($n + "@") or . == $n)' "$HOME/.claude/settings.json" | head -1)
+    [ -z "$found" ] && echo "WARN: Plugin '$plugin' not in global settings. Install before running."
   fi
 done <<< "$(yq eval '.cc_plugins[]' "$PACKAGE_DIR/manifest.yaml" 2>/dev/null || true)"
 
@@ -75,6 +75,11 @@ chmod +x "$BASE_DIR/bin/generals/${NAME}.sh"
 mkdir -p "$BASE_DIR/state/$NAME"
 mkdir -p "$BASE_DIR/memory/generals/$NAME"
 mkdir -p "$BASE_DIR/workspace/$NAME"
+
+# workspace/CLAUDE.md 확인 (없으면 config에서 복사)
+if [ -f "$BASE_DIR/config/workspace-claude.md" ] && [ ! -f "$BASE_DIR/workspace/CLAUDE.md" ]; then
+  cp "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
+fi
 
 echo "Installed general: $NAME"
 echo "  Manifest:  config/generals/${NAME}.yaml"

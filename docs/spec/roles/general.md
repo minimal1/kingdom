@@ -292,7 +292,21 @@ wait_for_soldier() {
 }
 ```
 
-> 병사가 Write 도구로 `state/results/{task-id}-raw.json`에 직접 결과를 저장한다. 왕이 폴링하는 `{task-id}.json`과 분리하여, 장군의 재시도 루프 중 왕이 중간 결과를 발견하지 않게 한다. stdout/stderr는 `logs/sessions/{soldier-id}.log`로 캡처 (디버깅용).
+> **구조화된 출력**: `spawn-soldier.sh`는 실행 전 `.kingdom-task.json` 컨텍스트 파일을 workspace에 생성한다. 병사는 `workspace/CLAUDE.md`(자동 로드)의 지시에 따라 `.kingdom-task.json`을 읽고, Write 도구로 `state/results/{task-id}-raw.json`에 결과를 직접 생성한다.
+>
+> 왕이 폴링하는 `{task-id}.json`과 분리하여, 장군의 재시도 루프 중 왕이 중간 결과를 발견하지 않게 한다. stdout+stderr는 `logs/sessions/{soldier-id}.log`로 캡처 (디버깅용).
+>
+> **결과 스키마** (`config/workspace-claude.md` → `workspace/CLAUDE.md`에서 지시):
+> ```json
+> {
+>   "task_id": "string (필수)",
+>   "status": "success | failed | needs_human (필수)",
+>   "summary": "string (필수)",
+>   "error": "string (선택, 실패 시)",
+>   "question": "string (선택, needs_human 시)",
+>   "memory_updates": ["string"] "(선택)"
+> }
+> ```
 
 ### report_to_king
 
@@ -437,7 +451,7 @@ update_memory() {
 
 ### build_prompt
 
-장군별 프롬프트 템플릿에 변수를 치환하여 최종 프롬프트를 stdout으로 출력.
+장군별 프롬프트 템플릿에 변수를 치환하여 최종 프롬프트를 stdout으로 출력. `{{payload.KEY}}` 구문으로 payload 필드를 인라인 치환할 수 있다.
 
 ```bash
 # bin/lib/general/prompt-builder.sh
@@ -447,64 +461,61 @@ build_prompt() {
   local memory="$2"
   local repo_context="$3"
 
-  local task_id=$(echo "$task_json" | jq -r '.id')
-  local task_type=$(echo "$task_json" | jq -r '.type')
-  local payload=$(echo "$task_json" | jq -c '.payload')
-  local repo=$(echo "$task_json" | jq -r '.repo // ""')
+  local task_id task_type payload repo
+  task_id=$(echo "$task_json" | jq -r '.id')
+  task_type=$(echo "$task_json" | jq -r '.type')
+  payload=$(echo "$task_json" | jq -c '.payload')
+  repo=$(echo "$task_json" | jq -r '.repo // ""')
 
-  # 장군별 프롬프트 템플릿 선택
+  # 장군별 프롬프트 템플릿 선택 (없으면 default.md 폴백)
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
   if [ ! -f "$template" ]; then
-    log "[WARN] [$GENERAL_DOMAIN] Template not found: $template, using default"
     template="$BASE_DIR/config/generals/templates/default.md"
   fi
 
-  if [ ! -f "$template" ]; then
-    log "[ERROR] [$GENERAL_DOMAIN] No template available"
-    return 1
-  fi
+  # 기본 플레이스홀더 치환
+  local content
+  content=$(sed -e "s|{{TASK_ID}}|$task_id|g" \
+                -e "s|{{TASK_TYPE}}|$task_type|g" \
+                -e "s|{{REPO}}|$repo|g" \
+                "$template")
 
-  # 템플릿의 플레이스홀더를 실제 값으로 치환하여 stdout 출력
-  cat "$template" | \
-    sed "s|{{TASK_ID}}|$task_id|g" | \
-    sed "s|{{TASK_TYPE}}|$task_type|g" | \
-    sed "s|{{REPO}}|$repo|g"
+  # Payload 필드 치환: {{payload.KEY}} → 실제 값
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    local key val
+    key=$(echo "$line" | jq -r '.key')
+    val=$(echo "$line" | jq -r '.value // ""')
+    content=$(echo "$content" | sed "s|{{payload\\.${key}}}|${val}|g")
+  done <<< "$(echo "$payload" | jq -c 'to_entries[]' 2>/dev/null || true)"
 
-  # 템플릿 뒤에 동적 섹션 추가
-  echo ""
-  echo "## 이번 작업 (payload)"
-  echo '```json'
-  echo "$payload" | jq .
-  echo '```'
+  echo "$content"
 
-  if [ -n "$memory" ]; then
+  # 동적 섹션 — 템플릿이 {{payload.*}} 플레이스홀더를 사용하면 payload dump 생략
+  if grep -q '{{payload\.' "$template" 2>/dev/null; then
+    : # 템플릿이 payload를 인라인으로 소비 — dump 불필요
+  else
     echo ""
-    echo "## 도메인 메모리"
-    echo "$memory"
+    echo "## Task Payload"
+    echo '```json'
+    echo "$payload" | jq .
+    echo '```'
   fi
 
-  if [ -n "$repo_context" ]; then
-    echo ""
-    echo "## 레포지토리 컨텍스트"
-    echo "$repo_context"
-  fi
-
-  echo ""
-  echo "## 출력 요구사항"
-  echo "결과를 아래 경로에 Write 도구로 JSON 파일을 생성할 것:"
-  echo '```'
-  echo "$BASE_DIR/state/results/${task_id}-raw.json"
-  echo '```'
-  echo "스키마:"
-  echo '```json'
-  echo '{"task_id": "'$task_id'", "status": "success|failed|needs_human",'
-  echo ' "summary": "...", "error": "...", "question": "...",'
-  echo ' "details": {...}, "memory_updates": [...]}'
-  echo '```'
+  # 메모리 / 레포 컨텍스트 (있으면 추가)
+  [ -n "$memory" ] && echo "" && echo "## Domain Memory" && echo "$memory"
+  [ -n "$repo_context" ] && echo "" && echo "## Repository Context" && echo "$repo_context"
 }
 ```
 
-> 프롬프트 템플릿은 `config/generals/templates/{general-domain}.md`에 위치. 각 장군이 도메인별 지시사항과 CC Plugin 사용법을 템플릿에 포함한다.
+> 프롬프트 템플릿은 `config/generals/templates/{general-domain}.md`에 위치. 각 장군이 도메인별 지시사항과 CC Plugin 커맨드를 템플릿에 포함한다.
+>
+> **출력 요구사항은 프롬프트에 포함하지 않는다.** `workspace/CLAUDE.md`가 결과 스키마와 Write 도구 사용을 지시하므로, 프롬프트 템플릿에서 별도로 출력 형식을 지시할 필요 없다.
+>
+> **예시: gen-pr의 prompt.md** — 커맨드 호출 한 줄로 끝남:
+> ```
+> /friday:review-pr {{payload.pr_number}}
+> ```
 
 ### ensure_workspace
 
@@ -539,11 +550,13 @@ ensure_workspace() {
 
     local i=0
     while (( i < plugin_count )); do
-      local required_name=$(yq eval ".cc_plugins[$i]" "$manifest")
-      local found=$(jq -r --arg n "$required_name" \
-        '.enabledPlugins // [] | map(select(. == $n or endswith("/" + $n))) | length' \
-        "$global_settings")
-      if [ "$found" -eq 0 ]; then
+      local required_name
+      required_name=$(yq eval ".cc_plugins[$i]" "$manifest")
+      local found
+      found=$(jq -r --arg n "$required_name" \
+        '.enabledPlugins // {} | keys[] | select(startswith($n + "@") or . == $n)' \
+        "$global_settings" | head -1)
+      if [ -z "$found" ]; then
         log "[ERROR] [$general] Required plugin not enabled globally: $required_name"
         return 1
       fi
@@ -572,7 +585,7 @@ ensure_workspace() {
 }
 ```
 
-> **전역 플러그인 검증**: 매니페스트의 `cc_plugins` 배열에 선언된 플러그인이 `~/.claude/settings.json`의 `enabledPlugins`에 등록되어 있는지 확인한다. 플러그인 이름 또는 경로의 끝부분으로 매칭한다.
+> **전역 플러그인 검증**: 매니페스트의 `cc_plugins` 배열에 선언된 플러그인이 `~/.claude/settings.json`의 `enabledPlugins` 객체에 등록되어 있는지 확인한다. `enabledPlugins`는 `{"friday@qp-plugin": true}` 형식의 객체이며, 키의 접두사(`name@`)로 매칭한다.
 
 ---
 
@@ -582,25 +595,32 @@ ensure_workspace() {
 
 ### 전역 플러그인 설정
 
-플러그인은 `claude plugin install` 명령으로 전역 설치하며, `~/.claude/settings.json`의 `enabledPlugins` 배열에 등록된다.
+플러그인은 마켓플레이스를 통해 설치하며, `~/.claude/settings.json`의 `enabledPlugins` 객체에 등록된다.
+
+```bash
+# 마켓플레이스 등록 + 플러그인 설치
+claude plugin marketplace add eddy-jeon/qp-plugin
+claude plugin install friday@qp-plugin
+```
 
 ```json
 // ~/.claude/settings.json
 {
-  "enabledPlugins": [
-    "friday",
-    "/path/to/sunday"
-  ]
+  "enabledPlugins": {
+    "friday@qp-plugin": true,
+    "sunday@qp-plugin": true
+  }
 }
 ```
 
 ### 메커니즘
 
-1. 장군 매니페스트에 `cc_plugins` 배열로 필요한 플러그인 이름 선언
-2. `ensure_workspace()`가 전역 settings에 해당 플러그인이 등록되어 있는지 검증
+1. 장군 매니페스트에 `cc_plugins` 배열로 필요한 플러그인 선언 (`name@marketplace` 형식)
+2. `ensure_workspace()`가 전역 settings에 해당 플러그인이 등록되어 있는지 검증 (객체 키 접두사 매칭)
 3. 병사가 `cd '$WORK_DIR' && claude -p`로 실행되면 전역 CC Plugin이 자동 로드
 4. 장군의 `build_prompt()`에서 `--plugin` CLI 파라미터 불필요
 5. CC Plugin 사용법(커맨드, 워크플로우)은 **프롬프트 템플릿에 포함**
+6. 장군 패키지의 `install.sh`가 CC Plugin 마켓플레이스 등록 + 설치를 자동 수행
 
 ---
 
@@ -638,7 +658,7 @@ ensure_workspace() {
 
 | 파일 | 생성자 | 소비자 | 내용 |
 |------|--------|--------|------|
-| `{task-id}-raw.json` | 병사 | 장군 | CC Plugin이 출력한 원본 결과 |
+| `{task-id}-raw.json` | 병사 (Write 도구) | 장군 | CLAUDE.md 지시에 따른 구조화 결과 |
 | `{task-id}.json` | 장군 (report_to_king) | 왕 | 장군이 확정한 최종 결과 |
 | `{task-id}-checkpoint.json` | 장군 (escalate_to_king) | 왕 | needs_human 시 작업 재개용 상태 |
 
@@ -658,25 +678,31 @@ ensure_workspace() {
 
 | 장군 | CC Plugin | 역할 |
 |------|-----------|------|
-| gen-pr | friday | PR 리뷰 |
-| gen-jira | sunday | Jira 티켓 구현 |
-| gen-test | (신규) | 테스트 코드 작성 |
+| gen-pr | friday@qp-plugin | PR 리뷰 |
+| gen-jira | sunday@qp-plugin | Jira 티켓 구현 |
+| gen-test | saturday@qp-plugin | 테스트 코드 작성 |
 
 ### gen-pr: PR Review 장군
 
 | 항목 | 값 |
 |------|-----|
 | tmux 세션 | `gen-pr` |
-| CC Plugin | friday |
+| CC Plugin | friday@qp-plugin |
+| 구독 이벤트 | `github.pr.review_requested` |
 | 전문 메모리 | 레포별 리뷰 패턴, 팀별 코드 스타일 |
 | 병사 수 | 1 (순차 처리) |
 
+**프롬프트 (prompt.md)**: `/friday:review-pr {{payload.pr_number}}`
+
+병사가 실행되면 CC Plugin의 `/friday:review-pr` 커맨드가 직접 호출된다. 프롬프트에는 커맨드와 파라미터만 있으면 충분하다 — 리뷰 로직은 friday 플러그인 내부에 있다.
+
 **워크플로우**:
 ```
-task.json 수신
+task.json 수신 (github.pr.review_requested)
   → 레포 메모리 로딩 (이 프로젝트의 리뷰 기준은?)
-  → 프롬프트 조립 (CC Plugin은 workspace가 자동 제공)
-  → 병사 실행: PR 체크아웃 → friday 플러그인이 코드 리뷰 + 자체 품질 루프
+  → 프롬프트 조립: /friday:review-pr 42  ({{payload.pr_number}} 치환)
+  → 병사 실행: claude -p (CLAUDE.md가 결과 보고 방식 지시)
+    → friday 플러그인의 /review-pr 커맨드가 PR 리뷰 수행 + 자체 품질 루프
   → 장군은 status 확인 (success/failed/needs_human)
   → failed: 재시도 (최대 2회)
   → success: 최종 결과를 왕에게 보고
@@ -691,14 +717,16 @@ repo-backend.md     — querypie/backend 전용 컨텍스트
 
 ---
 
-### gen-test: Test Code 장군 (예시)
+### gen-test: Test Code 장군
 
-> 장군은 플러거블이므로 gen-test는 스케줄 기반 장군의 **예시**이다.
+> 스케줄 기반 장군의 예시.
 
 | 항목 | 값 |
 |------|-----|
 | tmux 세션 | `gen-test` |
-| CC Plugin | (신규 구성 필요) |
+| CC Plugin | saturday@qp-plugin |
+| 구독 이벤트 | 없음 (스케줄 전용) |
+| 스케줄 | 평일 22:00 (cron: `0 22 * * 1-5`) |
 | 전문 메모리 | 테스트 프레임워크 설정, 레포별 테스트 패턴 |
 | 병사 수 | 1 |
 
@@ -727,7 +755,8 @@ coverage-rules.md   — 커버리지 기준
 | 항목 | 값 |
 |------|-----|
 | tmux 세션 | `gen-jira` |
-| CC Plugin | sunday |
+| CC Plugin | sunday@qp-plugin |
+| 구독 이벤트 | `jira.ticket.assigned`, `jira.ticket.updated` |
 | 전문 메모리 | 코드베이스 구조, 이전 티켓 처리 패턴 |
 | 병사 수 | 1 |
 
@@ -776,7 +805,7 @@ name: gen-docs
 description: "문서 작성 장군"
 
 cc_plugins:
-  - doc-writer
+  - doc-writer@my-marketplace    # plugin-name@marketplace 형식
 
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
 
@@ -788,10 +817,19 @@ schedules:
 ```
 
 ```bash
-# install.sh (패키지 안 — 얇은 래퍼)
+# install.sh (패키지 안 — CC Plugin 설치 + Kingdom 설치)
 #!/usr/bin/env bash
+set -euo pipefail
 KINGDOM_BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
 PACKAGE_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# CC Plugin 자동 설치 (각 장군이 필요한 플러그인을 직접 준비)
+if command -v claude &>/dev/null; then
+  # 마켓플레이스 등록 + 플러그인 설치
+  claude plugin marketplace add owner/my-marketplace 2>/dev/null || true
+  claude plugin install doc-writer@my-marketplace 2>/dev/null || true
+fi
+
 exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 ```
 
