@@ -41,7 +41,6 @@ echo ""
 echo "Generals:"
 for manifest in "$BASE_DIR/config/generals/"*.yaml; do
   [ -f "$manifest" ] || continue
-  local name=""
   name=$(yq eval '.name' "$manifest" 2>/dev/null || grep -m1 '^name:' "$manifest" | sed 's/^name:[[:space:]]*//' | tr -d '"'"'")
   [ -z "$name" ] || [ "$name" = "null" ] && continue
   check_session "$name"
@@ -51,7 +50,7 @@ done
 
 echo ""
 echo "Soldiers:"
-local soldier_count=0
+soldier_count=0
 if [ -f "$BASE_DIR/state/sessions.json" ]; then
   soldier_count=$(jq 'length' "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
 fi
@@ -62,7 +61,7 @@ echo "  Active: $soldier_count"
 echo ""
 echo "Resources:"
 if [ -f "$BASE_DIR/state/resources.json" ]; then
-  local health cpu mem disk
+  health="" ; cpu="" ; mem="" ; disk=""
   health=$(jq -r '.health // "unknown"' "$BASE_DIR/state/resources.json")
   cpu=$(jq -r '.system.cpu_percent // "?"' "$BASE_DIR/state/resources.json")
   mem=$(jq -r '.system.memory_percent // "?"' "$BASE_DIR/state/resources.json")

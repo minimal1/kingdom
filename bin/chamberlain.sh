@@ -24,9 +24,7 @@ while $RUNNING; do
   collect_metrics
 
   # 2. Evaluate health + update resources.json
-  local prev_health
   prev_health=$(get_current_health)
-  local curr_health
   curr_health=$(evaluate_health)
   update_resources_json "$curr_health"
 
