@@ -11,7 +11,7 @@ polling:
         - mention
         - comment
         - state_change
-  jira:
-    interval_seconds: 300
-    scope:
-      jql_base: "assignee = currentUser() AND project IN (QP, QPD)"
+  # jira:
+  #   interval_seconds: 300
+  #   scope:
+  #     jql_base: "assignee = currentUser() AND project IN (QP, QPD)"

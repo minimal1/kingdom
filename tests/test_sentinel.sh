@@ -82,6 +82,41 @@ teardown() {
   [ "$count" -eq 2 ]
 }
 
+@test "sentinel: no hardcoded WATCHERS array" {
+  # sentinel.sh에 WATCHERS=("github" "jira") 같은 하드코딩이 없어야 함
+  run grep -E 'WATCHERS=\(' "${BATS_TEST_DIRNAME}/../bin/sentinel.sh"
+  # grep 결과에 하드코딩된 watcher 이름이 포함되지 않아야 함
+  refute_output --partial '"github"'
+  refute_output --partial '"jira"'
+}
+
+@test "sentinel: loads watchers from sentinel.yaml" {
+  # yaml에 github만 있을 때 github만 로드되는지 확인
+  local yaml="$BASE_DIR/config/sentinel.yaml"
+  cat > "$yaml" <<'EOF'
+polling:
+  github:
+    interval_seconds: 60
+    scope:
+      repos:
+        - chequer-io/querypie-frontend
+EOF
+
+  # watcher 스크립트를 테스트 환경에 복사
+  mkdir -p "$BASE_DIR/bin/lib/sentinel"
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/sentinel/"*-watcher.sh "$BASE_DIR/bin/lib/sentinel/"
+
+  local watchers=()
+  for key in $(yq eval '.polling | keys | .[]' "$yaml" 2>/dev/null); do
+    if [ -f "$BASE_DIR/bin/lib/sentinel/${key}-watcher.sh" ]; then
+      watchers+=("$key")
+    fi
+  done
+
+  [ ${#watchers[@]} -eq 1 ]
+  [ "${watchers[0]}" = "github" ]
+}
+
 @test "sentinel: seen markers created for all emitted events" {
   local raw
   raw=$(cat "${BATS_TEST_DIRNAME}/fixtures/github-notification.json")

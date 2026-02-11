@@ -12,8 +12,20 @@ source "$BASE_DIR/bin/lib/sentinel/watcher-common.sh"
 RUNNING=true
 trap 'RUNNING=false; log "[SYSTEM] [sentinel] Shutting down..."; exit 0' SIGTERM SIGINT
 
-# Watcher 로딩
-WATCHERS=("github" "jira")
+# Watcher 동적 로딩: sentinel.yaml의 polling 키에서 스캔
+WATCHERS=()
+for key in $(yq eval '.polling | keys | .[]' "$BASE_DIR/config/sentinel.yaml" 2>/dev/null); do
+  if [ -f "$BASE_DIR/bin/lib/sentinel/${key}-watcher.sh" ]; then
+    WATCHERS+=("$key")
+  else
+    log "[WARN] [sentinel] Unknown watcher in config: $key (no ${key}-watcher.sh)"
+  fi
+done
+
+if [ ${#WATCHERS[@]} -eq 0 ]; then
+  log "[WARN] [sentinel] No watchers configured in sentinel.yaml"
+fi
+
 for watcher in "${WATCHERS[@]}"; do
   source "$BASE_DIR/bin/lib/sentinel/${watcher}-watcher.sh"
 done

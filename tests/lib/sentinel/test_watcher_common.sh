@@ -80,7 +80,14 @@ teardown() {
 }
 
 @test "watcher-common: get_interval reads jira config" {
-  cp "${BATS_TEST_DIRNAME}/../../../config/sentinel.yaml" "$BASE_DIR/config/sentinel.yaml"
+  # jira가 활성화된 별도 yaml을 사용 (실제 config에서는 주석 처리됨)
+  cat > "$BASE_DIR/config/sentinel.yaml" <<'EOF'
+polling:
+  github:
+    interval_seconds: 60
+  jira:
+    interval_seconds: 300
+EOF
   run get_interval "jira"
   assert_output "300"
 }
