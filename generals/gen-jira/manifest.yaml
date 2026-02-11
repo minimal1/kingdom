@@ -1,0 +1,12 @@
+name: gen-jira
+description: "Jira ticket implementation general"
+timeout_seconds: 5400
+
+cc_plugins:
+  - sunday
+
+subscribes:
+  - jira.ticket.assigned
+  - jira.ticket.updated
+
+schedules: []
