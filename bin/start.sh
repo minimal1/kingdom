@@ -32,11 +32,10 @@ start_session "king"        "$BASE_DIR/bin/king.sh"
 # Start generals from manifests
 for manifest in "$BASE_DIR/config/generals/"*.yaml; do
   [ -f "$manifest" ] || continue
-  local name=""
   name=$(yq eval '.name' "$manifest" 2>/dev/null || grep -m1 '^name:' "$manifest" | sed 's/^name:[[:space:]]*//' | tr -d '"'"'")
   [ -z "$name" ] || [ "$name" = "null" ] && continue
 
-  local script="$BASE_DIR/bin/generals/${name}.sh"
+  script="$BASE_DIR/bin/generals/${name}.sh"
   if [ -f "$script" ]; then
     start_session "$name" "$script"
   else
