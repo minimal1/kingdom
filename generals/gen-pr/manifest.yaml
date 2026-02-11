@@ -3,11 +3,9 @@ description: "PR review general"
 timeout_seconds: 1800
 
 cc_plugins:
-  - friday
+  - friday@qp-plugin
 
 subscribes:
   - github.pr.review_requested
-  - github.pr.mentioned
-  - github.pr.assigned
 
 schedules: []

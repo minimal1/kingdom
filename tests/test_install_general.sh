@@ -138,6 +138,59 @@ EOF
   rm -rf "$conflict_pkg"
 }
 
+# --- CC Plugin warning ---
+
+@test "install: warns when plugin not in global settings" {
+  # Override HOME for settings isolation
+  local ORIG_HOME="$HOME"
+  export HOME="$(mktemp -d)"
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":{"other-plugin@marketplace":true}}' > "$HOME/.claude/settings.json"
+
+  local plugin_pkg="$(mktemp -d)"
+  cat > "$plugin_pkg/manifest.yaml" << 'EOF'
+name: gen-baz
+description: "Plugin test general"
+cc_plugins:
+  - my-plugin
+subscribes: []
+schedules: []
+EOF
+  echo "# prompt" > "$plugin_pkg/prompt.md"
+
+  run "$BASE_DIR/bin/install-general.sh" "$plugin_pkg"
+  assert_success
+  assert_output --partial "WARN: Plugin 'my-plugin' not in global settings"
+
+  rm -rf "$plugin_pkg" "$HOME"
+  export HOME="$ORIG_HOME"
+}
+
+@test "install: no warning when plugin is in global settings" {
+  local ORIG_HOME="$HOME"
+  export HOME="$(mktemp -d)"
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":{"my-plugin@qp-plugin":true}}' > "$HOME/.claude/settings.json"
+
+  local plugin_pkg="$(mktemp -d)"
+  cat > "$plugin_pkg/manifest.yaml" << 'EOF'
+name: gen-baz
+description: "Plugin test general"
+cc_plugins:
+  - my-plugin
+subscribes: []
+schedules: []
+EOF
+  echo "# prompt" > "$plugin_pkg/prompt.md"
+
+  run "$BASE_DIR/bin/install-general.sh" "$plugin_pkg"
+  assert_success
+  refute_output --partial "WARN"
+
+  rm -rf "$plugin_pkg" "$HOME"
+  export HOME="$ORIG_HOME"
+}
+
 # --- uninstall-general.sh ---
 
 @test "uninstall: removes definition files" {

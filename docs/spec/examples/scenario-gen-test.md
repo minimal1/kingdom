@@ -11,9 +11,10 @@
 ```yaml
 # generals/gen-test/manifest.yaml
 name: gen-test
+description: "Test writing general"
 timeout_seconds: 3600          # 60분
 cc_plugins:
-  - saturday
+  - saturday@qp-plugin         # plugin-name@marketplace 형식
 subscribes: []                 # 외부 이벤트 없음
 schedules:
   - name: daily-test
@@ -35,7 +36,7 @@ schedules:
 | 파수꾼 관여 | O (이벤트 감지) | X |
 | queue/events/ 사용 | O | X (schedule-... ID만) |
 | 이벤트 타입 | github.pr.review_requested 등 | test-coverage-analysis |
-| CC Plugin | friday (기존) | test-runner (신규) |
+| CC Plugin | friday@qp-plugin | saturday@qp-plugin |
 | timeout | 1800초 (30분) | 3600초 (60분) |
 | 결과물 | GitHub PR 코멘트 | 테스트 코드 + PR 생성 |
 | 빈도 | PR 발생 시마다 (수시) | 매주 1회 (스케줄) |
@@ -106,7 +107,7 @@ T+~10s  장군 ensure_workspace("gen-test", null)
         → workspace/gen-test/ 준비
         → workspace/gen-test/frontend/ clone/fetch
         → workspace/gen-test/backend/ clone/fetch
-        → .claude/plugins.json: test-runner 플러그인 설정
+        → enabledPlugins 검증: saturday@qp-plugin 등록 확인
 
 T+~11s  장군 load_domain_memory("gen-test")
         → memory/generals/gen-test/ 읽기:
@@ -130,9 +131,9 @@ T+~13s  장군 spawn_soldier → tmux 세션 생성
 ### Phase 4: 병사 실행 (Claude Code)
 
 ```
-T+~13s ~ T+~420s  병사 (claude -p)
+T+~13s ~ T+~420s  병사 (claude -p --output-format json --json-schema ...)
         → workspace/gen-test/ 에서 실행
-        → test-runner 플러그인 자동 로드
+        → 전역 enabledPlugins → saturday@qp-plugin 자동 로드
 
         작업 순서:
         1. querypie/frontend에서 커버리지 분석
@@ -154,11 +155,10 @@ T+~13s ~ T+~420s  병사 (claude -p)
            → git add & commit
            → gh pr create --title "test: improve coverage for Button, format"
 
-        6. 결과 저장:
-           state/results/task-20260210-001-raw.json
+        6. --json-schema에 의해 구조화된 결과 stdout 출력:
+           → stdout → .tmp → mv → state/results/task-20260210-001-raw.json
            {
              "task_id": "task-20260210-001",
-             "soldier_id": "soldier-1707530413-8901",
              "status": "success",
              "summary": "frontend 2개 모듈 테스트 추가, 커버리지 62%→85%, 55%→82%. PR #5678 생성",
              "details": {
@@ -171,12 +171,10 @@ T+~13s ~ T+~420s  병사 (claude -p)
                "backend_skipped": true,
                "backend_reason": "모든 모듈 80% 이상"
              },
-             "metrics": { "duration_seconds": 407, "tokens_used": 58000 },
              "memory_updates": [
                "frontend의 Button 컴포넌트는 render props 패턴 사용 — mock 시 주의",
                "format.ts는 순수 함수 — 단위 테스트만으로 충분"
-             ],
-             "completed_at": "2026-02-10T03:07:00Z"
+             ]
            }
 ```
 

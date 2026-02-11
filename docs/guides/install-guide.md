@@ -270,16 +270,21 @@ $DEST/bin/install-general.sh /path/to/gen-docs
 장군이 `claude -p` 실행 시 사용하는 플러그인. 없어도 동작하지만 리뷰 품질이 달라짐.
 플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)가 필요하다.
 
-```bash
-# 플러그인 설치 (각 장군의 플러그인 설치 가이드 참고)
-# 예: friday 플러그인
-claude plugin install /path/to/friday
+각 장군 패키지의 `install.sh`가 CC Plugin 마켓플레이스 등록 + 설치를 자동 수행하므로, 별도 설치가 불필요할 수 있다. 수동으로 설치하려면:
 
-# 설치 확인
+```bash
+# 마켓플레이스 등록
+claude plugin marketplace add eddy-jeon/qp-plugin
+
+# 플러그인 설치
+claude plugin install friday@qp-plugin
+
+# 설치 확인 (객체 형식)
 cat ~/.claude/settings.json | jq '.enabledPlugins'
+# → { "friday@qp-plugin": true }
 ```
 
-> 장군 매니페스트의 `cc_plugins`에 선언된 플러그인이 전역 설정에 없으면 `ensure_workspace`가 실패한다.
+> 장군 매니페스트의 `cc_plugins`에 선언된 플러그인이 전역 설정에 없으면 `ensure_workspace`가 실패한다. `enabledPlugins`는 `{"name@marketplace": true}` 형식의 객체이다.
 
 ### 4.5 환경변수 영구화
 

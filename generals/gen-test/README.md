@@ -5,18 +5,28 @@
 ## 사전 요구사항
 
 - Kingdom 시스템 설치 완료
-- CC Plugin `saturday` 전역 설치: `claude plugin install /path/to/saturday`
+- `claude` CLI 설치 (CC Plugin 자동 설치에 필요)
 
 ## 설치
 
 ```bash
-$KINGDOM_BASE_DIR/bin/install-general.sh /path/to/gen-test
+./install.sh
 ```
 
-또는 패키지 디렉토리에서:
+`install.sh`가 자동으로 수행하는 작업:
+1. `qp-plugin` 마켓플레이스 등록 (`eddy-jeon/qp-plugin`)
+2. `saturday` CC Plugin 설치 (`saturday@qp-plugin`)
+3. Kingdom 런타임에 장군 설치 (`install-general.sh` 호출)
+
+수동 설치도 가능:
 
 ```bash
-./install.sh
+# 플러그인 별도 설치
+claude plugin marketplace add eddy-jeon/qp-plugin
+claude plugin install saturday@qp-plugin
+
+# Kingdom에 장군만 설치
+$KINGDOM_BASE_DIR/bin/install-general.sh /path/to/gen-test
 ```
 
 ## 구독 이벤트

@@ -11,14 +11,18 @@
 ```yaml
 # generals/gen-pr/manifest.yaml
 name: gen-pr
+description: "PR review general"
 timeout_seconds: 1800          # 30분
 cc_plugins:
-  - friday
+  - friday@qp-plugin           # plugin-name@marketplace 형식
 subscribes:
   - github.pr.review_requested
-  - github.pr.mentioned
-  - github.pr.assigned
 schedules: []                  # 이벤트 전용, 스케줄 없음
+```
+
+**프롬프트 (prompt.md)**:
+```
+/friday:review-pr {{payload.pr_number}}
 ```
 
 ---
@@ -106,7 +110,7 @@ T+~20s  장군(gen-pr) pick_next_task("gen-pr")
 
 T+~20s  장군 ensure_workspace("gen-pr", "querypie/frontend")
         → workspace/gen-pr/ 존재 확인
-        → .claude/plugins.json 확인 (friday 플러그인 경로)
+        → enabledPlugins 검증: friday@qp-plugin 등록 확인 (객체 키 매칭)
         → git -C workspace/gen-pr/frontend fetch origin
 
 T+~20s  장군 load_domain_memory("gen-pr")
@@ -115,17 +119,20 @@ T+~20s  장군 load_domain_memory("gen-pr")
 
 T+~21s  장군 build_prompt()
         → 템플릿: config/generals/templates/gen-pr.md (install-general.sh가 설치한 런타임 파일)
-        → 플레이스홀더 치환: {{TASK_ID}} → task-20260207-001, {{REPO}} → querypie/frontend
-        → 섹션 추가: payload, 도메인 메모리, 레포 컨텍스트, 출력 요구사항
+        → {{payload.pr_number}} 치환: /friday:review-pr 1234
+        → 템플릿이 {{payload.*}} 사용 → payload dump 생략
         → 쓰기: state/prompts/task-20260207-001.md
+          내용: "/friday:review-pr 1234"
 
 T+~22s  장군 spawn_soldier()
         → bin/spawn-soldier.sh 호출
         → soldier_id = "soldier-1707300022-4567"
         → tmux new-session -d -s soldier-1707300022-4567
           "cd workspace/gen-pr && claude -p --dangerously-skip-permissions
+           --output-format json --json-schema '{...결과 스키마...}'
            < state/prompts/task-20260207-001.md
-           > logs/sessions/soldier-1707300022-4567.log 2>&1;
+           > state/results/task-20260207-001-raw.json.tmp 2>logs/sessions/soldier-....log;
+           mv ...raw.json.tmp ...raw.json;
            tmux wait-for -S soldier-1707300022-4567-done"
         → 쓰기: state/results/task-20260207-001-soldier-id
         → sessions.json에 append (flock):
@@ -138,26 +145,24 @@ T+~22s  장군 wait_for_soldier("task-20260207-001", 1800)
 ### Phase 5: 병사 실행 (Claude Code)
 
 ```
-T+~22s ~ T+~200s  병사 (claude -p)
+T+~22s ~ T+~200s  병사 (claude -p --output-format json --json-schema ...)
         → workspace/gen-pr/ 에서 실행
-        → .claude/plugins.json → friday 플러그인 자동 로드
-        → 프롬프트에 따라:
-          1. PR #1234의 변경 파일 분석 (gh pr diff 1234)
-          2. 코드 품질, 보안, 성능 이슈 식별
-          3. friday 플러그인의 /review-pr 또는 자체 리뷰 수행
-          4. GitHub에 리뷰 코멘트 작성 (gh api)
-          5. Write 도구로 결과 저장:
-             state/results/task-20260207-001-raw.json
+        → 전역 enabledPlugins → friday@qp-plugin 자동 로드
+        → 프롬프트 "/friday:review-pr 1234" 수신
+          → friday 플러그인의 /review-pr 커맨드 실행:
+            1. PR #1234의 변경 파일 분석 (gh pr diff 1234)
+            2. 코드 품질, 보안, 성능 이슈 식별
+            3. 자체 품질 루프 (ralph-loop)로 리뷰 최적화
+            4. GitHub에 리뷰 코멘트 작성 (gh api)
+        → --json-schema에 의해 구조화된 결과 stdout 출력:
              {
                "task_id": "task-20260207-001",
-               "soldier_id": "soldier-1707300022-4567",
                "status": "success",
                "summary": "PR #1234에 대해 5개 코멘트 작성 완료",
                "details": { "files_reviewed": 12, "comments_posted": 5 },
-               "metrics": { "duration_seconds": 178, "tokens_used": 45000 },
-               "memory_updates": ["이 레포는 barrel export를 선호하지 않음"],
-               "completed_at": "2026-02-07T10:03:20Z"
+               "memory_updates": ["이 레포는 barrel export를 선호하지 않음"]
              }
+        → stdout → .tmp 파일 → mv로 atomic write → raw.json 완성
         → tmux wait-for -S soldier-...-done (세션 종료 시그널)
 ```
 

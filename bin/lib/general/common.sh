@@ -84,8 +84,8 @@ ensure_workspace() {
       local required_name
       required_name=$(yq eval ".cc_plugins[$i]" "$manifest")
       local found
-      found=$(jq -r --arg n "$required_name" '.enabledPlugins // [] | map(select(. == $n or endswith("/" + $n))) | length' "$global_settings")
-      if [ "$found" -eq 0 ]; then
+      found=$(jq -r --arg n "$required_name" '.enabledPlugins // {} | keys[] | select(startswith($n + "@") or . == $n)' "$global_settings" | head -1)
+      if [ -z "$found" ]; then
         log "[ERROR] [$general] Required plugin not enabled globally: $required_name"
         return 1
       fi

@@ -27,18 +27,35 @@ build_prompt() {
     return 1
   fi
 
-  # Template with placeholder substitution
-  sed -e "s|{{TASK_ID}}|$task_id|g" \
-      -e "s|{{TASK_TYPE}}|$task_type|g" \
-      -e "s|{{REPO}}|$repo|g" \
-      "$template"
+  # Build substituted content
+  local content
+  content=$(sed -e "s|{{TASK_ID}}|$task_id|g" \
+                -e "s|{{TASK_TYPE}}|$task_type|g" \
+                -e "s|{{REPO}}|$repo|g" \
+                "$template")
+
+  # Payload field substitution: {{payload.KEY}} → value
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    local key val
+    key=$(echo "$line" | jq -r '.key')
+    val=$(echo "$line" | jq -r '.value // ""')
+    content=$(echo "$content" | sed "s|{{payload\\.${key}}}|${val}|g")
+  done <<< "$(echo "$payload" | jq -c 'to_entries[]' 2>/dev/null || true)"
+
+  echo "$content"
 
   # Dynamic sections
-  echo ""
-  echo "## Task Payload"
-  echo '```json'
-  echo "$payload" | jq .
-  echo '```'
+  # Skip payload dump if template used {{payload.*}} placeholders (already consumed inline)
+  if grep -q '{{payload\.' "$template" 2>/dev/null; then
+    : # Template consumed payload via placeholders
+  else
+    echo ""
+    echo "## Task Payload"
+    echo '```json'
+    echo "$payload" | jq .
+    echo '```'
+  fi
 
   if [ -n "$memory" ]; then
     echo ""
@@ -51,17 +68,4 @@ build_prompt() {
     echo "## Repository Context"
     echo "$repo_context"
   fi
-
-  echo ""
-  echo "## Output Requirements"
-  echo "Write the result as a JSON file using the Write tool:"
-  echo '```'
-  echo "$BASE_DIR/state/results/${task_id}-raw.json"
-  echo '```'
-  echo "Schema:"
-  echo '```json'
-  echo "{\"task_id\": \"$task_id\", \"status\": \"success|failed|needs_human\","
-  echo ' "summary": "...", "error": "...", "question": "...",'
-  echo ' "details": {...}, "memory_updates": [...]}'
-  echo '```'
 }

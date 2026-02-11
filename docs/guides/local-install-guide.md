@@ -134,23 +134,28 @@ Kingdom Prerequisites Check
 장군들이 `claude -p` 실행 시 사용하는 플러그인. 없어도 동작하지만 리뷰 품질이 달라짐.
 플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)가 필요하다.
 
-```bash
-# 플러그인 설치 (각 장군의 플러그인 설치 가이드 참고)
-# 예: friday 플러그인
-claude plugin install /path/to/friday
+각 장군 패키지의 `install.sh`가 CC Plugin 설치를 자동 수행하므로, 별도 설치가 불필요할 수 있다. 수동으로 설치하려면:
 
-# 설치 확인
+```bash
+# 마켓플레이스 등록
+claude plugin marketplace add eddy-jeon/qp-plugin
+
+# 플러그인 설치
+claude plugin install friday@qp-plugin
+
+# 설치 확인 (객체 형식)
 cat ~/.claude/settings.json | jq '.enabledPlugins'
+# → { "friday@qp-plugin": true }
 ```
 
 장군 매니페스트에서 필요한 플러그인 확인:
 ```yaml
 # generals/gen-pr/manifest.yaml (소스) → install 후 config/generals/gen-pr.yaml (런타임)
 cc_plugins:
-  - friday
+  - friday@qp-plugin    # plugin-name@marketplace 형식
 ```
 
-> `ensure_workspace`가 매니페스트의 `cc_plugins`를 읽어 전역 settings에 해당 플러그인이 있는지 검증한다.
+> `ensure_workspace`가 매니페스트의 `cc_plugins`를 읽어 전역 settings의 `enabledPlugins` 객체 키에서 해당 플러그인이 있는지 검증한다.
 
 ---
 
@@ -222,7 +227,7 @@ Ctrl+C로 종료 (graceful shutdown).
 
 ## 5. 수동 E2E 테스트
 
-자동 테스트(bats 223개)와 별개로, 실제 외부 서비스를 사용하는 수동 테스트.
+자동 테스트(bats 232개)와 별개로, 실제 외부 서비스를 사용하는 수동 테스트.
 
 ### 5.1 테스트 A: 이벤트 수동 주입 → 태스크 처리
 

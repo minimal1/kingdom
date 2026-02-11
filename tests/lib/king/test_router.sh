@@ -43,9 +43,9 @@ teardown() {
 
 @test "router: routing table counts all event types" {
   load_general_manifests
-  # gen-pr: 3 (review_requested, mentioned, assigned), gen-jira: 2 (assigned, updated) = 5
+  # gen-pr: 1 (review_requested), gen-jira: 2 (assigned, updated) = 3
   run get_routing_table_count
-  assert_output "5"
+  assert_output "3"
 }
 
 @test "router: schedules loaded from gen-test" {

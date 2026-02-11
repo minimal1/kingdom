@@ -87,7 +87,7 @@ EOF
 @test "general: ensure_workspace creates directory" {
   # Setup global settings with plugin enabled
   mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":["friday"]}' > "$HOME/.claude/settings.json"
+  echo '{"enabledPlugins":{"friday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
 
   local result
   result=$(ensure_workspace "gen-pr" "")
@@ -96,7 +96,7 @@ EOF
 
 @test "general: ensure_workspace validates plugin enabled globally" {
   mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":["friday","/path/to/sunday"]}' > "$HOME/.claude/settings.json"
+  echo '{"enabledPlugins":{"friday@qp-plugin":true,"sunday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
 
   run ensure_workspace "gen-pr" ""
   assert_success
@@ -104,7 +104,7 @@ EOF
 
 @test "general: ensure_workspace fails when plugin not enabled" {
   mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":["other-plugin"]}' > "$HOME/.claude/settings.json"
+  echo '{"enabledPlugins":{"other-plugin@some-marketplace":true}}' > "$HOME/.claude/settings.json"
 
   run ensure_workspace "gen-pr" ""
   assert_failure
@@ -133,7 +133,7 @@ EOF
 
 @test "general: ensure_workspace clones repo" {
   mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":["friday"]}' > "$HOME/.claude/settings.json"
+  echo '{"enabledPlugins":{"friday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
 
   local result
   result=$(ensure_workspace "gen-pr" "chequer/frontend")
