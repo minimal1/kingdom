@@ -87,11 +87,15 @@ kingdom/
 │       ├── envoy/                       #   slack-api, thread-manager
 │       └── chamberlain/                 #   metrics, sessions, events, logs, recovery
 │
+├── generals/                      # 장군 패키지 (소스)
+│   ├── gen-pr/                    #   manifest.yaml + prompt.md + install.sh
+│   ├── gen-jira/
+│   └── gen-test/
+│
 ├── config/                     # 설정 (YAML)
 │   ├── system.yaml / king.yaml / sentinel.yaml / envoy.yaml / chamberlain.yaml
-│   └── generals/               # 장군 매니페스트 + 프롬프트 템플릿
-│       ├── gen-pr.yaml / gen-jira.yaml / gen-test.yaml
-│       └── templates/          # default.md, gen-pr.md, gen-jira.md, gen-test.md
+│   └── generals/               # 장군 매니페스트 (install-general.sh가 설치)
+│       └── templates/          # default.md (fallback)
 │
 ├── tests/                      # 테스트 (bats-core)
 │   ├── test_helper.bash        # 공통 setup/teardown
@@ -113,8 +117,7 @@ kingdom/
     ├── state/                  # 상태 저장소
     ├── memory/                 # 장군별 학습 메모리
     ├── logs/                   # 시스템 로그
-    ├── workspace/              # 코드 작업 공간
-    └── plugins/                # CC 플러그인
+    └── workspace/              # 코드 작업 공간
 ```
 
 ## Requirements
@@ -124,27 +127,30 @@ kingdom/
 | EC2 Instance | M5.xlarge (4 vCPU, 16GB RAM) 또는 macOS Apple Silicon |
 | Storage | 100GB GP3 SSD |
 | OS | Amazon Linux 2023, Ubuntu 22.04+, macOS 14+ |
-| Software | Claude Code, tmux, Git, gh CLI, jq, yq (mikefarah), bc, Node.js 22+ |
+| Software | Claude Code, tmux, Git, gh CLI, jq, yq, bc, Node.js 22+ (mise로 관리) |
 | 인증 | Claude OAuth (Max Plan), GitHub (`gh auth`), Jira API Token, Slack Bot Token |
 
 ## Quick Start
 
 ```bash
 # 1. 소스 배포
-cp -r bin config /opt/kingdom/
-chmod +x /opt/kingdom/bin/*.sh /opt/kingdom/bin/generals/*.sh
+DEST="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+cp -r bin config "$DEST/"
+chmod +x "$DEST"/bin/*.sh
 
 # 2. 디렉토리 초기화
-/opt/kingdom/bin/init-dirs.sh
+"$DEST/bin/init-dirs.sh"
 
-# 3. 환경 검증
-/opt/kingdom/bin/check-prerequisites.sh
+# 3. 빌트인 장군 설치
+for pkg in generals/gen-*; do
+  "$DEST/bin/install-general.sh" "$pkg"
+done
 
-# 4. 시작
-/opt/kingdom/bin/start.sh
+# 4. 환경 검증
+"$DEST/bin/check-prerequisites.sh"
 
-# 5. 상태 확인
-/opt/kingdom/bin/status.sh
+# 5. 시작
+"$DEST/bin/start.sh"
 ```
 
 자세한 설치 가이드: [`docs/guides/install-guide.md`](docs/guides/install-guide.md)
@@ -152,13 +158,14 @@ chmod +x /opt/kingdom/bin/*.sh /opt/kingdom/bin/generals/*.sh
 ## Tests
 
 ```bash
-# 전체 테스트 (208개)
+# 전체 테스트 (223개)
 bats tests/test_*.sh tests/lib/*/test_*.sh tests/integration/test_*.sh
 ```
 
 | 영역 | 테스트 수 |
 |------|----------|
-| 공통 라이브러리 + 초기화 | 21 |
+| 공통 라이브러리 + 초기화 | 22 |
+| 설치/제거 | 14 |
 | 파수꾼 (Sentinel) | 15 |
 | 사절 (Envoy) | 17 |
 | 왕 (King) | 30 |
@@ -166,7 +173,7 @@ bats tests/test_*.sh tests/lib/*/test_*.sh tests/integration/test_*.sh
 | 내관 (Chamberlain) | 46 |
 | 시스템 스크립트 | 14 |
 | 통합 테스트 (E2E) | 13 |
-| **합계** | **208** (macOS/Linux) |
+| **합계** | **223** (macOS/Linux) |
 
 ## Documentation
 
@@ -189,4 +196,4 @@ docs/
 
 ## Status
 
-**구현 완료** -- 208개 테스트 통과, EC2 배포 준비 완료.
+**구현 완료** -- 223개 테스트 통과, EC2 배포 준비 완료.

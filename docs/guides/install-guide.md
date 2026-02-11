@@ -30,25 +30,29 @@ Linux(EC2) 또는 macOS 머신에 Kingdom을 설치하고 운영하는 가이드
 
 ```bash
 # 시스템 업데이트
-sudo yum update -y
+sudo dnf update -y
 
 # 필수 패키지
-sudo yum install -y git tmux jq bc
+sudo dnf install -y git tmux jq bc
 
 # GitHub CLI
-(type -p wget >/dev/null || sudo yum install -y wget) \
+(type -p wget >/dev/null || sudo dnf install -y wget) \
   && wget -qO- https://cli.github.com/packages/rpm/gh-cli.repo \
   | sudo tee /etc/yum.repos.d/github-cli.repo \
-  && sudo yum install -y gh
+  && sudo dnf install -y gh
 
-# yq (mikefarah Go 버전 — Python yq가 아님!)
-wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-  -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-
-# Node.js 22+
-curl -fsSL https://fnm.vercel.app/install | bash
+# mise (런타임 매니저 — node, yq 등 통합 관리)
+curl https://mise.run | sh
+echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
 source ~/.bashrc
-fnm install 22
+
+# mise 설정 디렉토리 소유권 확보 (root로 생성된 경우)
+sudo chown -R $USER:$USER ~/.config/
+
+# Node.js + yq (mise로 설치)
+# AL2023의 gnupg2-minimal은 --trust-model 미지원 → GPG 검증 비활성화
+MISE_NODE_VERIFY=false mise use --global node@22
+mise use --global yq@latest
 
 # Claude Code
 curl -fsSL https://claude.ai/install.sh | sh
@@ -69,14 +73,14 @@ sudo apt install -y git tmux jq bc
   | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
   && sudo apt update && sudo apt install -y gh
 
-# yq
-wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-  -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-
-# Node.js 22+
-curl -fsSL https://fnm.vercel.app/install | bash
+# mise (런타임 매니저)
+curl https://mise.run | sh
+echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
 source ~/.bashrc
-fnm install 22
+
+# Node.js + yq (mise로 설치)
+mise use --global node@22
+mise use --global yq@latest
 
 # Claude Code
 curl -fsSL https://claude.ai/install.sh | sh
@@ -86,11 +90,15 @@ curl -fsSL https://claude.ai/install.sh | sh
 
 ```bash
 brew install jq tmux bc gh
-brew install mikefarah/yq/yq
 
-# Node.js (fnm 또는 nvm)
-brew install fnm && fnm install 22
-# 또는: brew install nvm && nvm install 22
+# mise (런타임 매니저)
+brew install mise
+echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
+source ~/.zshrc
+
+# Node.js + yq (mise로 설치)
+mise use --global node@22
+mise use --global yq@latest
 
 # Claude Code
 curl -fsSL https://claude.ai/install.sh | sh
@@ -201,13 +209,34 @@ sudo chown $USER "$DEST"
 cp -r bin "$DEST/"
 cp -r config "$DEST/"
 chmod +x "$DEST"/bin/*.sh
-chmod +x "$DEST"/bin/generals/*.sh
 ```
 
 ### 4.3 디렉토리 초기화
 
 ```bash
 "$DEST/bin/init-dirs.sh"
+```
+
+### 4.3.1 빌트인 장군 설치
+
+소스의 `generals/` 디렉토리에 있는 패키지를 런타임에 설치:
+
+```bash
+for pkg in generals/gen-*; do
+  "$DEST/bin/install-general.sh" "$pkg"
+done
+```
+
+각 장군 패키지는 `manifest.yaml` + `prompt.md`로 구성되며, `install-general.sh`가 매니페스트, 프롬프트 템플릿, 엔트리 스크립트를 자동 생성한다.
+
+외부 장군 패키지 설치도 동일:
+
+```bash
+# GitHub에서 장군 패키지 다운로드
+git clone https://github.com/someone/gen-docs.git
+cd gen-docs && ./install.sh
+# 또는 직접 호출
+$DEST/bin/install-general.sh /path/to/gen-docs
 ```
 
 생성되는 구조:
@@ -233,29 +262,39 @@ chmod +x "$DEST"/bin/generals/*.sh
 │   └── generals/{gen-pr,gen-jira,gen-test}/
 ├── logs/                 # system.log, events.log
 │   └── sessions/         # 병사별 로그
-├── workspace/            # 장군별 작업 디렉토리
-└── plugins/              # CC 플러그인 (선택)
+└── workspace/            # 장군별 작업 디렉토리
 ```
 
 ### 4.4 CC 플러그인 (선택)
 
 장군이 `claude -p` 실행 시 사용하는 플러그인. 없어도 동작하지만 리뷰 품질이 달라짐.
+플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)가 필요하다.
 
 ```bash
-# gen-pr용 (PR 리뷰)
-cp -r /path/to/qp-plugin/friday "$DEST/plugins/friday"
+# 플러그인 설치 (각 장군의 플러그인 설치 가이드 참고)
+# 예: friday 플러그인
+claude plugin install /path/to/friday
 
-# gen-jira용 (Jira 티켓 구현)
-cp -r /path/to/qp-plugin/sunday "$DEST/plugins/sunday"
+# 설치 확인
+cat ~/.claude/settings.json | jq '.enabledPlugins'
 ```
+
+> 장군 매니페스트의 `cc_plugins`에 선언된 플러그인이 전역 설정에 없으면 `ensure_workspace`가 실패한다.
 
 ### 4.5 환경변수 영구화
 
-#### Linux (EC2) — `.env` 파일
+#### Linux (EC2)
 
 ```bash
+# shell rc에 추가 (수동 실행 + tmux 세션에서 사용)
+cat >> ~/.bashrc << 'EOF'
+export JIRA_API_TOKEN="..."
+export JIRA_URL="https://chequer.atlassian.net"
+export SLACK_BOT_TOKEN="xoxb-..."
+EOF
+
+# systemd용 .env 파일도 생성 (systemd 서비스에서 사용)
 cat > /opt/kingdom/.env << 'EOF'
-GH_TOKEN=ghp_...
 JIRA_API_TOKEN=...
 JIRA_URL=https://chequer.atlassian.net
 SLACK_BOT_TOKEN=xoxb-...
@@ -263,9 +302,11 @@ EOF
 chmod 600 /opt/kingdom/.env
 ```
 
-systemd의 `EnvironmentFile`이 이 파일을 로드한다 (6절 참고).
+> `~/.bashrc`: 수동 `start.sh` 실행 및 tmux 세션에서 참조.
+> `.env`: systemd의 `EnvironmentFile`이 로드 (6절 참고).
+> GitHub 인증은 `gh auth login`으로 keyring에 저장되므로 환경변수 불필요.
 
-#### macOS — shell rc
+#### macOS
 
 ```bash
 cat >> ~/.zshrc << 'EOF'
@@ -549,9 +590,13 @@ cd /tmp/kingdom-src && git pull
 cp -r bin /opt/kingdom/
 cp -r config /opt/kingdom/
 chmod +x /opt/kingdom/bin/*.sh
-chmod +x /opt/kingdom/bin/generals/*.sh
 
-# 4. 재시작
+# 4. 장군 재설치
+for pkg in generals/gen-*; do
+  /opt/kingdom/bin/install-general.sh "$pkg" --force
+done
+
+# 5. 재시작
 /opt/kingdom/bin/start.sh
 ```
 

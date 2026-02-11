@@ -7,10 +7,17 @@
 ```
 /opt/kingdom/
 │
+├── generals/                         # 장군 패키지 (소스)
+│   ├── gen-pr/                       #   manifest.yaml + prompt.md + install.sh + README.md
+│   ├── gen-jira/
+│   └── gen-test/
+│
 ├── bin/                              # 실행 스크립트
 │   ├── start.sh                      # 전체 시스템 시작 + 필수 세션 watchdog (60초)
 │   ├── stop.sh                       # 전체 시스템 중지
 │   ├── status.sh                     # 시스템 상태 확인
+│   ├── install-general.sh            # 장군 패키지 → 런타임 설치
+│   ├── uninstall-general.sh          # 장군 정의 제거
 │   │
 │   ├── sentinel.sh                   # 파수꾼 메인 루프
 │   ├── king.sh                       # 왕 메인 루프
@@ -18,7 +25,7 @@
 │   ├── chamberlain.sh                # 내관 메인 루프
 │   ├── spawn-soldier.sh              # 병사 생성기
 │   │
-│   ├── generals/                     # 장군별 스크립트
+│   ├── generals/                     # 장군별 스크립트 (install-general.sh가 자동 생성)
 │   │   ├── gen-pr.sh
 │   │   ├── gen-test.sh
 │   │   └── gen-jira.sh
@@ -50,15 +57,15 @@
 │   ├── system.yaml                   # 전체 시스템 설정
 │   ├── sentinel.yaml                 # 파수꾼 설정
 │   ├── king.yaml                     # 왕 설정 (재시도, 동시성, 인터벌)
-│   ├── generals/                     # 장군 매니페스트 (플러거블)
+│   ├── generals/                     # 장군 매니페스트 (install-general.sh가 설치)
 │   │   ├── gen-pr.yaml               # PR 리뷰 장군 (subscribes, schedules)
 │   │   ├── gen-jira.yaml             # Jira 구현 장군
 │   │   ├── gen-test.yaml             # 테스트 작성 장군
-│   │   └── templates/                # 프롬프트 템플릿 (장군별)
+│   │   └── templates/                # 프롬프트 템플릿 (install-general.sh가 복사)
 │   │       ├── gen-pr.md             # PR 리뷰 프롬프트 템플릿
 │   │       ├── gen-jira.md           # Jira 구현 프롬프트 템플릿
 │   │       ├── gen-test.md           # 테스트 작성 프롬프트 템플릿
-│   │       └── default.md            # 기본 프롬프트 템플릿
+│   │       └── default.md            # 기본 프롬프트 템플릿 (시스템 파일)
 │   ├── envoy.yaml                    # 사절 설정 (Slack 채널)
 │   └── chamberlain.yaml              # 내관 설정 (임계값)
 │
@@ -123,27 +130,15 @@
 │       ├── failures.json
 │       └── stats.json
 │
-├── workspace/                        # 코드 작업 공간 (장군별 격리)
-│   ├── gen-pr/                       # 자동 생성 (ensure_workspace)
-│   │   ├── .claude/
-│   │   │   └── plugins.json          # friday plugin 참조 (자동 생성)
-│   │   ├── CLAUDE.md                 # gen-pr 도메인 컨텍스트 (선택)
-│   │   ├── querypie-frontend/        # 자동 클론
-│   │   └── querypie-backend/
-│   ├── gen-jira/
-│   │   ├── .claude/
-│   │   │   └── plugins.json          # sunday plugin 참조 (자동 생성)
-│   │   └── ...
-│   └── gen-test/
-│       ├── .claude/
-│       │   └── plugins.json          # test plugin 참조 (자동 생성)
-│       └── ...
-│
-└── plugins/                          # Claude Code 플러그인
-    ├── friday/
-    ├── saturday/
-    ├── sunday/
-    └── kingdom/                     # 전용 플러그인
+└── workspace/                        # 코드 작업 공간 (장군별 격리)
+    ├── gen-pr/                       # 자동 생성 (ensure_workspace)
+    │   ├── CLAUDE.md                 # gen-pr 도메인 컨텍스트 (선택)
+    │   ├── querypie-frontend/        # 자동 클론
+    │   └── querypie-backend/
+    ├── gen-jira/
+    │   └── ...
+    └── gen-test/
+        └── ...
 ```
 
 ## 디렉토리별 역할 접근 권한

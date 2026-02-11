@@ -521,34 +521,34 @@ ensure_workspace() {
     return 1
   }
 
-  # ── CC Plugin 설정 ──
-  # 매니페스트의 cc_plugin 정보로 .claude/plugins.json 생성 (없을 때만)
+  # ── CC Plugin 검증 (전역 enabledPlugins 확인) ──
   local manifest="$BASE_DIR/config/generals/${general}.yaml"
   if [ ! -f "$manifest" ]; then
     log "[ERROR] [$general] Manifest not found: $manifest"
     return 1
   fi
 
-  local plugin_name=$(yq eval '.cc_plugin.name // ""' "$manifest" 2>/dev/null || echo "")
-  local plugin_path=$(yq eval '.cc_plugin.path // ""' "$manifest" 2>/dev/null || echo "")
+  local plugin_count=$(yq eval '.cc_plugins | length' "$manifest" 2>/dev/null || echo "0")
 
-  if [ -n "$plugin_name" ] && [ ! -f "$work_dir/.claude/plugins.json" ]; then
-    # 플러그인 경로 존재 확인
-    if [ ! -d "$BASE_DIR/$plugin_path" ]; then
-      log "[ERROR] [$general] Plugin not found: $BASE_DIR/$plugin_path"
+  if (( plugin_count > 0 )); then
+    local global_settings="$HOME/.claude/settings.json"
+    if [ ! -f "$global_settings" ]; then
+      log "[ERROR] [$general] ~/.claude/settings.json not found"
       return 1
     fi
 
-    mkdir -p "$work_dir/.claude"
-    cat > "$work_dir/.claude/plugins.json" <<EOF
-[
-  {
-    "name": "$plugin_name",
-    "path": "$BASE_DIR/$plugin_path"
-  }
-]
-EOF
-    log "[SYSTEM] [$general] CC Plugin configured: $plugin_name"
+    local i=0
+    while (( i < plugin_count )); do
+      local required_name=$(yq eval ".cc_plugins[$i]" "$manifest")
+      local found=$(jq -r --arg n "$required_name" \
+        '.enabledPlugins // [] | map(select(. == $n or endswith("/" + $n))) | length' \
+        "$global_settings")
+      if [ "$found" -eq 0 ]; then
+        log "[ERROR] [$general] Required plugin not enabled globally: $required_name"
+        return 1
+      fi
+      i=$((i + 1))
+    done
   fi
 
   # ── 레포 클론/업데이트 ──
@@ -572,53 +572,35 @@ EOF
 }
 ```
 
-> **plugins.json 멱등성**: 파일이 이미 존재하면 덮어쓰지 않는다. 매니페스트의 cc_plugin이 변경된 경우 수동 삭제 후 재생성 필요.
+> **전역 플러그인 검증**: 매니페스트의 `cc_plugins` 배열에 선언된 플러그인이 `~/.claude/settings.json`의 `enabledPlugins`에 등록되어 있는지 확인한다. 플러그인 이름 또는 경로의 끝부분으로 매칭한다.
 
 ---
 
 ## CC Plugin 통합
 
-병사의 도구는 CC Plugin(friday, sunday 등)이다. 장군이 프롬프트에서 플러그인을 지정하는 대신, **workspace 기반으로 CC Plugin을 자동 로드**한다.
+병사의 도구는 CC Plugin(friday, sunday 등)이다. 플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)로 관리한다.
 
-### workspace 기반 CC Plugin 설정
+### 전역 플러그인 설정
 
-```
-workspace/
-├── gen-pr/
-│   ├── .claude/
-│   │   └── plugins.json      # friday plugin 참조
-│   ├── CLAUDE.md              # gen-pr 도메인 컨텍스트 (선택)
-│   ├── querypie-frontend/     # git worktree
-│   └── querypie-backend/
-├── gen-jira/
-│   ├── .claude/
-│   │   └── plugins.json      # sunday plugin 참조
-│   ├── CLAUDE.md
-│   └── ...
-└── gen-test/
-    ├── .claude/
-    │   └── plugins.json      # 신규 test plugin
-    └── ...
+플러그인은 `claude plugin install` 명령으로 전역 설치하며, `~/.claude/settings.json`의 `enabledPlugins` 배열에 등록된다.
+
+```json
+// ~/.claude/settings.json
+{
+  "enabledPlugins": [
+    "friday",
+    "/path/to/sunday"
+  ]
+}
 ```
 
 ### 메커니즘
 
-1. 장군 매니페스트에 `cc_plugin` 필드 선언 (name, path)
-2. `ensure_workspace()`가 workspace 초기 설정 시 `.claude/plugins.json` 자동 생성 (없을 때만)
-3. 병사가 `cd '$WORK_DIR' && claude -p`로 실행되면 CC Plugin이 자동 로드
+1. 장군 매니페스트에 `cc_plugins` 배열로 필요한 플러그인 이름 선언
+2. `ensure_workspace()`가 전역 settings에 해당 플러그인이 등록되어 있는지 검증
+3. 병사가 `cd '$WORK_DIR' && claude -p`로 실행되면 전역 CC Plugin이 자동 로드
 4. 장군의 `build_prompt()`에서 `--plugin` CLI 파라미터 불필요
 5. CC Plugin 사용법(커맨드, 워크플로우)은 **프롬프트 템플릿에 포함**
-
-### plugins.json 예시
-
-```json
-[
-  {
-    "name": "friday",
-    "path": "/opt/kingdom/plugins/friday"
-  }
-]
-```
 
 ---
 
@@ -772,25 +754,29 @@ conventions.md      — 브랜치 네이밍, 커밋 컨벤션
 
 ## 확장 가이드
 
-새 장군을 추가하려면:
+새 장군은 **패키지** 단위로 만들고 `install-general.sh`로 설치한다:
 
-1. **매니페스트 작성**: `config/generals/gen-{domain}.yaml` (subscribes + schedules + cc_plugin 선언)
-2. **CC Plugin 배치**: `plugins/{plugin-name}/` (기존 플러그인 사용 또는 신규 작성)
-3. **프롬프트 템플릿**: `config/generals/templates/gen-{domain}.md` (도메인별 지시사항 + CC Plugin 사용법)
-4. **스크립트 생성**: `bin/generals/gen-{domain}.sh` (GENERAL_DOMAIN 설정 + main_loop 호출)
-5. **메모리 디렉토리**: `memory/generals/{domain}/`
-6. **왕/센티널 코드 수정 불필요** — 매니페스트만 추가하면 왕이 자동 인식
-7. **시나리오 참고**: [docs/examples/](../examples/)에 이벤트 기반(gen-pr)과 스케줄 기반(gen-test) 장군의 전체 동작 시나리오가 있다
+1. **패키지 디렉토리 생성**: `manifest.yaml` + `prompt.md` + `install.sh` + `README.md`
+2. **CC Plugin 전역 설치** (필요 시): `claude plugin install /path/to/plugin`
+3. **설치**: `./install.sh` 실행 (또는 `install-general.sh` 직접 호출)
+4. **Kingdom 재시작**: `start.sh` — 왕이 새 매니페스트를 자동 인식
+
+패키지 포맷:
+```
+gen-docs/
+├── manifest.yaml    # 매니페스트 (이벤트 구독, 플러그인, 타임아웃)
+├── prompt.md        # 병사 지시용 프롬프트 템플릿
+├── install.sh       # 설치 스크립트 (Kingdom의 install-general.sh 호출)
+└── README.md        # 설치 가이드 + 사용법
+```
 
 ```yaml
-# config/generals/gen-docs.yaml (예: 문서 작성 장군)
+# manifest.yaml (예: 문서 작성 장군)
 name: gen-docs
 description: "문서 작성 장군"
-script: "bin/generals/gen-docs.sh"
 
-cc_plugin:
-  name: doc-writer
-  path: "plugins/doc-writer"
+cc_plugins:
+  - doc-writer
 
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
 
@@ -800,6 +786,19 @@ schedules:
     task_type: "docs-generation"
     payload: {}
 ```
+
+```bash
+# install.sh (패키지 안 — 얇은 래퍼)
+#!/usr/bin/env bash
+KINGDOM_BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+PACKAGE_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
+```
+
+> `install-general.sh`가 매니페스트 복사, 프롬프트 템플릿 복사, 엔트리 스크립트 자동 생성, 런타임 디렉토리 생성을 모두 처리한다.
+> 왕/센티널 코드 수정 불필요 — 매니페스트만 추가하면 왕이 자동 인식.
+>
+> **시나리오 참고**: [docs/examples/](../examples/)에 이벤트 기반(gen-pr)과 스케줄 기반(gen-test) 장군의 전체 동작 시나리오가 있다
 
 ### workspace 제약
 
@@ -837,7 +836,7 @@ schedules:
 |------|------|
 | workspace 생성 실패 | 에러 로그, task를 failed로 왕에게 보고 |
 | manifest 파싱 실패 | 에러 로그, ensure_workspace 실패 → task failed |
-| CC Plugin 경로 없음 | ensure_workspace에서 검증 실패 → task failed |
+| CC Plugin 전역 미등록 | ensure_workspace에서 enabledPlugins 검증 실패 → task failed |
 | git clone 실패 | 에러 로그, task failed로 보고 |
 | git fetch 실패 | 경고 로그, stale 상태로 작업 계속 |
 | 프롬프트 템플릿 없음 | default 템플릿 사용, 없으면 task failed |
@@ -853,28 +852,32 @@ schedules:
 ## 스크립트 위치
 
 ```
-bin/generals/
-├── gen-pr.sh                        # GENERAL_DOMAIN="gen-pr" + main_loop
-├── gen-test.sh                      # GENERAL_DOMAIN="gen-test" + main_loop
-└── gen-jira.sh                      # GENERAL_DOMAIN="gen-jira" + main_loop
+generals/                                # 장군 패키지 (소스)
+├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md
+├── gen-jira/
+└── gen-test/
+
+bin/generals/                            # 엔트리 스크립트 (install-general.sh가 자동 생성)
+├── gen-pr.sh                            # GENERAL_DOMAIN="gen-pr" + main_loop
+├── gen-test.sh
+└── gen-jira.sh
 
 bin/lib/general/
-├── common.sh                        # main_loop, pick_next_task, spawn_soldier,
-│                                    # wait_for_soldier, report_to_king,
-│                                    # escalate_to_king, ensure_workspace,
-│                                    # load_domain_memory, load_repo_memory,
-│                                    # update_memory
-└── prompt-builder.sh                # build_prompt
+├── common.sh                            # main_loop, pick_next_task, spawn_soldier,
+│                                        # wait_for_soldier, report_to_king,
+│                                        # escalate_to_king, ensure_workspace,
+│                                        # load_domain_memory, load_repo_memory,
+│                                        # update_memory
+└── prompt-builder.sh                    # build_prompt
 
-config/generals/
-├── gen-pr.yaml                      # 매니페스트
-├── gen-jira.yaml
-├── gen-test.yaml
-└── templates/                       # 프롬프트 템플릿
-    ├── gen-pr.md                    # friday 사용법 포함
-    ├── gen-jira.md                  # sunday 사용법 포함
-    ├── gen-test.md
-    └── default.md                   # fallback 템플릿
+bin/install-general.sh                   # 패키지 → 런타임 설치
+bin/uninstall-general.sh                 # 장군 정의 제거
+
+config/generals/                         # 런타임 매니페스트 (install-general.sh가 복사)
+├── gen-pr.yaml / gen-jira.yaml / gen-test.yaml
+└── templates/                           # 프롬프트 템플릿
+    ├── gen-pr.md / gen-jira.md / gen-test.md
+    └── default.md                       # fallback 템플릿
 ```
 
 ---

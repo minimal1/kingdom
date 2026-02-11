@@ -43,15 +43,13 @@
 ### 매니페스트 스키마
 
 ```yaml
-# config/generals/gen-pr.yaml
+# generals/gen-pr/manifest.yaml (install-general.sh로 설치 → config/generals/gen-pr.yaml)
 name: gen-pr
 description: "PR 리뷰 전문 장군"
-script: "bin/generals/gen-pr.sh"
 timeout_seconds: 1800       # 30분 — 리뷰는 읽기 + 코멘트 위주
 
-cc_plugin:
-  name: friday
-  path: "plugins/friday"
+cc_plugins:
+  - friday
 
 # 구독: 이 장군이 처리할 수 있는 이벤트 타입
 subscribes:
@@ -64,47 +62,42 @@ schedules: []
 ```
 
 ```yaml
-# config/generals/gen-jira.yaml
+# generals/gen-jira/manifest.yaml
 name: gen-jira
 description: "Jira 티켓 구현 장군"
-script: "bin/generals/gen-jira.sh"
 timeout_seconds: 5400       # 90분 — 코드 구현 + lint + test
 
-cc_plugin:
-  name: sunday
-  path: "plugins/sunday"
+cc_plugins:
+  - sunday
 
 subscribes:
   - jira.ticket.assigned
   - jira.ticket.updated
-  - jira.ticket.commented
 
 schedules: []
 ```
 
 ```yaml
-# config/generals/gen-test.yaml
+# generals/gen-test/manifest.yaml
 name: gen-test
 description: "테스트 코드 작성 장군"
-script: "bin/generals/gen-test.sh"
 timeout_seconds: 3600       # 60분 — 코드 분석 + 테스트 작성 + 실행
 
-cc_plugin:
-  name: test-runner         # 신규 플러그인 (TBD)
-  path: "plugins/test-runner"
+cc_plugins:
+  - saturday
 
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
 
 schedules:
-  - name: test-coverage-check
-    cron: "0 3 * * 1"                 # 매주 월요일 03:00
-    task_type: "test-coverage-analysis"
+  - name: daily-test
+    cron: "0 22 * * 1-5"
+    task_type: "daily-test-generation"
     payload:
-      repos: ["querypie/frontend", "querypie/backend"]
-      target: "coverage < 80% 인 모듈"
+      description: "Weekday 22:00 test generation"
 ```
 
-> `cc_plugin` 필드는 장군의 `ensure_workspace()`가 소비한다. 왕의 라우팅 로직(`load_general_manifests`)은 subscribes/schedules만 읽으므로 변경 불필요.
+> `cc_plugins` 필드는 장군의 `ensure_workspace()`가 소비한다. 왕의 라우팅 로직(`load_general_manifests`)은 subscribes/schedules만 읽으므로 변경 불필요.
+> 매니페스트 소스는 `generals/gen-{name}/manifest.yaml`이며, `install-general.sh`가 `config/generals/{name}.yaml`로 복사한다.
 
 ### 시작 시 라우팅 테이블 구성
 

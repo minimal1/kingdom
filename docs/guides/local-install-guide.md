@@ -6,8 +6,12 @@
 
 ```bash
 brew install jq tmux bc
-brew install mikefarah/yq/yq
-# node (fnm 또는 nvm으로 v22+)
+brew install mise
+
+# mise로 런타임 설치
+mise use --global node@22
+mise use --global yq@latest
+
 # claude code (이미 설치되어 있을 것)
 ```
 
@@ -53,13 +57,20 @@ cp -r $SRC/config $KINGDOM_BASE_DIR/
 
 # 실행 권한 부여
 chmod +x $KINGDOM_BASE_DIR/bin/*.sh
-chmod +x $KINGDOM_BASE_DIR/bin/generals/*.sh
 ```
 
 ### 2.2 디렉토리 초기화
 
 ```bash
 $KINGDOM_BASE_DIR/bin/init-dirs.sh
+```
+
+### 2.2.1 빌트인 장군 설치
+
+```bash
+for pkg in $SRC/generals/gen-*; do
+  $KINGDOM_BASE_DIR/bin/install-general.sh "$pkg"
+done
 ```
 
 출력 예시:
@@ -90,6 +101,8 @@ Kingdom directories initialized at /Users/eddy/kingdom
 └── workspace/            # 장군별 작업 디렉토리
 ```
 
+> 이전 버전에서는 `plugins/` 디렉토리와 workspace별 `.claude/plugins.json`이 있었으나, 현재는 전역 설치 방식으로 변경.
+
 ### 2.3 환경 검증
 
 ```bash
@@ -119,22 +132,25 @@ Kingdom Prerequisites Check
 ## 3. CC 플러그인 설정 (선택)
 
 장군들이 `claude -p` 실행 시 사용하는 플러그인. 없어도 동작하지만 리뷰 품질이 달라짐.
+플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)가 필요하다.
 
 ```bash
-# friday (PR 리뷰용) — gen-pr이 사용
-cp -r /path/to/qp-plugin/friday $KINGDOM_BASE_DIR/plugins/friday
+# 플러그인 설치 (각 장군의 플러그인 설치 가이드 참고)
+# 예: friday 플러그인
+claude plugin install /path/to/friday
 
-# sunday (Jira 대응용) — gen-jira가 사용
-cp -r /path/to/qp-plugin/sunday $KINGDOM_BASE_DIR/plugins/sunday
+# 설치 확인
+cat ~/.claude/settings.json | jq '.enabledPlugins'
 ```
 
-config에서 플러그인 경로 확인:
+장군 매니페스트에서 필요한 플러그인 확인:
 ```yaml
-# config/generals/gen-pr.yaml
-cc_plugin:
-  name: friday
-  path: plugins/friday     # KINGDOM_BASE_DIR 상대 경로
+# generals/gen-pr/manifest.yaml (소스) → install 후 config/generals/gen-pr.yaml (런타임)
+cc_plugins:
+  - friday
 ```
+
+> `ensure_workspace`가 매니페스트의 `cc_plugins`를 읽어 전역 settings에 해당 플러그인이 있는지 검증한다.
 
 ---
 
@@ -206,7 +222,7 @@ Ctrl+C로 종료 (graceful shutdown).
 
 ## 5. 수동 E2E 테스트
 
-자동 테스트(bats 208개)와 별개로, 실제 외부 서비스를 사용하는 수동 테스트.
+자동 테스트(bats 223개)와 별개로, 실제 외부 서비스를 사용하는 수동 테스트.
 
 ### 5.1 테스트 A: 이벤트 수동 주입 → 태스크 처리
 

@@ -2,25 +2,25 @@
 
 > **스케줄 기반 장군의 예시.** 파수꾼이 아닌 왕의 cron 스케줄이 트리거하며, 테스트 커버리지를 분석하고 부족한 모듈에 테스트를 작성한다.
 >
-> 사용자는 `schedules`, `cc_plugin`, `timeout_seconds`, `payload`를 자기 도메인에 맞게 조정하여 새로운 스케줄 기반 장군을 구성할 수 있다.
+> 사용자는 `schedules`, `cc_plugins`, `timeout_seconds`, `payload`를 자기 도메인에 맞게 조정하여 새로운 스케줄 기반 장군을 구성할 수 있다.
 
 ---
 
 ## 매니페스트 요약
 
 ```yaml
-# config/generals/gen-test.yaml
+# generals/gen-test/manifest.yaml
 name: gen-test
 timeout_seconds: 3600          # 60분
-cc_plugin: { name: test-runner, path: "plugins/test-runner" }  # 신규 구성 필요
+cc_plugins:
+  - saturday
 subscribes: []                 # 외부 이벤트 없음
 schedules:
-  - name: test-coverage-check
-    cron: "0 3 * * 1"         # 매주 월요일 03:00
-    task_type: "test-coverage-analysis"
+  - name: daily-test
+    cron: "0 22 * * 1-5"
+    task_type: "daily-test-generation"
     payload:
-      repos: ["querypie/frontend", "querypie/backend"]
-      target: "coverage < 80% 인 모듈"
+      description: "Weekday 22:00 test generation"
 ```
 
 **gen-pr과의 핵심 차이**: 파수꾼이 트리거하지 않음. 왕이 cron 스케줄로 직접 작업 생성.
@@ -116,7 +116,7 @@ T+~11s  장군 load_domain_memory("gen-test")
           - learned-patterns.md (이전 학습)
 
 T+~12s  장군 build_prompt()
-        → 템플릿: config/generals/templates/gen-test.md
+        → 템플릿: config/generals/templates/gen-test.md (install-general.sh가 설치한 런타임 파일)
         → 프롬프트 핵심 내용:
           "대상 레포의 커버리지 < 80% 모듈을 분석하고,
            테스트를 작성하고, 실행하여 커버리지를 개선하고,

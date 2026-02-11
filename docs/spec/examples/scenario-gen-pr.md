@@ -2,17 +2,18 @@
 
 > **이벤트 기반 장군의 예시.** 파수꾼이 GitHub 이벤트를 감지하면, 왕이 gen-pr에게 작업을 배정하고, friday CC Plugin으로 PR 리뷰를 수행한다.
 >
-> 사용자는 `subscribes`, `cc_plugin`, `timeout_seconds`를 자기 도메인에 맞게 조정하여 새로운 이벤트 기반 장군을 구성할 수 있다.
+> 사용자는 `subscribes`, `cc_plugins`, `timeout_seconds`를 자기 도메인에 맞게 조정하여 새로운 이벤트 기반 장군을 구성할 수 있다.
 
 ---
 
 ## 매니페스트 요약
 
 ```yaml
-# config/generals/gen-pr.yaml
+# generals/gen-pr/manifest.yaml
 name: gen-pr
 timeout_seconds: 1800          # 30분
-cc_plugin: { name: friday, path: "plugins/friday" }
+cc_plugins:
+  - friday
 subscribes:
   - github.pr.review_requested
   - github.pr.mentioned
@@ -113,7 +114,7 @@ T+~20s  장군 load_domain_memory("gen-pr")
         → 50KB 이내로 트림
 
 T+~21s  장군 build_prompt()
-        → 템플릿: config/generals/templates/gen-pr.md
+        → 템플릿: config/generals/templates/gen-pr.md (install-general.sh가 설치한 런타임 파일)
         → 플레이스홀더 치환: {{TASK_ID}} → task-20260207-001, {{REPO}} → querypie/frontend
         → 섹션 추가: payload, 도메인 메모리, 레포 컨텍스트, 출력 요구사항
         → 쓰기: state/prompts/task-20260207-001.md
