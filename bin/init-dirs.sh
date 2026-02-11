@@ -17,14 +17,19 @@ mkdir -p "$BASE_DIR"/queue/tasks/{pending,in_progress,completed}
 mkdir -p "$BASE_DIR"/queue/messages/{pending,sent}
 
 mkdir -p "$BASE_DIR"/state/{king,sentinel/seen,envoy,chamberlain,results,prompts}
-mkdir -p "$BASE_DIR"/state/{gen-pr,gen-jira,gen-test}
-
-mkdir -p "$BASE_DIR"/memory/shared
-mkdir -p "$BASE_DIR"/memory/generals/{gen-pr,gen-jira,gen-test}
-
 mkdir -p "$BASE_DIR"/logs/{sessions,analysis}
 
-mkdir -p "$BASE_DIR"/workspace/{gen-pr,gen-jira,gen-test}
+mkdir -p "$BASE_DIR"/memory/shared
+
+# 장군 디렉토리: 매니페스트에서 동적 스캔
+for manifest in "$BASE_DIR"/config/generals/*.yaml; do
+  [ -f "$manifest" ] || continue
+  gen_name=$(yq eval '.name' "$manifest" 2>/dev/null || true)
+  [ -z "$gen_name" ] || [ "$gen_name" = "null" ] && continue
+  mkdir -p "$BASE_DIR/state/$gen_name"
+  mkdir -p "$BASE_DIR/memory/generals/$gen_name"
+  mkdir -p "$BASE_DIR/workspace/$gen_name"
+done
 
 # --- Initial State Files (only if missing) ---
 

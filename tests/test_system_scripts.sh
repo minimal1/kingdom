@@ -7,9 +7,9 @@ setup() {
 
   # Copy configs
   cp "${BATS_TEST_DIRNAME}/../config/chamberlain.yaml" "$BASE_DIR/config/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-pr.yaml" "$BASE_DIR/config/generals/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-jira.yaml" "$BASE_DIR/config/generals/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-test.yaml" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
+  install_test_general "gen-jira"
+  install_test_general "gen-test"
 
   # Copy init-dirs.sh
   cp "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh" "$BASE_DIR/bin/"

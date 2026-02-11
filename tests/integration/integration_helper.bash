@@ -6,10 +6,9 @@ setup_integration_env() {
   local src_dir="${BATS_TEST_DIRNAME}/../.."
   cp "$src_dir/config/king.yaml" "$BASE_DIR/config/"
   cp "$src_dir/config/chamberlain.yaml" "$BASE_DIR/config/"
-  cp "$src_dir/config/generals/gen-pr.yaml" "$BASE_DIR/config/generals/"
-  cp "$src_dir/config/generals/gen-jira.yaml" "$BASE_DIR/config/generals/"
-  cp "$src_dir/config/generals/gen-test.yaml" "$BASE_DIR/config/generals/"
-  cp -r "$src_dir/config/generals/templates" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
+  install_test_general "gen-jira"
+  install_test_general "gen-test"
 
   # Source common + king modules
   source "$src_dir/bin/lib/common.sh"

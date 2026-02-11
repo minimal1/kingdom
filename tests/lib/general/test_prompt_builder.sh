@@ -6,6 +6,7 @@ setup() {
   setup_kingdom_env
 
   cp -r "${BATS_TEST_DIRNAME}/../../../config/generals/templates" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
 
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/common.sh"
 

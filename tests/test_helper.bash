@@ -20,12 +20,29 @@ setup_kingdom_env() {
   mkdir -p "$BASE_DIR"/queue/tasks/in_progress
   mkdir -p "$BASE_DIR"/queue/messages/sent
   mkdir -p "$BASE_DIR"/state/{king,sentinel/seen,envoy,chamberlain,results,prompts}
-  mkdir -p "$BASE_DIR"/memory/{shared,generals/{gen-pr,gen-jira,gen-test}}
-  mkdir -p "$BASE_DIR"/workspace/{gen-pr,gen-jira,gen-test}
+  mkdir -p "$BASE_DIR"/memory/shared
+
+  # 장군 디렉토리 (테스트 공통)
+  local generals=("gen-pr" "gen-jira" "gen-test")
+  for g in "${generals[@]}"; do
+    mkdir -p "$BASE_DIR/memory/generals/$g"
+    mkdir -p "$BASE_DIR/workspace/$g"
+  done
 }
 
 teardown_kingdom_env() {
   if [[ -n "$BASE_DIR" && "$BASE_DIR" == /tmp/* ]]; then
     rm -rf "$BASE_DIR"
+  fi
+}
+
+# 패키지에서 장군 매니페스트를 테스트 환경에 설치
+install_test_general() {
+  local name="$1"
+  local project_root="${TESTS_ROOT}/.."
+  mkdir -p "$BASE_DIR/config/generals/templates"
+  cp "$project_root/generals/$name/manifest.yaml" "$BASE_DIR/config/generals/${name}.yaml"
+  if [ -f "$project_root/generals/$name/prompt.md" ]; then
+    cp "$project_root/generals/$name/prompt.md" "$BASE_DIR/config/generals/templates/${name}.md"
   fi
 }

@@ -7,9 +7,9 @@ setup() {
 
   # Copy configs
   cp "${BATS_TEST_DIRNAME}/../config/king.yaml" "$BASE_DIR/config/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-pr.yaml" "$BASE_DIR/config/generals/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-jira.yaml" "$BASE_DIR/config/generals/"
-  cp "${BATS_TEST_DIRNAME}/../config/generals/gen-test.yaml" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
+  install_test_general "gen-jira"
+  install_test_general "gen-test"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/router.sh"

@@ -62,34 +62,35 @@ ensure_workspace() {
     return 1
   }
 
-  # CC Plugin setup from manifest
+  # CC Plugin validation (global enabledPlugins check)
   local manifest="$BASE_DIR/config/generals/${general}.yaml"
   if [ ! -f "$manifest" ]; then
     log "[ERROR] [$general] Manifest not found: $manifest"
     return 1
   fi
 
-  local plugin_name
-  plugin_name=$(yq eval '.cc_plugin.name // ""' "$manifest" 2>/dev/null || echo "")
-  local plugin_path
-  plugin_path=$(yq eval '.cc_plugin.path // ""' "$manifest" 2>/dev/null || echo "")
+  local plugin_count
+  plugin_count=$(yq eval '.cc_plugins | length' "$manifest" 2>/dev/null || echo "0")
 
-  if [ -n "$plugin_name" ] && [ ! -f "$work_dir/.claude/plugins.json" ]; then
-    if [ ! -d "$BASE_DIR/$plugin_path" ]; then
-      log "[ERROR] [$general] Plugin not found: $BASE_DIR/$plugin_path"
+  if (( plugin_count > 0 )); then
+    local global_settings="$HOME/.claude/settings.json"
+    if [ ! -f "$global_settings" ]; then
+      log "[ERROR] [$general] ~/.claude/settings.json not found"
       return 1
     fi
 
-    mkdir -p "$work_dir/.claude"
-    cat > "$work_dir/.claude/plugins.json" <<EOF
-[
-  {
-    "name": "$plugin_name",
-    "path": "$BASE_DIR/$plugin_path"
-  }
-]
-EOF
-    log "[SYSTEM] [$general] CC Plugin configured: $plugin_name"
+    local i=0
+    while (( i < plugin_count )); do
+      local required_name
+      required_name=$(yq eval ".cc_plugins[$i]" "$manifest")
+      local found
+      found=$(jq -r --arg n "$required_name" '.enabledPlugins // [] | map(select(. == $n or endswith("/" + $n))) | length' "$global_settings")
+      if [ "$found" -eq 0 ]; then
+        log "[ERROR] [$general] Required plugin not enabled globally: $required_name"
+        return 1
+      fi
+      i=$((i + 1))
+    done
   fi
 
   # Repo clone/update

@@ -5,10 +5,13 @@ setup() {
   load '../../test_helper'
   setup_kingdom_env
 
+  # Override HOME for global settings.json isolation
+  ORIGINAL_HOME="$HOME"
+  export HOME="$(mktemp -d)"
+
   # Copy configs
-  cp "${BATS_TEST_DIRNAME}/../../../config/generals/gen-pr.yaml" "$BASE_DIR/config/generals/"
-  cp "${BATS_TEST_DIRNAME}/../../../config/generals/gen-jira.yaml" "$BASE_DIR/config/generals/"
-  cp -r "${BATS_TEST_DIRNAME}/../../../config/generals/templates" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
+  install_test_general "gen-jira"
 
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/common.sh"
 
@@ -32,6 +35,10 @@ MOCKEOF
 
 teardown() {
   teardown_kingdom_env
+  if [[ -n "$HOME" && "$HOME" == /tmp/* ]]; then
+    rm -rf "$HOME"
+  fi
+  export HOME="$ORIGINAL_HOME"
 }
 
 # --- pick_next_task ---
@@ -78,38 +85,55 @@ EOF
 # --- ensure_workspace ---
 
 @test "general: ensure_workspace creates directory" {
-  # Create plugin directory for validation
-  mkdir -p "$BASE_DIR/plugins/friday"
+  # Setup global settings with plugin enabled
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":["friday"]}' > "$HOME/.claude/settings.json"
 
   local result
   result=$(ensure_workspace "gen-pr" "")
   assert [ -d "$BASE_DIR/workspace/gen-pr" ]
 }
 
-@test "general: ensure_workspace creates plugins.json" {
-  mkdir -p "$BASE_DIR/plugins/friday"
+@test "general: ensure_workspace validates plugin enabled globally" {
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":["friday","/path/to/sunday"]}' > "$HOME/.claude/settings.json"
 
-  ensure_workspace "gen-pr" "" > /dev/null
-  assert [ -f "$BASE_DIR/workspace/gen-pr/.claude/plugins.json" ]
-
-  run jq -r '.[0].name' "$BASE_DIR/workspace/gen-pr/.claude/plugins.json"
-  assert_output "friday"
+  run ensure_workspace "gen-pr" ""
+  assert_success
 }
 
-@test "general: ensure_workspace is idempotent for plugins.json" {
-  mkdir -p "$BASE_DIR/plugins/friday"
-  mkdir -p "$BASE_DIR/workspace/gen-pr/.claude"
-  echo '[{"name":"existing"}]' > "$BASE_DIR/workspace/gen-pr/.claude/plugins.json"
+@test "general: ensure_workspace fails when plugin not enabled" {
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":["other-plugin"]}' > "$HOME/.claude/settings.json"
 
-  ensure_workspace "gen-pr" "" > /dev/null
+  run ensure_workspace "gen-pr" ""
+  assert_failure
+}
 
-  # Should not overwrite
-  run jq -r '.[0].name' "$BASE_DIR/workspace/gen-pr/.claude/plugins.json"
-  assert_output "existing"
+@test "general: ensure_workspace skips validation without cc_plugins" {
+  # Use a manifest without cc_plugins
+  cat > "$BASE_DIR/config/generals/gen-noplugin.yaml" << 'EOF'
+name: gen-noplugin
+description: "No plugin general"
+subscribes: []
+schedules: []
+EOF
+
+  run ensure_workspace "gen-noplugin" ""
+  assert_success
+}
+
+@test "general: ensure_workspace fails when settings.json missing" {
+  # Ensure no settings.json exists
+  rm -f "$HOME/.claude/settings.json"
+
+  run ensure_workspace "gen-pr" ""
+  assert_failure
 }
 
 @test "general: ensure_workspace clones repo" {
-  mkdir -p "$BASE_DIR/plugins/friday"
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":["friday"]}' > "$HOME/.claude/settings.json"
 
   local result
   result=$(ensure_workspace "gen-pr" "chequer/frontend")

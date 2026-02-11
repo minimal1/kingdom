@@ -47,13 +47,29 @@ teardown() {
   assert [ -d "$BASE_DIR/state/prompts" ]
 }
 
-@test "init-dirs: creates memory directories" {
+@test "init-dirs: creates memory directories from manifests" {
+  # 매니페스트 설치 (init-dirs.sh가 동적 스캔)
+  mkdir -p "$BASE_DIR/config/generals"
+  install_test_general "gen-pr"
+  install_test_general "gen-jira"
+  install_test_general "gen-test"
+
   run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
   assert_success
   assert [ -d "$BASE_DIR/memory/shared" ]
   assert [ -d "$BASE_DIR/memory/generals/gen-pr" ]
   assert [ -d "$BASE_DIR/memory/generals/gen-jira" ]
   assert [ -d "$BASE_DIR/memory/generals/gen-test" ]
+  assert [ -d "$BASE_DIR/state/gen-pr" ]
+  assert [ -d "$BASE_DIR/workspace/gen-pr" ]
+}
+
+@test "init-dirs: no general dirs without manifests" {
+  run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
+  assert_success
+  assert [ -d "$BASE_DIR/memory/shared" ]
+  # 매니페스트 없으면 장군 디렉토리 없음
+  assert [ ! -d "$BASE_DIR/memory/generals/gen-pr" ]
 }
 
 @test "init-dirs: creates initial state files" {

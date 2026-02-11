@@ -7,7 +7,7 @@ setup() {
 
   cp "${BATS_TEST_DIRNAME}/../../../config/chamberlain.yaml" "$BASE_DIR/config/"
   # Need general manifests for check_heartbeats
-  cp "${BATS_TEST_DIRNAME}/../../../config/generals/gen-pr.yaml" "$BASE_DIR/config/generals/"
+  install_test_general "gen-pr"
 
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/chamberlain/auto-recovery.sh"
