@@ -88,8 +88,13 @@ teardown() {
   "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh" > /dev/null
   run jq -r '.health' "$BASE_DIR/state/resources.json"
   assert_output "green"
-  run jq -r '.updated_at' "$BASE_DIR/state/resources.json"
+  run jq -r '.timestamp' "$BASE_DIR/state/resources.json"
   assert_output --regexp '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+  # system metrics initialized to 0
+  run jq -r '.system.cpu_percent' "$BASE_DIR/state/resources.json"
+  assert_output "0"
+  run jq -r '.system.memory_percent' "$BASE_DIR/state/resources.json"
+  assert_output "0"
 }
 
 @test "init-dirs: king sequences start at 0" {

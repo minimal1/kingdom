@@ -42,10 +42,15 @@ fi
 # sessions.json: JSONL format (empty file)
 [[ -f "$BASE_DIR/state/sessions.json" ]] || touch "$BASE_DIR/state/sessions.json"
 
-# resources.json
+# resources.json (chamberlain이 갱신하기 전 초기 스키마 — update_resources_json과 동일 구조)
 if [[ ! -f "$BASE_DIR/state/resources.json" ]]; then
   local_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  jq -n --arg ts "$local_ts" '{"health":"green","updated_at":$ts}' > "$BASE_DIR/state/resources.json"
+  jq -n --arg ts "$local_ts" '{
+    timestamp: $ts,
+    system: { cpu_percent: 0, memory_percent: 0, disk_percent: 0, load_average: [0,0,0] },
+    sessions: { soldiers_active: 0, soldiers_max: 3, list: [] },
+    health: "green"
+  }' > "$BASE_DIR/state/resources.json"
 fi
 
 # King sequence counters
