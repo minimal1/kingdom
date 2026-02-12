@@ -69,11 +69,21 @@ github_parse() {
     {
       id: ("evt-github-" + .id),
       type: (
-        if .reason == "review_requested" then "github.pr.review_requested"
-        elif .reason == "assign" then "github.pr.assigned"
-        elif .reason == "mention" then "github.pr.mentioned"
-        elif .reason == "comment" then "github.pr.comment"
-        elif .reason == "state_change" then "github.pr.state_change"
+        if .subject.type == "PullRequest" then
+          if .reason == "review_requested" then "github.pr.review_requested"
+          elif .reason == "assign" then "github.pr.assigned"
+          elif .reason == "mention" then "github.pr.mentioned"
+          elif .reason == "comment" then "github.pr.comment"
+          elif .reason == "state_change" then "github.pr.state_change"
+          else ("github.pr." + .reason)
+          end
+        elif .subject.type == "Issue" then
+          if .reason == "assign" then "github.issue.assigned"
+          elif .reason == "mention" then "github.issue.mentioned"
+          elif .reason == "comment" then "github.issue.comment"
+          elif .reason == "state_change" then "github.issue.state_change"
+          else ("github.issue." + .reason)
+          end
         else ("github.notification." + .reason)
         end
       ),
@@ -84,7 +94,8 @@ github_parse() {
         subject_title: .subject.title,
         subject_url: .subject.url,
         subject_type: .subject.type,
-        updated_at: .updated_at
+        updated_at: .updated_at,
+        pr_number: (.subject.url | capture("/(?<num>[0-9]+)$") | .num // null)
       },
       priority: (
         if .reason == "review_requested" then "normal"

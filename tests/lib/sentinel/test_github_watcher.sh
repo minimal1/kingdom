@@ -38,7 +38,7 @@ teardown() {
   local events
   events=$(github_parse "$raw")
   run jq -r '.[1].type' <<< "$events"
-  assert_output "github.pr.assigned"
+  assert_output "github.issue.assigned"
 }
 
 @test "github: parse sets correct priority" {
@@ -100,4 +100,40 @@ EOF
   events=$(github_parse "$raw")
   run jq -r '.[0].id' <<< "$events"
   assert_output --regexp '^evt-github-[0-9]+$'
+}
+
+@test "github: parse extracts pr_number from PullRequest URL" {
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/github-notification.json")
+  local events
+  events=$(github_parse "$raw")
+  run jq -r '.[0].payload.pr_number' <<< "$events"
+  assert_output "1234"
+}
+
+@test "github: parse extracts pr_number from Issue URL" {
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/github-notification.json")
+  local events
+  events=$(github_parse "$raw")
+  run jq -r '.[1].payload.pr_number' <<< "$events"
+  assert_output "999"
+}
+
+@test "github: parse PullRequest gets github.pr.* type" {
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/github-notification.json")
+  local events
+  events=$(github_parse "$raw")
+  run jq -r '.[0].type' <<< "$events"
+  assert_output --regexp '^github\.pr\.'
+}
+
+@test "github: parse Issue gets github.issue.* type" {
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/github-notification.json")
+  local events
+  events=$(github_parse "$raw")
+  run jq -r '.[1].type' <<< "$events"
+  assert_output --regexp '^github\.issue\.'
 }
