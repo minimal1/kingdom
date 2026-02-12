@@ -64,6 +64,11 @@ while $RUNNING; do
         fi
       done
 
+      # 4. post-emit (optional: notification 읽음 처리 등)
+      if type "${watcher}_post_emit" &>/dev/null; then
+        "${watcher}_post_emit" 2>/dev/null || true
+      fi
+
       LAST_POLL[$watcher]=$(date +%s)
     fi
   done

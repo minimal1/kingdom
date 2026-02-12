@@ -137,3 +137,21 @@ EOF
   run jq -r '.[1].type' <<< "$events"
   assert_output --regexp '^github\.issue\.'
 }
+
+# --- post_emit ---
+
+@test "github: post_emit clears pending_read_ids" {
+  # Setup: pending_read_ids in state
+  save_state "github" '{"etag":"W/\"abc\"","pending_read_ids":["111","222"]}'
+
+  # gh mock for PATCH (mark as read)
+  gh() { return 0; }
+  export -f gh
+
+  github_post_emit
+
+  local state
+  state=$(load_state "github")
+  run jq 'has("pending_read_ids")' <<< "$state"
+  assert_output "false"
+}

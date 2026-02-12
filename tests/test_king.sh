@@ -356,6 +356,15 @@ source_king_functions() {
     log "[EVENT] [king] Needs human input for task: $task_id"
   }
 
+  handle_skipped() {
+    local task_id="$1"
+    local result="$2"
+    local reason
+    reason=$(echo "$result" | jq -r '.reason // "out of scope"')
+    complete_task "$task_id"
+    log "[EVENT] [king] Task skipped: $task_id — $reason"
+  }
+
   check_task_results() {
     local results_dir="$BASE_DIR/state/results"
     local tasks_in_progress="$BASE_DIR/queue/tasks/in_progress"
@@ -373,6 +382,7 @@ source_king_functions() {
         success) handle_success "$task_id" "$result" ;;
         failed) handle_failure "$task_id" "$result" ;;
         needs_human) handle_needs_human "$task_id" "$result" ;;
+        skipped) handle_skipped "$task_id" "$result" ;;
       esac
     done
   }
@@ -770,6 +780,31 @@ EOF
 @test "king: untriggered schedule returns false" {
   run already_triggered_today "never-triggered"
   assert_failure
+}
+
+@test "king: handle_skipped completes task without notification" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-005.json" << 'EOF'
+{"id":"task-20260210-005","event_id":"evt-014","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-014.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-005.json" << 'EOF'
+{"task_id":"task-20260210-005","status":"skipped","reason":"PR is outside frontend scope"}
+EOF
+
+  check_task_results
+
+  # Task moved to completed
+  assert [ ! -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-005.json" ]
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-005.json" ]
+
+  # Event moved to completed
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-014.json" ]
+
+  # No notification message created
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -eq 0 ]
 }
 
 @test "king: max_soldiers defers events when full" {

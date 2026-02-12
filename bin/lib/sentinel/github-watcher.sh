@@ -26,15 +26,36 @@ github_fetch() {
     return 0
   fi
 
-  # 새 ETag 저장
+  # ETag + notification IDs 저장
   local new_etag
   new_etag=$(echo "$response" | grep -i '^etag:' | awk '{print $2}' | tr -d '\r')
   if [[ -n "$new_etag" ]]; then
-    save_state "github" "$(echo "$state" | jq --arg e "$new_etag" '.etag = $e')"
+    state=$(echo "$state" | jq --arg e "$new_etag" '.etag = $e')
   fi
 
   # body 추출 (빈 줄 이후)
-  echo "$response" | sed '1,/^\r*$/d'
+  local body
+  body=$(echo "$response" | sed '1,/^\r*$/d')
+
+  # notification thread IDs 저장 (post_emit에서 읽음 처리용)
+  save_state "github" "$(echo "$state" | jq --argjson ids "$(echo "$body" | jq -c '[.[].id] // []')" '.pending_read_ids = $ids')"
+
+  echo "$body"
+}
+
+github_post_emit() {
+  local state
+  state=$(load_state "github")
+  local ids
+  ids=$(echo "$state" | jq -c '.pending_read_ids // []')
+  [[ "$ids" == "[]" ]] && return 0
+
+  echo "$ids" | jq -r '.[]' | while read -r thread_id; do
+    gh api -X PATCH "/notifications/threads/${thread_id}" 2>/dev/null || true
+  done
+
+  # 처리 완료 후 pending_read_ids 제거
+  save_state "github" "$(echo "$state" | jq 'del(.pending_read_ids)')"
 }
 
 github_parse() {

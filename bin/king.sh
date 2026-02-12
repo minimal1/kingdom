@@ -330,6 +330,9 @@ check_task_results() {
       needs_human)
         handle_needs_human "$task_id" "$result"
         ;;
+      skipped)
+        handle_skipped "$task_id" "$result"
+        ;;
       *)
         log "[WARN] [king] Unknown result status: $status for task: $task_id"
         ;;
@@ -398,6 +401,16 @@ handle_needs_human() {
 
   # Task stays in_progress (waiting for human response)
   log "[EVENT] [king] Needs human input for task: $task_id"
+}
+
+handle_skipped() {
+  local task_id="$1"
+  local result="$2"
+  local reason
+  reason=$(echo "$result" | jq -r '.reason // "out of scope"')
+
+  complete_task "$task_id"
+  log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
 
 complete_task() {
