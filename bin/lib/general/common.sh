@@ -393,6 +393,11 @@ main_loop() {
           final_result="$result"
           break
           ;;
+        skipped)
+          final_status="skipped"
+          final_result="$result"
+          break
+          ;;
         failed)
           local error
           error=$(echo "$result" | jq -r '.error // "unknown"')

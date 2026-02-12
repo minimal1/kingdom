@@ -199,6 +199,17 @@ EOF
   assert_output "build failed"
 }
 
+@test "general: report_to_king skipped preserves reason" {
+  local raw='{"task_id":"task-skip","status":"skipped","reason":"PR is outside frontend scope"}'
+  report_to_king "task-skip" "skipped" "" "$raw"
+
+  assert [ -f "$BASE_DIR/state/results/task-skip.json" ]
+  run jq -r '.status' "$BASE_DIR/state/results/task-skip.json"
+  assert_output "skipped"
+  run jq -r '.reason' "$BASE_DIR/state/results/task-skip.json"
+  assert_output "PR is outside frontend scope"
+}
+
 @test "general: report_to_king no tmp file remains" {
   report_to_king "task-003" "success" "done" ""
 
