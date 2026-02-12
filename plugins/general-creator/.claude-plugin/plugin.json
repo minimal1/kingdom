@@ -1,0 +1,7 @@
+{
+  "name": "general-creator",
+  "version": "1.0.0",
+  "description": "Kingdom 장군 패키지를 대화형으로 생성하고 검증하는 도구",
+  "author": { "name": "Eddy Jeon" },
+  "keywords": ["kingdom", "general", "autonomous-agent"]
+}
