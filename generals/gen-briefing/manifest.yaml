@@ -7,7 +7,7 @@ cc_plugins: []
 subscribes: []
 
 schedules:
-  - name: briefing-10min
-    cron: "*/10 * * * *"
+  - name: briefing-1min
+    cron: "*/1 * * * *"
     task_type: "briefing"
     payload: {}

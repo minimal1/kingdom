@@ -56,6 +56,24 @@ teardown() {
   [[ "$schedules" == gen-test\|* ]]
 }
 
+@test "router: schedule entries are single-line compact JSON" {
+  load_general_manifests
+  local line_count
+  line_count=$(get_schedules | wc -l | tr -d ' ')
+  local entry_count
+  entry_count=$(get_schedules | grep -c '^gen-' || true)
+  # Each schedule entry must be exactly one line
+  [ "$line_count" -eq "$entry_count" ]
+
+  # Verify the JSON part is valid and parseable
+  get_schedules | while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
+    local sched_json="${entry#*|}"
+    echo "$sched_json" | jq -e '.name' > /dev/null
+    echo "$sched_json" | jq -e '.cron' > /dev/null
+  done
+}
+
 @test "router: duplicate subscription logs warning" {
   # Create a duplicate manifest
   cat > "$BASE_DIR/config/generals/gen-dup.yaml" << 'EOF'

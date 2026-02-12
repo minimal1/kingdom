@@ -867,3 +867,56 @@ EOF
   run already_triggered "test-old"
   assert_failure
 }
+
+# --- Schedule Dispatch E2E ---
+
+@test "king: check_general_schedules dispatches task and message" {
+  # Write a schedule that always matches (every minute)
+  echo 'gen-test|{"name":"test-every-min","cron":"* * * * *","task_type":"test-sched","payload":{}}' > "$SCHEDULES_FILE"
+
+  check_general_schedules
+
+  # Task created in pending
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -ge 1 ]
+
+  # Task has correct fields
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.target_general' "$task_file"
+  assert_output "gen-test"
+  run jq -r '.type' "$task_file"
+  assert_output "test-sched"
+  run jq -r '.event_id' "$task_file"
+  assert_output "schedule-test-every-min"
+
+  # Thread start message created
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -ge 1 ]
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_start"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "gen-test"
+
+  # Dedup: second call should NOT create another task
+  check_general_schedules
+  local task_count2
+  task_count2=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count2" -eq "$task_count" ]
+}
+
+@test "king: check_general_schedules skips non-matching cron" {
+  # Schedule that never matches (Feb 30 doesn't exist)
+  echo 'gen-test|{"name":"test-never","cron":"0 0 30 2 *","task_type":"never","payload":{}}' > "$SCHEDULES_FILE"
+
+  check_general_schedules
+
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -eq 0 ]
+}

@@ -54,7 +54,7 @@ load_general_manifests() {
     [ -z "$schedule_count" ] && schedule_count=0
     for ((i=0; i<schedule_count; i++)); do
       local sched_json
-      sched_json=$(yq eval -o=json ".schedules[$i]" "$manifest" 2>/dev/null)
+      sched_json=$(yq eval -o=json ".schedules[$i]" "$manifest" 2>/dev/null | jq -c .)
       if [ -n "$sched_json" ] && [ "$sched_json" != "null" ]; then
         echo "${name}|${sched_json}" >> "$SCHEDULES_FILE"
       fi
