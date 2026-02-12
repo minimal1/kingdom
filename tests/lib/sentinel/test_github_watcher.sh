@@ -138,6 +138,34 @@ EOF
   assert_output --regexp '^github\.issue\.'
 }
 
+# --- fetch ---
+
+@test "github: fetch returns empty array on 304 Not Modified" {
+  # gh mock: 304 응답 시뮬레이션 (gh api는 non-2xx에서 exit 1)
+  gh() {
+    echo "HTTP/2.0 304 Not Modified"
+    echo ""
+    return 1
+  }
+  export -f gh
+
+  run github_fetch
+  assert_success
+  assert_output "[]"
+}
+
+@test "github: fetch returns error on actual failure" {
+  gh() {
+    echo "gh: Could not resolve host" >&2
+    return 1
+  }
+  export -f gh
+
+  run github_fetch
+  assert_failure
+  assert_output "[]"
+}
+
 # --- post_emit ---
 
 @test "github: post_emit clears pending_read_ids" {

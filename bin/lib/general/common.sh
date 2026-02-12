@@ -99,12 +99,12 @@ ensure_workspace() {
 
     if [ ! -d "$repo_dir" ]; then
       log "[SYSTEM] [$general] Cloning repo: $repo"
-      if ! git clone "git@github.com:${repo}.git" "$repo_dir" 2>&1; then
+      if ! git clone "git@github.com:${repo}.git" "$repo_dir" >/dev/null 2>&1; then
         log "[ERROR] [$general] Failed to clone repo: $repo"
         return 1
       fi
     else
-      if ! git -C "$repo_dir" fetch origin 2>&1; then
+      if ! git -C "$repo_dir" fetch origin >/dev/null 2>&1; then
         log "[WARN] [$general] Failed to fetch repo: $repo (continuing with stale)"
       fi
     fi

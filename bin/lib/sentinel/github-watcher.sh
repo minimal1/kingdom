@@ -14,16 +14,20 @@ github_fetch() {
   fi
 
   local response
-  response=$(gh api "${args[@]}" --include 2>&1) || {
-    log "[EVENT] [sentinel] ERROR: gh api failed"
-    echo "[]"
-    return 1
-  }
+  response=$(gh api "${args[@]}" --include 2>&1)
+  local exit_code=$?
 
-  # 304 Not Modified
+  # 304 Not Modified — 새 알림 없음 (정상)
+  # gh api는 non-2xx에 exit 1을 반환하므로 exit_code 체크 전에 304를 먼저 확인
   if echo "$response" | head -1 | grep -q "304"; then
     echo "[]"
     return 0
+  fi
+
+  if [[ $exit_code -ne 0 ]]; then
+    log "[EVENT] [sentinel] ERROR: gh api failed"
+    echo "[]"
+    return 1
   fi
 
   # ETag + notification IDs 저장
