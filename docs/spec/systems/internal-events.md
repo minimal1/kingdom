@@ -58,6 +58,10 @@ emit_internal_event() {
 
 > `logs/events.log`는 JSONL (줄 단위 JSON). 한 줄 = 한 이벤트. 내관이 tail/poll로 소비한다.
 
+### 구현 상태
+
+> **주의**: 현재 구현에서는 `system.*`, `recovery.*` 카테고리만 실제로 `emit_internal_event()`를 호출한다. `event.*`, `task.*`, `soldier.*`, `message.*` 카테고리는 설계 단계이며, 해당 역할에서 `log()` 호출로 텍스트 로깅만 수행 중이다. 향후 각 역할에 `emit_internal_event()` 호출을 추가하여 내관의 메트릭 집계와 이상 감지를 활성화할 예정이다.
+
 ---
 
 ## 이벤트 카테고리

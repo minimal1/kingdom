@@ -51,7 +51,9 @@ pending → dispatched → completed
   "type": "github.pr.review_requested",
   "source": "github",
   "repo": "querypie/frontend",
-  "payload": { },
+  "payload": {
+    "pr_number": "string | null (PR 이벤트 시)"
+  },
   "priority": "normal | high | low",
   "created_at": "ISO8601",
   "status": "pending | dispatched | completed | failed"
@@ -81,6 +83,7 @@ queue/tasks/
 pending → in_progress → completed
                      ↘ failed
                      ↘ needs_human
+                     ↘ skipped (재시도 없이 즉시 완료)
 ```
 
 ### 작업 스키마
@@ -93,7 +96,7 @@ pending → in_progress → completed
   "payload": { },
   "priority": "normal | high | low",
   "created_at": "ISO8601",
-  "status": "pending | in_progress | completed | failed | needs_human"
+  "status": "pending | in_progress | completed | failed | needs_human | skipped"
 }
 ```
 

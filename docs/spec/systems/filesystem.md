@@ -31,7 +31,7 @@
 │   │   └── gen-jira.sh
 │   │
 │   └── lib/                          # 공통 라이브러리
-│       ├── common.sh                 # 공통 함수 (log, get_config, update_heartbeat, emit_event, emit_internal_event)
+│       ├── common.sh                 # 공통 함수 (log, get_config, update_heartbeat, start_heartbeat_daemon, stop_heartbeat_daemon, emit_event, emit_internal_event)
 │       ├── sentinel/
 │       │   ├── watcher-common.sh
 │       │   ├── github-watcher.sh
@@ -67,7 +67,8 @@
 │   │       ├── gen-test.md           # 테스트 작성 프롬프트 템플릿
 │   │       └── default.md            # 기본 프롬프트 템플릿 (시스템 파일)
 │   ├── envoy.yaml                    # 사절 설정 (Slack 채널)
-│   └── chamberlain.yaml              # 내관 설정 (임계값)
+│   ├── chamberlain.yaml              # 내관 설정 (임계값)
+│   └── workspace-claude.md           # 병사 workspace에 복사되는 CLAUDE.md 원본 (결과 보고 방식 지시)
 │
 ├── queue/                            # 메시지 큐 (파일 기반)
 │   ├── events/                       # 파수꾼 → 왕
@@ -132,7 +133,8 @@
 │
 └── workspace/                        # 코드 작업 공간 (장군별 격리)
     ├── gen-pr/                       # 자동 생성 (ensure_workspace)
-    │   ├── CLAUDE.md                 # gen-pr 도메인 컨텍스트 (선택)
+    │   ├── CLAUDE.md                 # config/workspace-claude.md에서 복사 (결과 보고 방식 지시)
+    │   ├── .kingdom-task.json        # spawn-soldier.sh가 생성 (task_id, result_path)
     │   ├── querypie-frontend/        # 자동 클론
     │   └── querypie-backend/
     ├── gen-jira/

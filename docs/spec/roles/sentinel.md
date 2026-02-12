@@ -36,17 +36,17 @@
 
 ## Watcher 추상화 레이어
 
-새 외부 서비스를 추가할 때 일관된 패턴을 유지하기 위해, 모든 watcher는 동일한 3단계 인터페이스를 구현한다.
+새 외부 서비스를 추가할 때 일관된 패턴을 유지하기 위해, 모든 watcher는 동일한 4단계 인터페이스를 구현한다.
 
-### 인터페이스: `fetch → parse → emit`
+### 인터페이스: `fetch → parse → emit → post_emit`
 
 ```
-┌───────────┐     ┌───────────┐     ┌───────────┐
-│  fetch()  │────→│  parse()  │────→│  emit()   │
-│           │     │           │     │           │
-│ 외부 API  │     │ raw → 표준 │     │ 이벤트 큐 │
-│ 호출      │     │ 이벤트 변환│     │ 에 적재   │
-└───────────┘     └───────────┘     └───────────┘
+┌───────────┐     ┌───────────┐     ┌───────────┐     ┌──────────────┐
+│  fetch()  │────→│  parse()  │────→│  emit()   │────→│ post_emit()  │
+│           │     │           │     │           │     │  (optional)  │
+│ 외부 API  │     │ raw → 표준 │     │ 이벤트 큐 │     │ 후처리       │
+│ 호출      │     │ 이벤트 변환│     │ 에 적재   │     │ (읽음 처리 등)│
+└───────────┘     └───────────┘     └───────────┘     └──────────────┘
    ↑ 내부 구현은 자유           공통 함수 (watcher-common.sh)
    (gh, curl, etc.)
 ```
@@ -58,12 +58,13 @@
 | `fetch` | 외부 API 호출, raw 데이터 수집 | state 파일 (마지막 체크 시점) | raw JSON |
 | `parse` | raw 데이터를 표준 이벤트 스키마로 변환 | raw JSON | 표준 이벤트 배열 (JSON) |
 | `emit` | 이벤트를 큐에 적재 + state 갱신 | 표준 이벤트 배열 | queue/events/pending/ 에 파일 생성 |
+| `post_emit` | (선택) emit 후 후처리 (예: 알림 읽음 처리) | state 파일 | 외부 API 호출 (side effect) |
 
 ### 공통 함수 (`watcher-common.sh`)
 
 모든 watcher가 공유하는 유틸리티. `common.sh`의 공통 함수를 기반으로, 파수꾼 전용 기능을 추가한다.
 
-> `log()`, `get_config()`, `update_heartbeat()`, 기본 `emit_event()`는 `bin/lib/common.sh`에 정의. (common-functions.md는 구현 단계에서 작성 예정)
+> `log()`, `get_config()`, `update_heartbeat()`, `start_heartbeat_daemon()`, `stop_heartbeat_daemon()`, 기본 `emit_event()`는 `bin/lib/common.sh`에 정의.
 
 ```bash
 # common.sh에서 제공하는 함수 (모든 역할 공통):
@@ -150,10 +151,18 @@ github_fetch() {
 
   # 새 ETag 저장
   local new_etag=$(echo "$response" | grep -i '^etag:' | awk '{print $2}' | tr -d '\r')
-  save_state "github" "$(echo "$state" | jq --arg e "$new_etag" '.etag = $e')"
+  if [[ -n "$new_etag" ]]; then
+    state=$(echo "$state" | jq --arg e "$new_etag" '.etag = $e')
+  fi
 
   # body 추출 (헤더 이후)
-  echo "$response" | sed '1,/^\r$/d'
+  local body
+  body=$(echo "$response" | sed '1,/^\r*$/d')
+
+  # notification thread IDs 저장 (post_emit에서 읽음 처리용)
+  save_state "github" "$(echo "$state" | jq --argjson ids "$(echo "$body" | jq -c '[.[].id] // []')" '.pending_read_ids = $ids')"
+
+  echo "$body"
 }
 ```
 
@@ -162,10 +171,24 @@ github_fetch() {
 ```bash
 github_parse() {
   local raw="$1"
-  local allowed_repos=$(get_config "sentinel" "polling.github.scope.repos")  # ["querypie/frontend", ...]
+
+  # 빈 배열 단축 경로
+  if [[ "$raw" == "[]" || -z "$raw" ]]; then
+    echo "[]"
+    return 0
+  fi
+
+  local allowed_repos=$(get_config "sentinel" "polling.github.scope.repos")
   local allowed_reasons=$(get_config "sentinel" "polling.github.scope.filter_reasons")
 
+  # yq 출력을 JSON 배열로 변환
+  [[ "$allowed_repos" == "null" || -z "$allowed_repos" ]] && allowed_repos="[]"
+  [[ "$allowed_reasons" == "null" || -z "$allowed_reasons" ]] && allowed_reasons="[]"
+  allowed_repos=$(echo "$allowed_repos" | yq eval -o=json '.' 2>/dev/null) || allowed_repos="[]"
+  allowed_reasons=$(echo "$allowed_reasons" | yq eval -o=json '.' 2>/dev/null) || allowed_reasons="[]"
+
   # 스코프 필터: 관할 레포 + 관심 reason만 통과
+  # subject.type 기반으로 PullRequest/Issue를 구분하여 이벤트 타입 결정
   echo "$raw" | jq -c --argjson repos "$allowed_repos" --argjson reasons "$allowed_reasons" '[
     .[] |
     select(
@@ -177,11 +200,21 @@ github_parse() {
     {
     id: ("evt-github-" + .id),
     type: (
-      if .reason == "review_requested" then "github.pr.review_requested"
-      elif .reason == "assign" then "github.pr.assigned"
-      elif .reason == "mention" then "github.pr.mentioned"
-      elif .reason == "comment" then "github.pr.comment"
-      elif .reason == "state_change" then "github.pr.state_change"
+      if .subject.type == "PullRequest" then
+        if .reason == "review_requested" then "github.pr.review_requested"
+        elif .reason == "assign" then "github.pr.assigned"
+        elif .reason == "mention" then "github.pr.mentioned"
+        elif .reason == "comment" then "github.pr.comment"
+        elif .reason == "state_change" then "github.pr.state_change"
+        else ("github.pr." + .reason)
+        end
+      elif .subject.type == "Issue" then
+        if .reason == "assign" then "github.issue.assigned"
+        elif .reason == "mention" then "github.issue.mentioned"
+        elif .reason == "comment" then "github.issue.comment"
+        elif .reason == "state_change" then "github.issue.state_change"
+        else ("github.issue." + .reason)
+        end
       else ("github.notification." + .reason)
       end
     ),
@@ -192,7 +225,8 @@ github_parse() {
       subject_title: .subject.title,
       subject_url: .subject.url,
       subject_type: .subject.type,
-      updated_at: .updated_at
+      updated_at: .updated_at,
+      pr_number: (.subject.url | capture("/(?<num>[0-9]+)$") | .num // null)
     },
     priority: (
       if .reason == "review_requested" then "normal"
@@ -206,6 +240,25 @@ github_parse() {
     created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
     status: "pending"
   }]'
+}
+```
+
+#### post_emit: Notification 읽음 처리
+
+emit 후 감지한 notification을 읽음 처리하여 다음 폴링에서 중복 반환을 방지한다. `post_emit`은 선택적 단계로, watcher에 `{name}_post_emit` 함수가 존재할 때만 호출된다.
+
+```bash
+github_post_emit() {
+  local state=$(load_state "github")
+  local ids=$(echo "$state" | jq -c '.pending_read_ids // []')
+  [[ "$ids" == "[]" ]] && return 0
+
+  echo "$ids" | jq -r '.[]' | while read -r thread_id; do
+    gh api -X PATCH "/notifications/threads/${thread_id}" 2>/dev/null || true
+  done
+
+  # 처리 완료 후 pending_read_ids 제거
+  save_state "github" "$(echo "$state" | jq 'del(.pending_read_ids)')"
 }
 ```
 
@@ -258,7 +311,7 @@ Notifications API가 반환하는 reason 목록:
 jira_fetch() {
   local state=$(load_state "jira")
   local last_check=$(echo "$state" | jq -r '.last_check // empty')
-  local jira_url="${JIRA_URL:-https://querypie.atlassian.net}"
+  local jira_url="${JIRA_URL:-https://chequer.atlassian.net}"
   local auth=$(echo -n "eddy@chequer.io:${JIRA_API_TOKEN}" | base64)
 
   # last_check가 없으면 (첫 실행) 최근 10분
@@ -324,7 +377,7 @@ jira_parse() {
         summary: .summary,
         status: .status,
         previous_status: .prev_status,
-        url: ("https://querypie.atlassian.net/browse/" + .key)
+        url: ("https://chequer.atlassian.net/browse/" + .key)
       },
       priority: "normal",
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
@@ -368,16 +421,24 @@ GET  /rest/api/3/issue/{key}?expand=changelog  — 변경 이력 상세
 #!/bin/bash
 # bin/sentinel.sh — 파수꾼 메인 루프
 
-BASE_DIR="/opt/kingdom"
-source "$BASE_DIR/bin/lib/common.sh"                    # 공통 함수 (emit_event, get_config, update_heartbeat, log)
+BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+source "$BASE_DIR/bin/lib/common.sh"                    # 공통 함수 (emit_event, get_config, start_heartbeat_daemon, log)
 source "$BASE_DIR/bin/lib/sentinel/watcher-common.sh"   # 파수꾼 전용 (sentinel_emit_event, is_duplicate, load_state 등)
 
 # ── Graceful Shutdown ────────────────────────────
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [sentinel] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [sentinel] Shutting down..."; exit 0' SIGTERM SIGINT
 
-# ── Watcher 로딩 (한 번만) ───────────────────────
-WATCHERS=("github" "jira")
+# ── Watcher 동적 로딩: sentinel.yaml의 polling 키에서 스캔 ──
+WATCHERS=()
+for key in $(yq eval '.polling | keys | .[]' "$BASE_DIR/config/sentinel.yaml" 2>/dev/null); do
+  if [ -f "$BASE_DIR/bin/lib/sentinel/${key}-watcher.sh" ]; then
+    WATCHERS+=("$key")
+  else
+    log "[WARN] [sentinel] Unknown watcher in config: $key (no ${key}-watcher.sh)"
+  fi
+done
+
 for watcher in "${WATCHERS[@]}"; do
   source "$BASE_DIR/bin/lib/sentinel/${watcher}-watcher.sh"
 done
@@ -386,25 +447,27 @@ declare -A LAST_POLL
 
 log "[SYSTEM] [sentinel] Started. Watchers: ${WATCHERS[*]}"
 
+start_heartbeat_daemon "sentinel"
+
 while $RUNNING; do
-  update_heartbeat
 
   for watcher in "${WATCHERS[@]}"; do
     interval=$(get_interval "$watcher")
     elapsed=$(( $(date +%s) - ${LAST_POLL[$watcher]:-0} ))
 
-    if [ "$elapsed" -ge "$interval" ]; then
+    if [[ "$elapsed" -ge "$interval" ]]; then
       log "[EVENT] [sentinel] Polling: $watcher"
 
       # 1. fetch
-      raw=$(${watcher}_fetch 2>/dev/null)
-      if [ $? -ne 0 ]; then
+      raw=$("${watcher}_fetch" 2>/dev/null)
+      if [[ $? -ne 0 ]]; then
         log "[EVENT] [sentinel] ERROR: ${watcher}_fetch failed"
+        LAST_POLL[$watcher]=$(date +%s)
         continue
       fi
 
       # 2. parse
-      events=$(${watcher}_parse "$raw" 2>/dev/null)
+      events=$("${watcher}_parse" "$raw" 2>/dev/null)
 
       # 3. emit (중복 제거 포함)
       echo "$events" | jq -c '.[]' 2>/dev/null | while read -r event; do
@@ -413,6 +476,11 @@ while $RUNNING; do
           sentinel_emit_event "$event"
         fi
       done
+
+      # 4. post_emit (optional: notification 읽음 처리 등)
+      if type "${watcher}_post_emit" &>/dev/null; then
+        "${watcher}_post_emit" 2>/dev/null || true
+      fi
 
       LAST_POLL[$watcher]=$(date +%s)
     fi
@@ -430,11 +498,15 @@ done
 
 | Type | Trigger | Default Priority |
 |------|---------|-----------------|
-| `github.pr.review_requested` | 리뷰 요청 | normal |
+| `github.pr.review_requested` | PR 리뷰 요청 (subject.type=PullRequest) | normal |
 | `github.pr.assigned` | PR 할당 | normal |
 | `github.pr.mentioned` | PR에서 @멘션 | normal |
 | `github.pr.comment` | PR 코멘트 추가 | low |
 | `github.pr.state_change` | PR 상태 변경 (merged, closed 등) | low |
+| `github.issue.assigned` | Issue 할당 (subject.type=Issue) | normal |
+| `github.issue.mentioned` | Issue에서 @멘션 | normal |
+| `github.issue.comment` | Issue 코멘트 추가 | low |
+| `github.issue.state_change` | Issue 상태 변경 | low |
 | `github.notification.*` | 기타 notification reason | low |
 
 ### Jira 이벤트
@@ -461,7 +533,8 @@ done
     "subject_title": "feat: add user profile page",
     "subject_url": "https://api.github.com/repos/querypie/frontend/pulls/1234",
     "subject_type": "PullRequest",
-    "updated_at": "2026-02-07T10:00:00Z"
+    "updated_at": "2026-02-07T10:00:00Z",
+    "pr_number": "1234"
   },
   "priority": "high",
   "created_at": "2026-02-07T10:00:05Z",
@@ -561,7 +634,7 @@ export GITLAB_TOKEN="glpat-..."
 - [ ] `{name}_parse()` 함수 구현 (표준 이벤트 스키마 준수)
 - [ ] `config/sentinel.yaml`에 polling 설정 추가
 - [ ] 환경변수 설정 (API 토큰 등)
-- [ ] `WATCHERS` 배열에 watcher 이름 추가
+- [ ] `config/sentinel.yaml`의 `polling` 키에 watcher 설정 추가 (동적 로딩됨)
 
 ---
 
@@ -606,8 +679,8 @@ polling:
     interval_seconds: 60
     scope:
       repos:                        # 이 레포의 알림만 이벤트로 변환
-        - querypie/frontend
-        - querypie/backend
+        - chequer-io/querypie-frontend
+        - chequer-io/querypie-backend
         # 비어있으면 모든 레포 허용
       filter_reasons:               # 이 reason만 이벤트로 변환
         - review_requested
@@ -615,13 +688,13 @@ polling:
         - mention
         - comment
         - state_change
-  jira:
-    interval_seconds: 300
-    url: "https://querypie.atlassian.net"
-    scope:
-      jql_base: "assignee = currentUser() AND project IN (QP, QPD)"
-      # JQL 자체에 스코프 포함 — API 레벨에서 필터
+  # jira:                           # 현재 비활성 — 향후 Jira 연동 시 주석 해제
+  #   interval_seconds: 300
+  #   scope:
+  #     jql_base: "assignee = currentUser() AND project IN (QP, QPD)"
 ```
+
+> **동적 watcher 로딩**: `polling` 키의 자식 키가 watcher 이름이 된다. 위 설정에서 `jira`가 주석 처리되어 있으므로, 파수꾼은 `github`만 로딩한다. Jira 연동 시 주석 해제만으로 활성화된다.
 
 ## 장애 대응
 

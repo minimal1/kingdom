@@ -37,7 +37,7 @@
 • 병사 수 제한 (max_soldiers)         • 최종 결과만 왕에게 보고
 ```
 
-> **재시도는 장군 전담**. 왕은 장군이 보고한 최종 결과(success/failed/needs_human)만 처리한다.
+> **재시도는 장군 전담**. 왕은 장군이 보고한 최종 결과(success/failed/needs_human/skipped)만 처리한다.
 
 ---
 
@@ -60,9 +60,12 @@ main_loop() {
   local max_retries=$(get_config "generals/$GENERAL_DOMAIN" "retry.max_attempts" 2)
   local retry_backoff=$(get_config "generals/$GENERAL_DOMAIN" "retry.backoff_seconds" 60)
 
-  while true; do
-    update_heartbeat "$GENERAL_DOMAIN"
+  RUNNING=true
+  trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [$GENERAL_DOMAIN] Shutting down..."; exit 0' SIGTERM SIGINT
 
+  start_heartbeat_daemon "$GENERAL_DOMAIN"
+
+  while $RUNNING; do
     # ── 1. 다음 작업 선택 ──────────────────────────
     local task_file=$(pick_next_task "$GENERAL_DOMAIN")
     if [ -z "$task_file" ]; then
@@ -131,6 +134,11 @@ main_loop() {
           final_result="$result"
           break
           ;;
+        skipped)
+          final_status="skipped"
+          final_result="$result"
+          break
+          ;;
         failed)
           local error=$(echo "$result" | jq -r '.error // "unknown"')
           log "[WARN] [$GENERAL_DOMAIN] Attempt $attempt failed: $task_id — $error"
@@ -150,6 +158,10 @@ main_loop() {
     # ── 6. 최종 결과를 왕에게 보고 ─────────────────
     if [ "$final_status" = "needs_human" ]; then
       escalate_to_king "$task_id" "$final_result"
+    elif [ "$final_status" = "skipped" ]; then
+      report_to_king "$task_id" "$final_status" \
+        "$(echo "$final_result" | jq -r '.summary // "skipped"')" \
+        "$final_result"
     else
       report_to_king "$task_id" "$final_status" \
         "$(echo "$final_result" | jq -r '.summary // "no summary"')" \
@@ -300,8 +312,9 @@ wait_for_soldier() {
 > ```json
 > {
 >   "task_id": "string (필수)",
->   "status": "success | failed | needs_human (필수)",
+>   "status": "success | failed | needs_human | skipped (필수)",
 >   "summary": "string (필수)",
+>   "reason": "string (선택, skipped 시 건너뛴 이유)",
 >   "error": "string (선택, 실패 시)",
 >   "question": "string (선택, needs_human 시)",
 >   "memory_updates": ["string"] "(선택)"

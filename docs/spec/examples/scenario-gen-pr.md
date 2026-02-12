@@ -64,7 +64,7 @@ T+0s   파수꾼 sentinel_emit_event()
 T+~10s  왕 process_pending_events()
         → queue/events/pending/ 스캔 → evt-github-12345678.json 발견
         → get_resource_health() = "green" → 수용 가능
-        → sessions.json wc -l = 1 < max_soldiers(3) → 수용 가능
+        → sessions.json jq 'length' = 1 < max_soldiers(3) → 수용 가능
         → find_general("github.pr.review_requested") → "gen-pr"
 
 T+~10s  왕 dispatch_new_task()
@@ -86,7 +86,7 @@ T+~10s  왕 create_thread_start_message()
         → msg-seq 증분 → "20260207:1"
         → 쓰기: queue/messages/pending/msg-20260207-001.json
           { "type": "thread_start", "task_id": "task-20260207-001",
-            "content": "[시작] github.pr.review_requested — querypie/frontend" }
+            "content": "[start] github.pr.review_requested — querypie/frontend" }
 ```
 
 ### Phase 3: Slack 알림 (사절)
@@ -127,12 +127,12 @@ T+~21s  장군 build_prompt()
 T+~22s  장군 spawn_soldier()
         → bin/spawn-soldier.sh 호출
         → soldier_id = "soldier-1707300022-4567"
+        → .kingdom-task.json 생성 (workspace에):
+          {"task_id":"task-20260207-001","result_path":"/opt/kingdom/state/results/task-20260207-001-raw.json"}
         → tmux new-session -d -s soldier-1707300022-4567
           "cd workspace/gen-pr && claude -p --dangerously-skip-permissions
-           --output-format json --json-schema '{...결과 스키마...}'
            < state/prompts/task-20260207-001.md
-           > state/results/task-20260207-001-raw.json.tmp 2>logs/sessions/soldier-....log;
-           mv ...raw.json.tmp ...raw.json;
+           > logs/sessions/soldier-1707300022-4567.log 2>&1;
            tmux wait-for -S soldier-1707300022-4567-done"
         → 쓰기: state/results/task-20260207-001-soldier-id
         → sessions.json에 append (flock):
@@ -145,8 +145,9 @@ T+~22s  장군 wait_for_soldier("task-20260207-001", 1800)
 ### Phase 5: 병사 실행 (Claude Code)
 
 ```
-T+~22s ~ T+~200s  병사 (claude -p --output-format json --json-schema ...)
+T+~22s ~ T+~200s  병사 (claude -p --dangerously-skip-permissions)
         → workspace/gen-pr/ 에서 실행
+        → workspace/CLAUDE.md 자동 로드 (결과 보고 방식 지시)
         → 전역 enabledPlugins → friday@qp-plugin 자동 로드
         → 프롬프트 "/friday:review-pr 1234" 수신
           → friday 플러그인의 /review-pr 커맨드 실행:
@@ -154,7 +155,8 @@ T+~22s ~ T+~200s  병사 (claude -p --output-format json --json-schema ...)
             2. 코드 품질, 보안, 성능 이슈 식별
             3. 자체 품질 루프 (ralph-loop)로 리뷰 최적화
             4. GitHub에 리뷰 코멘트 작성 (gh api)
-        → --json-schema에 의해 구조화된 결과 stdout 출력:
+        → .kingdom-task.json에서 task_id, result_path 읽기
+        → Write 도구로 state/results/task-20260207-001-raw.json 직접 생성:
              {
                "task_id": "task-20260207-001",
                "status": "success",
@@ -162,7 +164,7 @@ T+~22s ~ T+~200s  병사 (claude -p --output-format json --json-schema ...)
                "details": { "files_reviewed": 12, "comments_posted": 5 },
                "memory_updates": ["이 레포는 barrel export를 선호하지 않음"]
              }
-        → stdout → .tmp 파일 → mv로 atomic write → raw.json 완성
+        → stdout+stderr → logs/sessions/soldier-....log (디버깅용)
         → tmux wait-for -S soldier-...-done (세션 종료 시그널)
 ```
 
@@ -184,13 +186,13 @@ T+~210s  왕 check_task_results()
            - create_notification_message():
              쓰기: queue/messages/pending/msg-20260207-002.json
              { "type": "notification", "task_id": "task-20260207-001",
-               "content": "[완료] PR #1234 리뷰 완료 — 5개 코멘트" }
+               "content": "[complete] PR #1234 리뷰 완료 — 5개 코멘트" }
 
 T+~215s  사절 process_outbound_queue()
          → msg-20260207-002.json 감지 (type: notification)
          → thread_mappings에서 task-20260207-001 조회 → thread_ts 획득
          → Slack API: chat.postMessage (thread reply)
-         → "[완료]" 감지 → thread_mapping 항목 제거
+         → "[complete]" 감지 → thread_mapping 항목 제거
          → mv 메시지: pending/ → sent/
 ```
 
@@ -200,7 +202,7 @@ T+~215s  사절 process_outbound_queue()
 - `state/results/task-20260207-001.json` + `-raw.json` (7일 후 삭제)
 - `state/prompts/task-20260207-001.md` (3일 후 삭제)
 - `logs/sessions/soldier-1707300022-4567.log` (7일 후 삭제)
-- Slack #dev-eddy에 스레드: [시작] → [완료]
+- Slack #dev-eddy에 스레드: [start] → [complete]
 
 ---
 
@@ -233,7 +235,7 @@ T+~190s  왕 check_task_results()
          → handle_needs_human():
            쓰기: queue/messages/pending/msg-...-003.json
              { "type": "human_input_request", "task_id": "task-20260207-005",
-               "content": "[질문] breaking change가 있습니다. major version bump가 필요한가요?" }
+               "content": "[question] breaking change가 있습니다. major version bump가 필요한가요?" }
            ※ 작업은 in_progress/ 에 유지 (대기 중)
 
 T+~195s  사절 → Slack 스레드에 질문 게시
@@ -308,7 +310,7 @@ T+~420s  장군 재시도 루프 종료 (attempt > max_retries)
 
 T+~430s  왕 handle_failure()
          → complete_task (in_progress → completed)
-         → 사절에게 알림: "[실패] Permission denied — 재시도 소진"
+         → 사절에게 알림: "[failed] Permission denied"
 
 T+~435s  사절 → Slack 스레드에 실패 알림
 ```

@@ -50,9 +50,12 @@ INTERVAL=$(get_config "chamberlain" "monitoring.interval_seconds" 30)
 
 emit_internal_event "system.startup" "chamberlain" '{"component": "chamberlain"}'
 
-while true; do
-  update_heartbeat "chamberlain"
+RUNNING=true
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [chamberlain] Shutting down..."; exit 0' SIGTERM SIGINT
 
+start_heartbeat_daemon "chamberlain"
+
+while $RUNNING; do
   # ── 1. 시스템 리소스 수집 ──
   collect_metrics
 
@@ -151,7 +154,7 @@ update_resources_json() {
   local health="$1"
 
   # 활성 병사 수 (sessions.json 기준)
-  local soldiers_active=$(wc -l < "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
+  local soldiers_active=$(jq 'length' "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
   local soldiers_max=$(get_config "king" "concurrency.max_soldiers" 3)
 
   # 활성 tmux 세션 목록 (디버깅 + 향후 대시보드용 — 현재 왕은 사용하지 않음)

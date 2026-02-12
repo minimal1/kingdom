@@ -37,15 +37,15 @@
 ```
 #kingdom 채널
 │
-├─ 📌 "[시작] PR #1234 리뷰 — querypie/frontend"       ← 채널 메시지 (스레드 부모)
+├─ 📌 "[start] PR #1234 리뷰 — querypie/frontend"       ← 채널 메시지 (스레드 부모)
 │   └─ 🧵 스레드:
 │       ├─ 🤖 "PR 분석 중... 변경 파일 12개"
-│       ├─ 🤖 "[질문] 보안 이슈 2건 발견. 리뷰에 포함할까요?"
+│       ├─ 🤖 "[question] 보안 이슈 2건 발견. 리뷰에 포함할까요?"
 │       ├─ 👤 "포함해줘"
 │       ├─ 🤖 "리뷰 코멘트 5개 작성 완료"
-│       └─ 🤖 "[완료] PR #1234 리뷰 완료 ✓"
+│       └─ 🤖 "[complete] PR #1234 리뷰 완료 ✓"
 │
-├─ 📌 "[시작] Jira QP-567 구현"                         ← 또 다른 작업 스레드
+├─ 📌 "[start] Jira QP-567 구현"                        ← 또 다른 작업 스레드
 │   └─ 🧵 ...
 │
 └─ 📊 "[일일 리포트] 2026-02-07 — 처리 3건, 실패 0건"    ← 리포트 (스레드 없이)
@@ -185,7 +185,7 @@ read_thread_replies() {
   "type": "thread_start",
   "task_id": "task-20260207-001",
   "channel": "dev-eddy",
-  "content": "[시작] PR #1234 리뷰 — querypie/frontend",
+  "content": "[start] PR #1234 리뷰 — querypie/frontend",
   "created_at": "2026-02-07T10:00:00Z",
   "status": "pending"
 }
@@ -224,7 +224,7 @@ save_thread_mapping "$task_id" "$thread_ts" "$channel"
   "id": "msg-20260207-003",
   "type": "human_input_request",
   "task_id": "task-20260207-001",
-  "content": "[질문] 보안 이슈 2건 발견. 리뷰에 포함할까요?",
+  "content": "[question] 보안 이슈 2건 발견. 리뷰에 포함할까요?",
   "context": {
     "checkpoint_path": "state/results/task-20260207-001-checkpoint.json"
   },
@@ -263,7 +263,7 @@ process_human_input_request() {
   "task_id": "task-20260207-001",
   "channel": "dev-eddy",
   "urgency": "normal",
-  "content": "[완료] PR #1234 리뷰 완료 — 5개 코멘트 작성",
+  "content": "[complete] PR #1234 리뷰 완료 — 5개 코멘트 작성",
   "context": {
     "result_url": "https://github.com/querypie/frontend/pull/1234"
   },
@@ -292,7 +292,7 @@ process_notification() {
       send_thread_reply "$channel" "$thread_ts" "$content"
 
       # 완료/실패 시 스레드 매핑 정리
-      if echo "$content" | grep -qE '^\[(완료|실패)\]'; then
+      if echo "$content" | grep -qE '^\[(complete|failed)\]'; then
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"  # 혹시 남아있으면 함께 정리
         log "[EVENT] [envoy] Thread closed for task: $task_id"
@@ -503,6 +503,8 @@ remove_awaiting_response() {
 | `log()` | 구조화 로그 출력 | `[카테고리] [역할] 메시지` 형식 |
 | `get_config()` | YAML 설정 읽기 | `get_config "envoy" "schedule.daily_report"` — 첫 인자가 역할명 |
 | `update_heartbeat()` | heartbeat 파일 갱신 | `update_heartbeat "envoy"` → `state/envoy/heartbeat` touch |
+| `start_heartbeat_daemon()` | heartbeat 백그라운드 갱신 시작 | `start_heartbeat_daemon "envoy"` — blocking 내성 확보 |
+| `stop_heartbeat_daemon()` | heartbeat 백그라운드 프로세스 종료 | trap에서 호출 |
 | `emit_event()` | 이벤트 큐에 적재 | Write-then-Rename, **seen/ 인덱스 마킹 없음** (파수꾼만 seen/ 사용) |
 
 > 센티널의 `watcher-common.sh`에 있던 `emit_event()`는 `common.sh`의 기본 emit에 **seen/ 인덱스 마킹을 추가한 래퍼**이다. 사절은 기본 emit만 사용한다 — human_response 이벤트는 task_id + timestamp 조합으로 자연적 유일성이 보장되므로 별도 중복 방지 불필요.
@@ -522,7 +524,7 @@ source "$BASE_DIR/bin/lib/envoy/thread-manager.sh"  # 스레드 매핑, awaiting
 
 # ── Graceful Shutdown ────────────────────────────
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [envoy] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [envoy] Shutting down..."; exit 0' SIGTERM SIGINT
 
 # ── 타이머 ───────────────────────────────────────
 LAST_OUTBOUND=0      # 아웃바운드: 메시지 큐 소비
@@ -533,8 +535,9 @@ THREAD_CHECK_INTERVAL=30  # 30초 — awaiting 스레드 확인 (needs_human 시
 
 log "[SYSTEM] [envoy] Started."
 
+start_heartbeat_daemon "envoy"
+
 while $RUNNING; do
-  update_heartbeat "envoy"
   now=$(date +%s)
 
   # ── 1. 아웃바운드: 메시지 큐 소비 (5초) ────────
@@ -630,7 +633,7 @@ process_outbound_queue() {
    {
      type: "human_input_request",
      task_id: "task-001",
-     content: "[질문] 보안 이슈 2건, 리뷰에 포함할까요?",
+     content: "[question] 보안 이슈 2건, 리뷰에 포함할까요?",
      context: { checkpoint_path: "state/results/task-001-checkpoint.json" }
    }
 

@@ -61,7 +61,7 @@ T+0s (월요일 03:00:00)
           → state/king/schedule-sent.json 읽기
           → { "test-coverage-check": "2026-02-03" } → 오늘(02-10)이 아님 → false
         → get_resource_health() = "green" → 수용 가능
-        → sessions.json wc -l = 0 < max_soldiers(3) → 수용 가능
+        → sessions.json jq 'length' = 0 < max_soldiers(3) → 수용 가능
 
 T+0s    왕 dispatch_scheduled_task()
         → task-seq 증분
@@ -84,7 +84,7 @@ T+0s    왕 dispatch_scheduled_task()
 T+0s    왕 create_thread_start_message()
         → 쓰기: queue/messages/pending/msg-20260210-001.json
           { "type": "thread_start",
-            "content": "[시작] test-coverage-analysis (스케줄: test-coverage-check)" }
+            "content": "[start] test-coverage-analysis (스케줄: test-coverage-check)" }
 ```
 
 **※ 파수꾼은 이 흐름에 관여하지 않음** — 이벤트 큐(queue/events/)도 사용되지 않음.
@@ -131,8 +131,9 @@ T+~13s  장군 spawn_soldier → tmux 세션 생성
 ### Phase 4: 병사 실행 (Claude Code)
 
 ```
-T+~13s ~ T+~420s  병사 (claude -p --output-format json --json-schema ...)
+T+~13s ~ T+~420s  병사 (claude -p --dangerously-skip-permissions)
         → workspace/gen-test/ 에서 실행
+        → workspace/CLAUDE.md 자동 로드 (결과 보고 방식 지시)
         → 전역 enabledPlugins → saturday@qp-plugin 자동 로드
 
         작업 순서:
@@ -155,8 +156,8 @@ T+~13s ~ T+~420s  병사 (claude -p --output-format json --json-schema ...)
            → git add & commit
            → gh pr create --title "test: improve coverage for Button, format"
 
-        6. --json-schema에 의해 구조화된 결과 stdout 출력:
-           → stdout → .tmp → mv → state/results/task-20260210-001-raw.json
+        6. .kingdom-task.json에서 task_id, result_path 읽기
+           → Write 도구로 state/results/task-20260210-001-raw.json 직접 생성:
            {
              "task_id": "task-20260210-001",
              "status": "success",
@@ -191,7 +192,7 @@ T+~430s  왕 check_task_results()
          → handle_success():
            - complete_task (in_progress → completed)
            - 스케줄 작업이므로 이벤트 이동은 없음 (event_id = schedule-...)
-           - 사절 알림: "[완료] 테스트 커버리지 개선 — PR #5678"
+           - 사절 알림: "[complete] 테스트 커버리지 개선 — PR #5678"
 
 T+~435s  사절 → Slack 스레드에 완료 알림 + thread_mapping 제거
 ```
@@ -200,7 +201,7 @@ T+~435s  사절 → Slack 스레드에 완료 알림 + thread_mapping 제거
 - `queue/tasks/completed/task-20260210-001.json` (7일 후 삭제)
 - `state/results/task-20260210-001.json` + `-raw.json` (7일 후 삭제)
 - GitHub에 PR #5678 생성됨
-- Slack에 스레드: [시작] → [완료]
+- Slack에 스레드: [start] → [complete]
 - `schedule-sent.json`: `{ "test-coverage-check": "2026-02-10" }` (다음 주까지 재트리거 방지)
 
 ---
@@ -228,7 +229,7 @@ T+~13s ~ T+~60s  병사 실행
         }
 
 T+~70s  왕 → 완료 처리
-        사절 → Slack: "[완료] 커버리지 점검 완료 — 모든 모듈 기준 충족, 작업 없음"
+        사절 → Slack: "[complete] 커버리지 점검 완료 — 모든 모듈 기준 충족, 작업 없음"
 ```
 
 **※ PR이 생성되지 않는 정상 케이스** — 병사가 "할 일 없음"을 판단하고 success로 보고.

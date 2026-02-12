@@ -201,20 +201,34 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 }
 ```
 
+### skipped
+
+```json
+{
+  "task_id": "task-20260207-004",
+  "soldier_id": "soldier-1707300420-3456",
+  "status": "skipped",
+  "summary": "이미 머지된 PR — 리뷰 불필요",
+  "reason": "PR #1234 is already merged",
+  "completed_at": "2026-02-07T10:07:00Z"
+}
+```
+
 ### 필드 참조표
 
-| 필드 | success | failed | needs_human | 참조하는 주체 |
-|------|---------|--------|-------------|-------------|
-| `task_id` | 필수 | 필수 | 필수 | 장군, 왕 |
-| `soldier_id` | 필수 | 선택 | 선택 | 로깅용 |
-| `status` | 필수 | 필수 | 필수 | 장군 재시도 루프 |
-| `summary` | 필수 | 필수 | 필수 | 왕 → 사절 알림 |
-| `error` | - | 필수 | - | 장군 재시도 판단, 왕 에스컬레이션 |
-| `question` | - | - | 필수 | 왕 → 사절 → 사람 |
-| `details` | 선택 | - | - | 로깅, 메트릭 |
-| `metrics` | 선택 | - | - | 내관 메트릭 수집 |
-| `memory_updates` | 선택 | - | - | 장군 `update_memory` |
-| `completed_at` | 필수 | 필수 | 필수 | 로깅, 메트릭 |
+| 필드 | success | failed | needs_human | skipped | 참조하는 주체 |
+|------|---------|--------|-------------|---------|-------------|
+| `task_id` | 필수 | 필수 | 필수 | 필수 | 장군, 왕 |
+| `soldier_id` | 필수 | 선택 | 선택 | 선택 | 로깅용 |
+| `status` | 필수 | 필수 | 필수 | 필수 | 장군 재시도 루프 |
+| `summary` | 필수 | 필수 | 필수 | 필수 | 왕 → 사절 알림 |
+| `reason` | - | - | - | 선택 | 왕 (건너뛴 이유 로깅) |
+| `error` | - | 필수 | - | - | 장군 재시도 판단, 왕 에스컬레이션 |
+| `question` | - | - | 필수 | - | 왕 → 사절 → 사람 |
+| `details` | 선택 | - | - | - | 로깅, 메트릭 |
+| `metrics` | 선택 | - | - | - | 내관 메트릭 수집 |
+| `memory_updates` | 선택 | - | - | - | 장군 `update_memory` |
+| `completed_at` | 필수 | 필수 | 필수 | 필수 | 로깅, 메트릭 |
 
 > **결과 파일 작성 주체**: 정상 시 병사가 Write 도구로, timeout 시 장군의 `wait_for_soldier`가 직접 생성. 상세: [roles/general.md — wait_for_soldier](general.md#spawn_soldier--wait_for_soldier)
 
@@ -237,18 +251,20 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 ### 스키마
 
 ```json
-{"id": "soldier-1707300000-1234", "task_id": "task-20260207-001", "started_at": "2026-02-07T10:00:00Z"}
-{"id": "soldier-1707300180-5678", "task_id": "task-20260207-002", "started_at": "2026-02-07T10:03:00Z"}
+[
+  {"id": "soldier-1707300000-1234", "task_id": "task-20260207-001", "started_at": "2026-02-07T10:00:00Z"},
+  {"id": "soldier-1707300180-5678", "task_id": "task-20260207-002", "started_at": "2026-02-07T10:03:00Z"}
+]
 ```
 
-줄 단위 JSON (JSONL). 한 줄 = 한 세션.
+JSON 배열. 장군이 `jq '. + [<entry>]'`로 추가하고, 내관이 종료 세션을 필터링하여 갱신한다.
 
 ### 생명주기
 
 | 단계 | 담당 | 동작 |
 |------|------|------|
 | 등록 | 장군 (`spawn_soldier`) | `bin/spawn-soldier.sh` 호출 후 append |
-| 활용 | 왕 (`max_soldiers` 체크) | `wc -l`로 활성 병사 수 확인 |
+| 활용 | 왕 (`max_soldiers` 체크) | `jq 'length'`로 활성 병사 수 확인 |
 | 활용 | 내관 (`session-checker.sh`) | `tmux has-session`으로 생존 여부 확인 |
 | 정리 | 내관 (`session-checker.sh`) | 종료된 세션 행 제거 (주기적) |
 

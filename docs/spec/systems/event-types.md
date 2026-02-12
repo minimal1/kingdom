@@ -18,14 +18,17 @@
 | `github.notification.*` | GitHub | 기타 notification reason | low | `evt-github-{notification_id}` |
 | `github.issue.mentioned` | GitHub | Issue에서 멘션됨 | low | `evt-github-{notification_id}` |
 | `github.issue.assigned` | GitHub | Issue에 어사인됨 | normal | `evt-github-{notification_id}` |
+| `github.issue.comment` | GitHub | Issue에 코멘트 추가 | low | `evt-github-{notification_id}` |
+| `github.issue.state_change` | GitHub | Issue 상태 변경 | low | `evt-github-{notification_id}` |
 | `jira.ticket.assigned` | Jira | 티켓 할당됨 | normal | `evt-jira-{ticket_key}-{updated_ts}` |
 | `jira.ticket.updated` | Jira | 할당된 티켓 상태/내용 변경 | normal | `evt-jira-{ticket_key}-{updated_ts}` |
 | `jira.ticket.commented` | Jira | 할당된 티켓에 코멘트 | low | `evt-jira-{ticket_key}-{updated_ts}` |
 
-> GitHub 이벤트 타입은 Notifications API의 `reason` 필드 기반으로 결정.
+> GitHub 이벤트 타입은 Notifications API의 `reason` 필드와 `subject.type` (PullRequest vs Issue) 기반으로 결정. `subject.type`이 `PullRequest`이면 `github.pr.*`, `Issue`이면 `github.issue.*`로 분기한다.
 > Jira 이벤트 타입은 `changelog` 분석으로 결정.
 > `github.pr.comment`, `github.pr.state_change`, `github.notification.*`는 현재 구독 장군 없음 — 왕이 경고 로그 후 폐기.
-> `github.issue.mentioned`, `github.issue.assigned`는 **현재 파수꾼이 미생성** — Notifications API에서 issue 이벤트는 감지 가능하나 파수꾼의 파싱 로직 미구현 상태. 향후 구현 시 gen-jira의 subscribes에 추가 예정.
+> `github.issue.mentioned`, `github.issue.assigned`는 파수꾼이 생성 가능 — `subject.type == "Issue"`일 때 파싱 구현됨. 현재 구독 장군 없음 — 향후 gen-jira의 subscribes에 추가 예정.
+> `github.issue.comment`, `github.issue.state_change`도 동일하게 파수꾼이 생성 가능하나 구독 장군 없음.
 > `jira.ticket.commented`는 **현재 파수꾼이 미생성** — Jira REST API의 changelog에서 코멘트 변경 감지 로직 미구현 상태.
 > 상세: [roles/sentinel.md](../roles/sentinel.md)
 
@@ -68,7 +71,7 @@ queue/events/pending/
   예:
     github.pr.*           → gen-pr   (gen-pr.yaml의 subscribes에 선언)
     jira.ticket.*         → gen-jira (gen-jira.yaml의 subscribes에 선언)
-    github.issue.*        → (현재 구독 장군 없음 — 파수꾼 미생성 + gen-jira subscribes 미포함)
+    github.issue.*        → (현재 구독 장군 없음 — 파수꾼은 생성 가능, gen-jira subscribes 미포함)
   매칭 실패 시 → 경고 로그, 이벤트를 completed로 이동 (폐기)
 ```
 
@@ -93,7 +96,9 @@ slack.human_response
   "type": "{source}.{category}.{action}",
   "source": "github | jira | slack",
   "repo": "owner/repo | null",
-  "payload": { },
+  "payload": {
+    "pr_number": "string | null (PR 이벤트 시 subject.url에서 추출)"
+  },
   "priority": "low | normal | high",
   "created_at": "ISO8601",
   "status": "pending | dispatched | completed | failed"

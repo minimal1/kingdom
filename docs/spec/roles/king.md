@@ -183,13 +183,13 @@ find_general() {
 # bin/king.sh — 왕 메인 루프
 
 BASE_DIR="/opt/kingdom"
-source "$BASE_DIR/bin/lib/common.sh"          # 공통 함수 (log, get_config, update_heartbeat, emit_event)
+source "$BASE_DIR/bin/lib/common.sh"          # 공통 함수 (log, get_config, start_heartbeat_daemon, emit_event)
 source "$BASE_DIR/bin/lib/king/router.sh"      # 라우팅 테이블, find_general
 source "$BASE_DIR/bin/lib/king/resource-check.sh"
 
 # ── Graceful Shutdown ────────────────────────────
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
 
 # ── 장군 매니페스트 로딩 ─────────────────────────
 load_general_manifests
@@ -224,8 +224,9 @@ SCHEDULE_CHECK_INTERVAL=60 # 60초 — 장군 스케줄 확인
 
 log "[SYSTEM] [king] Started. ${#ROUTING_TABLE[@]} event types registered."
 
+start_heartbeat_daemon "king"
+
 while $RUNNING; do
-  update_heartbeat "king"
   now=$(date +%s)
 
   # ── 1. 이벤트 소비 (10초) ──────────────────────
@@ -321,9 +322,12 @@ process_pending_events() {
       continue
     fi
 
-    # 2. 병사 수 확인 (max_soldiers) — sessions.json 기준 (soldier.md/내관과 일치)
+    # 2. 병사 수 확인 (max_soldiers) — sessions.json (JSON 배열) 기준
     local max_soldiers=$(get_config "king" "concurrency.max_soldiers")
-    local active_soldiers=$(wc -l < "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
+    local active_soldiers=0
+    if [ -f "$BASE_DIR/state/sessions.json" ]; then
+      active_soldiers=$(jq 'length' "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
+    fi
     if (( active_soldiers >= max_soldiers )); then
       log "[EVENT] [king] Max soldiers reached ($active_soldiers/$max_soldiers), deferring event: $event_id"
       continue
@@ -490,8 +494,9 @@ state/results/{task-id}.json
 ┌──────────────────────┐
 │ status 분기           │
 ├─ success             │──→ 완료 처리 (아래)
-├─ failed              │──→ 재시도 or 에스컬레이션
+├─ failed              │──→ 에스컬레이션 (장군이 재시도 소진 후)
 ├─ needs_human         │──→ 사절에게 human_input_request
+├─ skipped             │──→ 조용히 완료 처리 (사절 알림 없음)
 └──────────────────────┘
 ```
 
@@ -526,6 +531,9 @@ check_task_results() {
       needs_human)
         handle_needs_human "$task_id" "$result"
         ;;
+      skipped)
+        handle_skipped "$task_id" "$result"
+        ;;
       *)
         log "[WARN] [king] Unknown result status: $status for task: $task_id"
         ;;
@@ -540,7 +548,7 @@ check_task_results() {
 handle_success() {
   local task_id="$1"
   local result="$2"
-  local summary=$(echo "$result" | jq -r '.summary // "완료"')
+  local summary=$(echo "$result" | jq -r '.summary // "completed"')
 
   # task 파일을 먼저 읽은 후 complete_task 호출 (mv 후에는 경로가 바뀜)
   local task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
@@ -550,7 +558,7 @@ handle_success() {
   complete_task "$task_id"
 
   # 사절에게 완료 알림
-  create_notification_message "$task_id" "[완료] $event_type — $summary"
+  create_notification_message "$task_id" "[complete] $event_type — $summary"
 
   log "[EVENT] [king] Task completed: $task_id"
 }
@@ -568,8 +576,7 @@ handle_failure() {
 
   # 장군이 이미 재시도를 소진한 최종 실패 — 에스컬레이션만 수행
   complete_task "$task_id"
-  create_notification_message "$task_id" \
-    "[실패] $error — 장군이 재시도 소진 후 최종 실패"
+  create_notification_message "$task_id" "[failed] $error"
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -589,7 +596,7 @@ handle_needs_human() {
   local message=$(jq -n \
     --arg id "$msg_id" \
     --arg task_id "$task_id" \
-    --arg content "[질문] $question" \
+    --arg content "[question] $question" \
     --arg checkpoint "$checkpoint_path" \
     '{
       id: $id,
@@ -608,6 +615,21 @@ handle_needs_human() {
   # 작업 상태는 in_progress 유지 (사람 응답 대기 중)
 
   log "[EVENT] [king] Needs human input for task: $task_id"
+}
+```
+
+### skipped 처리
+
+병사가 작업이 자신의 역량 범위 밖이라고 판단한 경우 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등). 사절 알림 없이 조용히 완료 처리한다.
+
+```bash
+handle_skipped() {
+  local task_id="$1"
+  local result="$2"
+  local reason=$(echo "$result" | jq -r '.reason // "out of scope"')
+
+  complete_task "$task_id"
+  log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
 ```
 
@@ -845,7 +867,7 @@ create_thread_start_message() {
   local msg_id=$(next_msg_id)
   local channel=$(get_config "king" "slack.default_channel")
 
-  local content="[시작] ${event_type}"
+  local content="[start] ${event_type}"
   [ -n "$repo" ] && content="$content — $repo"
 
   local message=$(jq -n \
@@ -953,7 +975,7 @@ state/king/
 
 ## 공통 함수 참조 (`common.sh`)
 
-> `log()`, `get_config()`, `update_heartbeat()`, `emit_event()`는 `bin/lib/common.sh`에 정의. (common-functions.md는 구현 단계에서 작성 예정)
+> `log()`, `get_config()`, `update_heartbeat()`, `start_heartbeat_daemon()`, `stop_heartbeat_daemon()`, `emit_event()`는 `bin/lib/common.sh`에 정의.
 
 ---
 
