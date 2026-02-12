@@ -12,13 +12,14 @@ source "$BASE_DIR/bin/lib/chamberlain/log-rotation.sh"
 INTERVAL=$(get_config "chamberlain" "monitoring.interval_seconds" 30)
 
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [chamberlain] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [chamberlain] Shutting down..."; exit 0' SIGTERM SIGINT
 
 emit_internal_event "system.startup" "chamberlain" '{"component": "chamberlain"}'
 log "[SYSTEM] [chamberlain] Started."
 
+start_heartbeat_daemon "chamberlain"
+
 while $RUNNING; do
-  update_heartbeat "chamberlain"
 
   # 1. Collect system metrics
   collect_metrics

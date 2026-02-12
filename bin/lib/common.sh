@@ -52,6 +52,26 @@ update_heartbeat() {
   touch "$hb_file"
 }
 
+start_heartbeat_daemon() {
+  local role="$1"
+  local interval="${2:-30}"
+  (
+    while true; do
+      update_heartbeat "$role"
+      sleep "$interval"
+    done
+  ) &
+  _HEARTBEAT_PID=$!
+}
+
+stop_heartbeat_daemon() {
+  if [[ -n "${_HEARTBEAT_PID:-}" ]]; then
+    kill "$_HEARTBEAT_PID" 2>/dev/null || true
+    wait "$_HEARTBEAT_PID" 2>/dev/null || true
+    _HEARTBEAT_PID=""
+  fi
+}
+
 # --- Event Emission (External) ---
 
 emit_event() {

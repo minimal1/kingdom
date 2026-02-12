@@ -9,7 +9,7 @@ source "$BASE_DIR/bin/lib/king/resource-check.sh"
 
 # --- Graceful Shutdown ---
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
 
 # --- Load General Manifests ---
 load_general_manifests
@@ -569,8 +569,9 @@ LAST_SCHEDULE_CHECK=0
 
 log "[SYSTEM] [king] Started. $(get_routing_table_count) event types registered."
 
+start_heartbeat_daemon "king"
+
 while $RUNNING; do
-  update_heartbeat "king"
   now=$(date +%s)
 
   # 1. Event consumption

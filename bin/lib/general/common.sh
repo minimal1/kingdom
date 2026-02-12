@@ -312,12 +312,13 @@ main_loop() {
   retry_backoff=$(get_config "generals/$GENERAL_DOMAIN" "retry.backoff_seconds" 60)
 
   RUNNING=true
-  trap 'RUNNING=false; log "[SYSTEM] [$GENERAL_DOMAIN] Shutting down..."; exit 0' SIGTERM SIGINT
+  trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [$GENERAL_DOMAIN] Shutting down..."; exit 0' SIGTERM SIGINT
 
   log "[SYSTEM] [$GENERAL_DOMAIN] Started."
 
+  start_heartbeat_daemon "$GENERAL_DOMAIN"
+
   while $RUNNING; do
-    update_heartbeat "$GENERAL_DOMAIN"
 
     local task_file
     task_file=$(pick_next_task "$GENERAL_DOMAIN")

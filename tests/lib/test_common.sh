@@ -188,6 +188,38 @@ EOF
 
 # --- portable_flock ---
 
+# --- heartbeat daemon ---
+
+@test "common: start_heartbeat_daemon creates heartbeat file" {
+  start_heartbeat_daemon "test-role" 1
+  sleep 2
+  stop_heartbeat_daemon
+  assert [ -f "$BASE_DIR/state/test-role/heartbeat" ]
+}
+
+@test "common: stop_heartbeat_daemon kills background process" {
+  start_heartbeat_daemon "test-role" 1
+  local pid="$_HEARTBEAT_PID"
+  assert [ -n "$pid" ]
+  stop_heartbeat_daemon
+  # 프로세스가 종료되었는지 확인
+  ! kill -0 "$pid" 2>/dev/null
+}
+
+@test "common: heartbeat daemon updates mtime continuously" {
+  start_heartbeat_daemon "test-role" 1
+  sleep 2
+  local mtime1
+  mtime1=$(get_mtime "$BASE_DIR/state/test-role/heartbeat")
+  sleep 2
+  local mtime2
+  mtime2=$(get_mtime "$BASE_DIR/state/test-role/heartbeat")
+  stop_heartbeat_daemon
+  assert [ "$mtime2" -gt "$mtime1" ]
+}
+
+# --- portable_flock ---
+
 @test "common: portable_flock executes command" {
   local lockfile="$BASE_DIR/test.lock"
   local outfile="$BASE_DIR/flock_out"

@@ -10,7 +10,7 @@ source "$BASE_DIR/bin/lib/envoy/slack-api.sh"
 source "$BASE_DIR/bin/lib/envoy/thread-manager.sh"
 
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [envoy] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [envoy] Shutting down..."; exit 0' SIGTERM SIGINT
 
 LAST_OUTBOUND=0
 LAST_THREAD_CHECK=0
@@ -197,8 +197,9 @@ check_awaiting_responses() {
 
 # --- Main Loop ---
 
+start_heartbeat_daemon "envoy"
+
 while $RUNNING; do
-  update_heartbeat "envoy"
   now=$(date +%s)
 
   if (( now - LAST_OUTBOUND >= OUTBOUND_INTERVAL )); then

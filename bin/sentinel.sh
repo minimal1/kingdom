@@ -10,7 +10,7 @@ source "$BASE_DIR/bin/lib/sentinel/watcher-common.sh"
 
 # Graceful Shutdown
 RUNNING=true
-trap 'RUNNING=false; log "[SYSTEM] [sentinel] Shutting down..."; exit 0' SIGTERM SIGINT
+trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [sentinel] Shutting down..."; exit 0' SIGTERM SIGINT
 
 # Watcher 동적 로딩: sentinel.yaml의 polling 키에서 스캔
 WATCHERS=()
@@ -34,8 +34,9 @@ declare -A LAST_POLL
 
 log "[SYSTEM] [sentinel] Started. Watchers: ${WATCHERS[*]}"
 
+start_heartbeat_daemon "sentinel"
+
 while $RUNNING; do
-  update_heartbeat "sentinel"
 
   for watcher in "${WATCHERS[@]}"; do
     interval=$(get_interval "$watcher")
