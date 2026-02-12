@@ -405,7 +405,7 @@ dispatch_new_task() {
      "$BASE_DIR/queue/tasks/pending/${task_id}.json"
 
   # 사절에게 thread_start 메시지 생성
-  create_thread_start_message "$task_id" "$event"
+  create_thread_start_message "$task_id" "$general" "$event"
 
   # 이벤트를 dispatched로 이동
   mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
@@ -552,13 +552,13 @@ handle_success() {
 
   # task 파일을 먼저 읽은 후 complete_task 호출 (mv 후에는 경로가 바뀜)
   local task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
-  local event_type=$(echo "$task" | jq -r '.type')
+  local general=$(echo "$task" | jq -r '.target_general')
 
   # 작업 완료 처리
   complete_task "$task_id"
 
-  # 사절에게 완료 알림
-  create_notification_message "$task_id" "[complete] $event_type — $summary"
+  # 사절에게 완료 알림 (✅ 포맷)
+  create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
 
   log "[EVENT] [king] Task completed: $task_id"
 }
@@ -574,9 +574,12 @@ handle_failure() {
   local result="$2"
   local error=$(echo "$result" | jq -r '.error // "unknown"')
 
+  local task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+  local general=$(echo "$task" | jq -r '.target_general')
+
   # 장군이 이미 재시도를 소진한 최종 실패 — 에스컬레이션만 수행
   complete_task "$task_id"
-  create_notification_message "$task_id" "[failed] $error"
+  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")"
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -669,10 +672,12 @@ complete_task() {
 ```bash
 SCHEDULE_SENT_FILE="$BASE_DIR/state/king/schedule-sent.json"
 
-# ── M1: cron 매칭 (분 시 일 월 요일, * 와일드카드 지원) ──
+# ── M1: cron 매칭 (분 시 일 월 요일) ──
+# wildcard(*), step(*/10), range(1-5), exact match 지원
 cron_matches() {
   local expr="$1"
-  local fields=($expr)  # 분 시 일 월 요일
+  local min hour dom mon dow
+  read -r min hour dom mon dow <<< "$expr"
 
   local now_min=$(date +%-M)
   local now_hour=$(date +%-H)
@@ -680,30 +685,54 @@ cron_matches() {
   local now_mon=$(date +%-m)
   local now_dow=$(date +%u)  # 1=Mon, 7=Sun
 
-  local now_vals=($now_min $now_hour $now_dom $now_mon $now_dow)
-
-  for i in 0 1 2 3 4; do
-    local field="${fields[$i]}"
-    local val="${now_vals[$i]}"
-    [ "$field" = "*" ] && continue
-    [ "$field" != "$val" ] && return 1
-  done
+  _cron_field_matches "$min" "$now_min" || return 1
+  _cron_field_matches "$hour" "$now_hour" || return 1
+  _cron_field_matches "$dom" "$now_dom" || return 1
+  _cron_field_matches "$mon" "$now_mon" || return 1
+  _cron_field_matches "$dow" "$now_dow" || return 1
   return 0
 }
 
-# ── M2: 스케줄 중복 실행 방지 ──
-already_triggered_today() {
-  local name="$1"
-  local today=$(date +%Y-%m-%d)
-  local last=$(jq -r --arg n "$name" '.[$n] // ""' "$SCHEDULE_SENT_FILE" 2>/dev/null)
-  [ "$last" = "$today" ]
+_cron_field_matches() {
+  local field="$1"
+  local value="$2"
+
+  # Wildcard
+  [ "$field" = "*" ] && return 0
+
+  # Step (e.g. */10, */5)
+  if [[ "$field" == \*/* ]]; then
+    local step="${field#*/}"
+    (( value % step == 0 )) && return 0
+    return 1
+  fi
+
+  # Range (e.g. 1-5)
+  if [[ "$field" == *-* ]]; then
+    local low="${field%%-*}"
+    local high="${field##*-}"
+    [ "$value" -ge "$low" ] && [ "$value" -le "$high" ] && return 0
+    return 1
+  fi
+
+  # Exact match
+  [ "$field" = "$value" ] && return 0
+  return 1
 }
 
-mark_triggered_today() {
+# ── M2: 스케줄 중복 실행 방지 (분 단위) ──
+already_triggered() {
   local name="$1"
-  local today=$(date +%Y-%m-%d)
+  local now_key=$(date +%Y-%m-%dT%H:%M)
+  local last=$(jq -r --arg n "$name" '.[$n] // ""' "$SCHEDULE_SENT_FILE" 2>/dev/null)
+  [ "$last" = "$now_key" ]
+}
+
+mark_triggered() {
+  local name="$1"
+  local now_key=$(date +%Y-%m-%dT%H:%M)
   local current=$(cat "$SCHEDULE_SENT_FILE" 2>/dev/null || echo '{}')
-  echo "$current" | jq --arg n "$name" --arg d "$today" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
+  echo "$current" | jq --arg n "$name" --arg d "$now_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
 }
 
 check_general_schedules() {
@@ -719,7 +748,7 @@ check_general_schedules() {
     local cron_expr=$(echo "$sched_json" | jq -r '.cron')
 
     # 간단한 cron 매칭 (분 시 일 월 요일)
-    if cron_matches "$cron_expr" && ! already_triggered_today "$sched_name"; then
+    if cron_matches "$cron_expr" && ! already_triggered "$sched_name"; then
       local task_type=$(echo "$sched_json" | jq -r '.task_type')
       local payload=$(echo "$sched_json" | jq '.payload')
 
@@ -732,7 +761,7 @@ check_general_schedules() {
 
       # 스케줄 작업 생성
       dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload"
-      mark_triggered_today "$sched_name"
+      mark_triggered "$sched_name"
 
       log "[EVENT] [king] Scheduled task triggered: $sched_name → $general"
     fi
@@ -770,7 +799,7 @@ dispatch_scheduled_task() {
      "$BASE_DIR/queue/tasks/pending/${task_id}.json"
 
   # 스케줄 작업도 사절에게 thread_start 알림 (repo: null — 스케줄 작업은 특정 레포 없음)
-  create_thread_start_message "$task_id" \
+  create_thread_start_message "$task_id" "$general" \
     "$(jq -n --arg t "$task_type" '{type: ("schedule." + $t), repo: null}')"
 }
 ```
@@ -861,14 +890,15 @@ next_msg_id() {
 # thread_start: 작업 시작 알림 (스레드 생성)
 create_thread_start_message() {
   local task_id="$1"
-  local event="$2"
+  local general="$2"
+  local event="$3"
   local event_type=$(echo "$event" | jq -r '.type')
   local repo=$(echo "$event" | jq -r '.repo // ""')
   local msg_id=$(next_msg_id)
   local channel=$(get_config "king" "slack.default_channel")
 
-  local content="[start] ${event_type}"
-  [ -n "$repo" ] && content="$content — $repo"
+  local content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
+  [ -n "$repo" ] && content=$(printf '📋 %s | %s\n%s | %s' "$general" "$task_id" "$event_type" "$repo")
 
   local message=$(jq -n \
     --arg id "$msg_id" --arg task "$task_id" \

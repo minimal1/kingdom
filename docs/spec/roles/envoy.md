@@ -30,22 +30,29 @@
 
 ---
 
-## Slack 채널 + 스레드 모델
+## Slack DM/채널 하이브리드 모델
 
 ### 개념
 
+`default_channel`에 User ID (`UXXXXXXXX`)를 설정하면 DM으로 동작하고, 채널 이름을 설정하면 채널에 게시한다. Slack API의 `chat.postMessage`는 channel 파라미터에 User ID를 넣으면 자동으로 DM을 생성하므로, 별도 분기 없이 동일한 코드로 동작한다.
+
+DM으로 메시지를 보내면 Slack API 응답의 `channel` 필드에 `D`-prefixed 채널 ID (예: `D08XXXXXXXX`)가 반환된다. 사절은 이 **응답의 actual channel ID**를 `thread-mappings.json`에 저장하여, 이후 스레드 답글이 올바른 DM 대화에 전달되도록 한다.
+
 ```
-#kingdom 채널
+DM 대화 (또는 채널)
 │
-├─ 📌 "[start] PR #1234 리뷰 — querypie/frontend"       ← 채널 메시지 (스레드 부모)
+├─ 📌 "📋 gen-pr | task-20260212-001                     ← 메시지 (스레드 부모)
+│       github.pr.review_requested | querypie/frontend"
 │   └─ 🧵 스레드:
 │       ├─ 🤖 "PR 분석 중... 변경 파일 12개"
 │       ├─ 🤖 "[question] 보안 이슈 2건 발견. 리뷰에 포함할까요?"
 │       ├─ 👤 "포함해줘"
 │       ├─ 🤖 "리뷰 코멘트 5개 작성 완료"
-│       └─ 🤖 "[complete] PR #1234 리뷰 완료 ✓"
+│       └─ 🤖 "✅ gen-pr | task-20260212-001
+│              PR 리뷰 완료 — 5개 코멘트 작성"
 │
-├─ 📌 "[start] Jira QP-567 구현"                        ← 또 다른 작업 스레드
+├─ 📌 "📋 gen-jira | task-20260212-002                   ← 또 다른 작업 스레드
+│       jira.ticket.assigned | querypie/backend"
 │   └─ 🧵 ...
 │
 └─ 📊 "[일일 리포트] 2026-02-07 — 처리 3건, 실패 0건"    ← 리포트 (스레드 없이)
@@ -185,7 +192,7 @@ read_thread_replies() {
   "type": "thread_start",
   "task_id": "task-20260207-001",
   "channel": "dev-eddy",
-  "content": "[start] PR #1234 리뷰 — querypie/frontend",
+  "content": "📋 gen-pr | task-20260207-001\ngithub.pr.review_requested | querypie/frontend",
   "created_at": "2026-02-07T10:00:00Z",
   "status": "pending"
 }
@@ -198,8 +205,11 @@ read_thread_replies() {
 response=$(send_message "$channel" "$content") || return 1
 thread_ts=$(echo "$response" | jq -r '.ts')
 
-# 매핑 저장
-save_thread_mapping "$task_id" "$thread_ts" "$channel"
+# API 응답의 실제 channel ID 사용 (DM일 때 D-prefixed ID 반환)
+actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+
+# 매핑 저장 (actual_channel — DM이면 D08XXX, 채널이면 C0XXX)
+save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
 ```
 
 #### `thread_update` — 스레드에 진행 상황 업데이트
@@ -263,7 +273,7 @@ process_human_input_request() {
   "task_id": "task-20260207-001",
   "channel": "dev-eddy",
   "urgency": "normal",
-  "content": "[complete] PR #1234 리뷰 완료 — 5개 코멘트 작성",
+  "content": "✅ gen-pr | task-20260207-001\nPR #1234 리뷰 완료 — 5개 코멘트 작성",
   "context": {
     "result_url": "https://github.com/querypie/frontend/pull/1234"
   },
@@ -291,8 +301,8 @@ process_notification() {
       local channel=$(echo "$mapping" | jq -r '.channel')
       send_thread_reply "$channel" "$thread_ts" "$content"
 
-      # 완료/실패 시 스레드 매핑 정리
-      if echo "$content" | grep -qE '^\[(complete|failed)\]'; then
+      # 완료/실패 시 스레드 매핑 정리 (✅/❌ 접두사로 판별)
+      if echo "$content" | grep -qE '^(✅|❌)'; then
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"  # 혹시 남아있으면 함께 정리
         log "[EVENT] [envoy] Thread closed for task: $task_id"
@@ -726,8 +736,9 @@ intervals:
 | `chat:write` | 채널/스레드에 메시지 전송 | `chat.postMessage` |
 | `channels:history` | 공개 채널의 스레드 답글 읽기 (needs_human 응답 감지) | `conversations.replies` |
 | `channels:read` | 채널 ID 조회 | `conversations.list` (초기 설정 시) |
+| `im:history` | DM 스레드의 답글 읽기 (DM 모드에서 needs_human 응답 감지) | `conversations.replies` |
 
-> `channels:history`는 채널 메시지 전체를 읽을 수 있는 권한이지만, 사절은 awaiting 스레드의 답글만 읽는다.
+> `channels:history`/`im:history`는 메시지 전체를 읽을 수 있는 권한이지만, 사절은 awaiting 스레드의 답글만 읽는다.
 
 #### 비공개 채널을 사용하는 경우
 
