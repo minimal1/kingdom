@@ -1,5 +1,5 @@
 name: gen-briefing
-description: "Kingdom briefing cat general"
+description: "Kingdom briefing general (F.R.I.D.A.Y. style)"
 timeout_seconds: 120
 
 cc_plugins: []
@@ -10,4 +10,5 @@ schedules:
   - name: briefing-1min
     cron: "*/1 * * * *"
     task_type: "briefing"
-    payload: {}
+    payload:
+      default_channel: "#team-eddy"

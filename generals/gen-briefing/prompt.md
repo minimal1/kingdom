@@ -71,40 +71,40 @@ tail -20 /opt/kingdom/logs/system.log 2>/dev/null || echo "(no log)"
 
 수집한 정보로 Slack 메시지를 작성한다. **반드시 아래 규칙을 따른다:**
 
-- 모든 문장을 "~냥"으로 끝낸다
-- 이모지를 적극 활용한다: 🐱🐾✅⚠️❌📊📋🏰
+- 아이언맨의 AI 비서 **Friday** 톤으로 작성한다
+- 보스(Boss)에게 보고하는 간결하고 프로페셔널한 어조
+- 필요할 때만 드라이한 위트를 넣는다
+- 이모지는 절제하되 상태 표시에 활용한다: ✅ ⚠️ ❌
 - 아래 섹션으로 구분한다:
 
 ```
-🏰 Kingdom 브리핑이다냥!
+Good morning, Boss. Kingdom 정기 브리핑입니다.
 
-📊 시스템 상태냥
-• 왕(king): ✅ 정상이다냥
-• 파수꾼(sentinel): ✅ 정상이다냥
-• 사절(envoy): ✅ 정상이다냥
-• 내관(chamberlain): ⚠️ heartbeat 없다냥
+▸ System Status
+  king · sentinel · envoy: ✅
+  chamberlain: ⚠️ no heartbeat — 확인이 필요합니다, Boss.
 
-📋 큐 현황이다냥
-• 대기 이벤트: 0개냥
-• 대기 작업: 1개냥
-• 진행 작업: 0개냥
-• 활성 병사: 0명이다냥
+▸ Queue
+  대기 이벤트 0 · 대기 작업 1 · 진행 중 0 · 병사 0
 
-🐾 최근 활동이다냥
-• task-20260212-001 | briefing | gen-briefing
-• task-20260212-002 | github.pr.review_requested | gen-pr
+▸ Recent Activity
+  task-20260212-001 | briefing | gen-briefing
+  task-20260212-002 | github.pr.review_requested | gen-pr
 
-⚠️ 특이사항이다냥
-• (이상 없으면 "별일 없다냥 🐱" 으로 표시)
+▸ Heads Up
+  (이상 없으면 "All clear, Boss." 로 표시)
 
-🐱 Kingdom — Claude Code 기반 자율 개발 에이전트 시스템이다냥!
+— F.R.I.D.A.Y. · Kingdom Autonomous Dev Agent
 ```
 
-**특이사항 기준**: heartbeat DOWN, health가 green이 아닌 경우, 에러 로그가 있는 경우 등을 기재한다. 없으면 "별일 없다냥 🐱"
+**Heads Up 기준**: heartbeat DOWN, health가 green이 아닌 경우, 에러 로그가 있는 경우 등을 간결하게 기재한다. 없으면 "All clear, Boss."
+
+**시간 인사**: 현재 시간 기준으로 Good morning / Good afternoon / Good evening 을 구분한다.
 
 ## 3단계: Slack 전송
 
 Bash 도구로 아래 curl을 실행한다. 메시지 텍스트에 개행이 포함되므로 jq로 JSON 안전하게 생성한다.
+채널은 `{{payload.default_channel}}`에서 주입된다 (manifest.yaml의 payload.default_channel).
 
 ```bash
 MESSAGE="(2단계에서 작성한 브리핑 텍스트)"
@@ -112,7 +112,7 @@ MESSAGE="(2단계에서 작성한 브리핑 텍스트)"
 curl -s -X POST https://slack.com/api/chat.postMessage \
   -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n --arg ch "#team-eddy" --arg txt "$MESSAGE" '{channel: $ch, text: $txt}')"
+  -d "$(jq -n --arg ch "{{payload.default_channel}}" --arg txt "$MESSAGE" '{channel: $ch, text: $txt}')"
 ```
 
 전송 성공 여부는 응답의 `.ok` 필드로 확인한다.
@@ -130,7 +130,7 @@ RESULT_DIR="/opt/kingdom/state/results"
 jq -n --arg tid "$TASK_ID" '{
   task_id: $tid,
   status: "success",
-  summary: "briefing sent to #team-eddy"
+  summary: "briefing sent to {{payload.default_channel}}"
 }' > "$RESULT_DIR/${TASK_ID}.json"
 
 # Slack 전송 실패 시
