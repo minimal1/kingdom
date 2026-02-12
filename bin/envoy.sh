@@ -33,9 +33,13 @@ process_thread_start() {
   local thread_ts
   thread_ts=$(echo "$response" | jq -r '.ts')
 
-  save_thread_mapping "$task_id" "$thread_ts" "$channel"
+  # API 응답의 실제 channel ID 사용 (DM일 때 D-prefixed ID 반환)
+  local actual_channel
+  actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+
+  save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
   emit_internal_event "message.sent" "envoy" \
-    "$(jq -n -c --arg mid "$(echo "$msg" | jq -r '.id')" --arg tid "$task_id" --arg ch "$channel" \
+    "$(jq -n -c --arg mid "$(echo "$msg" | jq -r '.id')" --arg tid "$task_id" --arg ch "$actual_channel" \
       '{msg_id: $mid, task_id: $tid, channel: $ch}')"
   log "[EVENT] [envoy] Thread started for task: $task_id"
 }

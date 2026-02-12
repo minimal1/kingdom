@@ -26,7 +26,7 @@ case "$url" in
     echo '{"ok":true,"user":"kingdom-bot","team":"chequer"}'
     ;;
   *"slack.com/api/chat.postMessage"*)
-    echo '{"ok":true,"ts":"1707300000.000100","channel":"C123"}'
+    echo '{"ok":true,"ts":"1707300000.000100","channel":"D_MOCK_DM"}'
     ;;
   *"slack.com/api/conversations.replies"*)
     if [[ -n "$MOCK_SLACK_REPLIES" ]]; then

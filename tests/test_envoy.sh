@@ -18,23 +18,25 @@ teardown() {
 }
 
 @test "envoy: process_outbound_queue processes thread_start" {
-  # thread_start 관련 함수 직접 테스트
-  local msg='{"id":"msg-001","type":"thread_start","task_id":"task-001","channel":"C123","content":"[start] PR review","created_at":"2026-01-01T00:00:00Z","status":"pending"}'
+  # thread_start 관련 함수 직접 테스트 (DM 시나리오 포함)
+  local msg='{"id":"msg-001","type":"thread_start","task_id":"task-001","channel":"U_TEST_USER","content":"[start] PR review","created_at":"2026-01-01T00:00:00Z","status":"pending"}'
 
-  # thread_start 처리
+  # thread_start 처리 — User ID로 전송, API 응답에서 실제 DM 채널 추출
   local response
-  response=$(send_message "C123" "[start] PR review")
+  response=$(send_message "U_TEST_USER" "[start] PR review")
   local thread_ts
   thread_ts=$(jq -r '.ts' <<< "$response")
-  save_thread_mapping "task-001" "$thread_ts" "C123"
+  local actual_channel
+  actual_channel=$(jq -r '.channel' <<< "$response")
+  save_thread_mapping "task-001" "$thread_ts" "$actual_channel"
 
-  # 매핑 확인
+  # 매핑에 API 응답의 실제 채널(D-prefixed DM)이 저장되었는지 확인
   run get_thread_mapping "task-001"
   assert_success
   local mapping
   mapping=$(get_thread_mapping "task-001")
   run jq -r '.channel' <<< "$mapping"
-  assert_output "C123"
+  assert_output "D_MOCK_DM"
 }
 
 @test "envoy: process outbound moves file to sent" {
