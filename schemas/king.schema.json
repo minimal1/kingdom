@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/king.schema.json",
+  "title": "Kingdom King Config",
+  "description": "왕(King) 설정 — 이벤트 라우팅, 동시성, 스케줄 (config/king.yaml)",
+  "type": "object",
+  "required": ["slack", "concurrency", "intervals"],
+  "additionalProperties": false,
+  "properties": {
+    "slack": {
+      "type": "object",
+      "description": "Slack 메시지 전송 설정",
+      "required": ["default_channel"],
+      "additionalProperties": false,
+      "properties": {
+        "default_channel": {
+          "type": "string",
+          "description": "기본 Slack 채널명 또는 User ID (DM). User ID(UXXXXXXXX)를 넣으면 DM으로 동작",
+          "examples": ["dev-eddy", "UXXXXXXXXXX"]
+        }
+      }
+    },
+    "retry": {
+      "type": "object",
+      "description": "작업 재시도 정책 (장군이 소진 후 왕에게 보고)",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "description": "최대 재시도 횟수",
+          "minimum": 1,
+          "default": 2
+        },
+        "backoff_seconds": {
+          "type": "integer",
+          "description": "재시도 간 대기 시간 (초)",
+          "minimum": 0,
+          "default": 60
+        }
+      }
+    },
+    "concurrency": {
+      "type": "object",
+      "description": "동시 실행 제어",
+      "required": ["max_soldiers"],
+      "additionalProperties": false,
+      "properties": {
+        "max_soldiers": {
+          "type": "integer",
+          "description": "최대 동시 병사 수 (M5.xlarge 기준 3 권장)",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3
+        }
+      }
+    },
+    "intervals": {
+      "type": "object",
+      "description": "메인 루프 폴링 주기 (초)",
+      "additionalProperties": false,
+      "properties": {
+        "event_check_seconds": {
+          "type": "integer",
+          "description": "이벤트 큐 소비 주기",
+          "minimum": 1,
+          "default": 10
+        },
+        "result_check_seconds": {
+          "type": "integer",
+          "description": "작업 결과 확인 주기",
+          "minimum": 1,
+          "default": 10
+        },
+        "schedule_check_seconds": {
+          "type": "integer",
+          "description": "장군 스케줄 확인 주기",
+          "minimum": 1,
+          "default": 60
+        },
+        "loop_tick_seconds": {
+          "type": "integer",
+          "description": "메인 루프 sleep 틱",
+          "minimum": 1,
+          "default": 5
+        }
+      }
+    }
+  }
+}

@@ -1,2 +1,3 @@
+# yaml-language-server: $schema=../schemas/system.schema.json
 version: "0.1.0"
 base_dir: "/opt/kingdom"

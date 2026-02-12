@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/envoy.schema.json",
+  "title": "Kingdom Envoy Config",
+  "description": "사절(Envoy) 설정 — Slack 통신 (config/envoy.yaml)",
+  "type": "object",
+  "required": ["slack", "intervals"],
+  "additionalProperties": false,
+  "properties": {
+    "slack": {
+      "type": "object",
+      "description": "Slack API 접근 설정",
+      "required": ["bot_token_env", "default_channel"],
+      "additionalProperties": false,
+      "properties": {
+        "bot_token_env": {
+          "type": "string",
+          "description": "Slack Bot Token 환경변수명",
+          "default": "SLACK_BOT_TOKEN",
+          "examples": ["SLACK_BOT_TOKEN"]
+        },
+        "default_channel": {
+          "type": "string",
+          "description": "기본 Slack 채널명 또는 User ID (DM)",
+          "examples": ["dev-eddy", "UXXXXXXXXXX"]
+        }
+      }
+    },
+    "intervals": {
+      "type": "object",
+      "description": "메인 루프 폴링 주기 (초)",
+      "additionalProperties": false,
+      "properties": {
+        "outbound_seconds": {
+          "type": "integer",
+          "description": "아웃바운드 메시지 큐 소비 주기",
+          "minimum": 1,
+          "default": 5
+        },
+        "thread_check_seconds": {
+          "type": "integer",
+          "description": "awaiting 스레드 응답 확인 주기",
+          "minimum": 1,
+          "default": 30
+        },
+        "loop_tick_seconds": {
+          "type": "integer",
+          "description": "메인 루프 sleep 틱",
+          "minimum": 1,
+          "default": 5
+        }
+      }
+    }
+  }
+}

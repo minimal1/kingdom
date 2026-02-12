@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/sentinel.schema.json",
+  "title": "Kingdom Sentinel Config",
+  "description": "파수꾼(Sentinel) 설정 — 외부 이벤트 폴링 (config/sentinel.yaml)",
+  "type": "object",
+  "required": ["polling"],
+  "additionalProperties": false,
+  "properties": {
+    "polling": {
+      "type": "object",
+      "description": "Watcher별 폴링 설정",
+      "additionalProperties": false,
+      "properties": {
+        "github": {
+          "type": "object",
+          "description": "GitHub Notifications 폴링",
+          "additionalProperties": false,
+          "properties": {
+            "interval_seconds": {
+              "type": "integer",
+              "description": "폴링 주기 (초). GitHub API rate limit 고려",
+              "minimum": 10,
+              "default": 60
+            },
+            "scope": {
+              "type": "object",
+              "description": "감시 범위 필터",
+              "additionalProperties": false,
+              "properties": {
+                "repos": {
+                  "type": "array",
+                  "description": "감시 대상 레포 (owner/repo 형식)",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[\\w.-]+/[\\w.-]+$"
+                  },
+                  "examples": [["chequer-io/querypie-frontend"]]
+                },
+                "filter_reasons": {
+                  "type": "array",
+                  "description": "GitHub notification reason 필터",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "review_requested",
+                      "assign",
+                      "mention",
+                      "comment",
+                      "state_change",
+                      "subscribed",
+                      "author",
+                      "manual"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "jira": {
+          "type": "object",
+          "description": "Jira REST API 폴링",
+          "additionalProperties": false,
+          "properties": {
+            "interval_seconds": {
+              "type": "integer",
+              "description": "폴링 주기 (초)",
+              "minimum": 30,
+              "default": 300
+            },
+            "scope": {
+              "type": "object",
+              "description": "감시 범위 필터",
+              "additionalProperties": false,
+              "properties": {
+                "jql_base": {
+                  "type": "string",
+                  "description": "기본 JQL 쿼리",
+                  "examples": ["assignee = currentUser() AND project IN (QP, QPD)"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

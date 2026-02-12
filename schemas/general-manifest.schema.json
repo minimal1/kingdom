@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/general-manifest.schema.json",
+  "title": "Kingdom General Manifest",
+  "description": "장군 매니페스트 — 장군 패키지 정의 (generals/gen-{name}/manifest.yaml)",
+  "type": "object",
+  "required": ["name", "description", "timeout_seconds", "subscribes", "schedules"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "장군 이름 (gen-{domain} 형식)",
+      "pattern": "^gen-[a-z][a-z0-9-]*$",
+      "examples": ["gen-pr", "gen-jira", "gen-test", "gen-briefing"]
+    },
+    "description": {
+      "type": "string",
+      "description": "장군 역할 설명",
+      "examples": ["PR review general", "Jira ticket implementation general"]
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "description": "병사 작업 타임아웃 (초). 초과 시 장군이 강제 종료",
+      "minimum": 30,
+      "examples": [120, 1800, 3600, 5400]
+    },
+    "cc_plugins": {
+      "type": "array",
+      "description": "필요한 Claude Code 플러그인 목록. 빈 배열이면 플러그인 불필요",
+      "items": {
+        "type": "string",
+        "description": "플러그인 이름 (예: friday@qp-plugin)",
+        "examples": ["friday@qp-plugin", "sunday", "saturday"]
+      }
+    },
+    "subscribes": {
+      "type": "array",
+      "description": "구독할 이벤트 타입 목록. 빈 배열이면 스케줄 전용 장군",
+      "items": {
+        "type": "string",
+        "description": "이벤트 타입 (source.entity.action 형식)",
+        "pattern": "^[a-z]+\\.[a-z_]+\\.[a-z_]+$",
+        "examples": [
+          "github.pr.review_requested",
+          "github.pr.assigned",
+          "jira.ticket.assigned",
+          "jira.ticket.updated"
+        ]
+      }
+    },
+    "schedules": {
+      "type": "array",
+      "description": "정기 작업 스케줄. 빈 배열이면 이벤트 기반 전용",
+      "items": {
+        "type": "object",
+        "required": ["name", "cron", "task_type", "payload"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "스케줄 고유 이름 (dedup 키로 사용)",
+            "examples": ["daily-test", "briefing-1min"]
+          },
+          "cron": {
+            "type": "string",
+            "description": "Cron 표현식 (분 시 일 월 요일). *, */N, N-M, exact 지원",
+            "pattern": "^[0-9*/, -]+$",
+            "examples": ["0 22 * * 1-5", "*/10 * * * *", "0 9 * * *"]
+          },
+          "task_type": {
+            "type": "string",
+            "description": "생성될 task의 type 필드",
+            "examples": ["daily-test-generation", "briefing"]
+          },
+          "payload": {
+            "type": "object",
+            "description": "task payload에 포함될 데이터. prompt의 {{payload.KEY}}로 참조 가능",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

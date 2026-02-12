@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/chamberlain.schema.json",
+  "title": "Kingdom Chamberlain Config",
+  "description": "내관(Chamberlain) 설정 — 리소스 모니터링, 데이터 정리 (config/chamberlain.yaml)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "monitoring": {
+      "type": "object",
+      "description": "모니터링 루프 설정",
+      "additionalProperties": false,
+      "properties": {
+        "interval_seconds": {
+          "type": "integer",
+          "description": "리소스 수집 주기 (초)",
+          "minimum": 5,
+          "default": 30
+        }
+      }
+    },
+    "heartbeat": {
+      "type": "object",
+      "description": "heartbeat 판단 기준",
+      "additionalProperties": false,
+      "properties": {
+        "threshold_seconds": {
+          "type": "integer",
+          "description": "이 시간(초) 이상 미갱신이면 DOWN 판정",
+          "minimum": 30,
+          "default": 120
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "리소스 health 판정 임계값 (%)",
+      "additionalProperties": false,
+      "properties": {
+        "cpu_yellow": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 60,
+          "description": "CPU yellow 임계값 (%)"
+        },
+        "cpu_orange": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 80,
+          "description": "CPU orange 임계값 (%)"
+        },
+        "cpu_red": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 90,
+          "description": "CPU red 임계값 (%)"
+        },
+        "memory_yellow": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 60,
+          "description": "Memory yellow 임계값 (%)"
+        },
+        "memory_orange": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 80,
+          "description": "Memory orange 임계값 (%)"
+        },
+        "memory_red": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 90,
+          "description": "Memory red 임계값 (%)"
+        },
+        "disk_warning": {
+          "type": "integer", "minimum": 0, "maximum": 100, "default": 85,
+          "description": "Disk 경고 임계값 (%)"
+        }
+      }
+    },
+    "anomaly": {
+      "type": "object",
+      "description": "이상 탐지 기준",
+      "additionalProperties": false,
+      "properties": {
+        "consecutive_failures": {
+          "type": "integer",
+          "description": "연속 실패 N회 이상이면 알림",
+          "minimum": 1,
+          "default": 3
+        },
+        "timeout_spike": {
+          "type": "integer",
+          "description": "타임아웃 급증 기준 (건수)",
+          "minimum": 1,
+          "default": 5
+        },
+        "event_stale_minutes": {
+          "type": "integer",
+          "description": "이벤트가 N분 이상 pending이면 stale 경고",
+          "minimum": 1,
+          "default": 30
+        }
+      }
+    },
+    "auto_recovery": {
+      "type": "object",
+      "description": "자동 복구 정책",
+      "additionalProperties": false,
+      "properties": {
+        "restart_sentinel": {
+          "type": "boolean",
+          "description": "파수꾼 죽음 시 자동 재시작 여부",
+          "default": true
+        },
+        "restart_others": {
+          "type": "boolean",
+          "description": "기타 역할 죽음 시 자동 재시작 여부",
+          "default": false
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "description": "데이터 보존 정책",
+      "additionalProperties": false,
+      "properties": {
+        "log_max_mb": {
+          "type": "integer",
+          "description": "로그 파일 최대 크기 (MB). 초과 시 rotation",
+          "minimum": 1,
+          "default": 100
+        },
+        "logs_days": {
+          "type": "integer",
+          "description": "로그 보존 일수",
+          "minimum": 1,
+          "default": 7
+        },
+        "results_days": {
+          "type": "integer",
+          "description": "결과 파일 보존 일수",
+          "minimum": 1,
+          "default": 7
+        },
+        "queue_days": {
+          "type": "integer",
+          "description": "큐(completed/sent) 보존 일수",
+          "minimum": 1,
+          "default": 7
+        },
+        "prompts_days": {
+          "type": "integer",
+          "description": "프롬프트 파일 보존 일수",
+          "minimum": 1,
+          "default": 3
+        },
+        "session_logs_days": {
+          "type": "integer",
+          "description": "세션 로그 보존 일수",
+          "minimum": 1,
+          "default": 7
+        },
+        "seen_days": {
+          "type": "integer",
+          "description": "seen 마커 보존 일수",
+          "minimum": 1,
+          "default": 30
+        }
+      }
+    },
+    "daily_report": {
+      "type": "object",
+      "description": "일일 리포트 스케줄",
+      "additionalProperties": false,
+      "properties": {
+        "hour": {
+          "type": "integer",
+          "description": "리포트 생성 시각 (0-23, UTC)",
+          "minimum": 0,
+          "maximum": 23,
+          "default": 9
+        }
+      }
+    },
+    "events_rotation": {
+      "type": "object",
+      "description": "이벤트 로그 rotation 스케줄",
+      "additionalProperties": false,
+      "properties": {
+        "hour": {
+          "type": "integer",
+          "description": "rotation 실행 시각 (0-23, UTC)",
+          "minimum": 0,
+          "maximum": 23,
+          "default": 0
+        }
+      }
+    }
+  }
+}

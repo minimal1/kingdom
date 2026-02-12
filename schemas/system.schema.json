@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/system.schema.json",
+  "title": "Kingdom System Config",
+  "description": "Kingdom 전역 시스템 설정 (config/system.yaml)",
+  "type": "object",
+  "required": ["version", "base_dir"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Kingdom 버전 (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["0.1.0"]
+    },
+    "base_dir": {
+      "type": "string",
+      "description": "Kingdom 런타임 루트 디렉토리",
+      "default": "/opt/kingdom",
+      "examples": ["/opt/kingdom"]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../schemas/chamberlain.schema.json
 monitoring:
   interval_seconds: 30
 

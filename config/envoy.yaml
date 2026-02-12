@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../schemas/envoy.schema.json
 slack:
   bot_token_env: "SLACK_BOT_TOKEN"
   default_channel: "dev-eddy"
