@@ -83,7 +83,8 @@ source_king_functions() {
   # Message creation helpers
   create_thread_start_message() {
     local task_id="$1"
-    local event="$2"
+    local general="$2"
+    local event="$3"
     local event_type
     event_type=$(echo "$event" | jq -r '.type')
     local repo
@@ -93,8 +94,9 @@ source_king_functions() {
     local channel
     channel=$(get_config "king" "slack.default_channel")
 
-    local content="[start] ${event_type}"
-    [ -n "$repo" ] && content="$content — $repo"
+    local content
+    content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
+    [ -n "$repo" ] && content=$(printf '📋 %s | %s\n%s | %s' "$general" "$task_id" "$event_type" "$repo")
 
     local message
     message=$(jq -n \
@@ -183,7 +185,7 @@ source_king_functions() {
     mv "$BASE_DIR/queue/tasks/pending/.tmp-${task_id}.json" \
        "$BASE_DIR/queue/tasks/pending/${task_id}.json"
 
-    create_thread_start_message "$task_id" "$event"
+    create_thread_start_message "$task_id" "$general" "$event"
     mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
 
     log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"
@@ -317,10 +319,10 @@ source_king_functions() {
     summary=$(echo "$result" | jq -r '.summary // "completed"')
     local task
     task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
-    local event_type
-    event_type=$(echo "$task" | jq -r '.type')
+    local general
+    general=$(echo "$task" | jq -r '.target_general')
     complete_task "$task_id"
-    create_notification_message "$task_id" "[complete] $event_type — $summary"
+    create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
     log "[EVENT] [king] Task completed: $task_id"
   }
 
@@ -329,8 +331,12 @@ source_king_functions() {
     local result="$2"
     local error
     error=$(echo "$result" | jq -r '.error // "unknown"')
+    local task
+    task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+    local general
+    general=$(echo "$task" | jq -r '.target_general')
     complete_task "$task_id"
-    create_notification_message "$task_id" "[failed] $error"
+    create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")"
     log "[ERROR] [king] Task failed permanently: $task_id — $error"
   }
 
@@ -462,7 +468,7 @@ source_king_functions() {
     echo "$task" > "$BASE_DIR/queue/tasks/pending/.tmp-${task_id}.json"
     mv "$BASE_DIR/queue/tasks/pending/.tmp-${task_id}.json" \
        "$BASE_DIR/queue/tasks/pending/${task_id}.json"
-    create_thread_start_message "$task_id" \
+    create_thread_start_message "$task_id" "$general" \
       "$(jq -n --arg t "$task_type" '{type: ("schedule." + $t), repo: null}')"
   }
 
@@ -650,7 +656,7 @@ EOF
   run jq -r '.type' "$msg_file"
   assert_output "notification"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "[complete]"
+  assert_output --partial "✅ gen-pr"
 }
 
 @test "king: handle_failure completes task with error notification" {
@@ -671,7 +677,7 @@ EOF
   local msg_file
   msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
   run jq -r '.content' "$msg_file"
-  assert_output --partial "[failed]"
+  assert_output --partial "❌ gen-jira"
 }
 
 @test "king: handle_needs_human creates human_input_request message" {
