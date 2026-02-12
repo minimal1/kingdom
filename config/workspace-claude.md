@@ -12,8 +12,9 @@
 ```json
 {
   "task_id": "<.kingdom-task.json의 task_id>",
-  "status": "success | failed | needs_human",
+  "status": "success | failed | needs_human | skipped",
   "summary": "작업 결과 요약 (1~2문장)",
+  "reason": "skipped 시 건너뛴 이유 (선택)",
   "error": "실패 시 에러 메시지 (선택)",
   "question": "needs_human 시 사람에게 할 질문 (선택)",
   "memory_updates": ["다음에 기억할 패턴들 (선택)"]
@@ -21,4 +22,8 @@
 ```
 
 **필수 필드**: task_id, status, summary
-**status 값**: success (성공), failed (실패), needs_human (사람 판단 필요)
+**status 값**:
+- success: 작업 성공
+- failed: 작업 실패
+- needs_human: 사람 판단 필요
+- skipped: 자신의 역량 범위 밖 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등)
