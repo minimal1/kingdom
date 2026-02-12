@@ -416,7 +416,14 @@ handle_skipped() {
   local reason
   reason=$(echo "$result" | jq -r '.reason // "out of scope"')
 
+  local task
+  task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+  local general
+  general=$(echo "$task" | jq -r '.target_general')
+
   complete_task "$task_id"
+  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")"
+
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
 

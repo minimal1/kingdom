@@ -496,7 +496,7 @@ state/results/{task-id}.json
 ├─ success             │──→ 완료 처리 (아래)
 ├─ failed              │──→ 에스컬레이션 (장군이 재시도 소진 후)
 ├─ needs_human         │──→ 사절에게 human_input_request
-├─ skipped             │──→ 조용히 완료 처리 (사절 알림 없음)
+├─ skipped             │──→ 완료 처리 + 사절에게 ⏭️ 알림
 └──────────────────────┘
 ```
 
@@ -623,7 +623,7 @@ handle_needs_human() {
 
 ### skipped 처리
 
-병사가 작업이 자신의 역량 범위 밖이라고 판단한 경우 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등). 사절 알림 없이 조용히 완료 처리한다.
+병사가 작업이 자신의 역량 범위 밖이라고 판단한 경우 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등). 사절에게 ⏭️ 알림을 보내고 완료 처리한다.
 
 ```bash
 handle_skipped() {
@@ -631,7 +631,12 @@ handle_skipped() {
   local result="$2"
   local reason=$(echo "$result" | jq -r '.reason // "out of scope"')
 
+  local task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+  local general=$(echo "$task" | jq -r '.target_general')
+
   complete_task "$task_id"
+  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")"
+
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
 ```

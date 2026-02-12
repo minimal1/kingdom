@@ -367,7 +367,12 @@ source_king_functions() {
     local result="$2"
     local reason
     reason=$(echo "$result" | jq -r '.reason // "out of scope"')
+    local task
+    task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+    local general
+    general=$(echo "$task" | jq -r '.target_general')
     complete_task "$task_id"
+    create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")"
     log "[EVENT] [king] Task skipped: $task_id — $reason"
   }
 
@@ -793,7 +798,7 @@ EOF
   assert_failure
 }
 
-@test "king: handle_skipped completes task without notification" {
+@test "king: handle_skipped completes task and creates skip notification" {
   cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-005.json" << 'EOF'
 {"id":"task-20260210-005","event_id":"evt-014","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
 EOF
@@ -812,10 +817,13 @@ EOF
   # Event moved to completed
   assert [ -f "$BASE_DIR/queue/events/completed/evt-014.json" ]
 
-  # No notification message created
+  # Notification message created with ⏭️ prefix
   local msg_count
   msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
-  [ "$msg_count" -eq 0 ]
+  [ "$msg_count" -eq 1 ]
+  local content
+  content=$(jq -r '.content' "$BASE_DIR/queue/messages/pending/"*.json)
+  echo "$content" | grep -q '⏭️ gen-pr'
 }
 
 @test "king: max_soldiers defers events when full" {

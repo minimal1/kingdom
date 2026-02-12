@@ -97,7 +97,7 @@ process_notification() {
       channel=$(echo "$mapping" | jq -r '.channel')
       send_thread_reply "$channel" "$thread_ts" "$content" || return 1
 
-      if echo "$content" | grep -qE '^(✅|❌)'; then
+      if echo "$content" | grep -qE '^(✅|❌|⏭️)'; then
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"
         log "[EVENT] [envoy] Thread closed for task: $task_id"

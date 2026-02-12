@@ -301,8 +301,8 @@ process_notification() {
       local channel=$(echo "$mapping" | jq -r '.channel')
       send_thread_reply "$channel" "$thread_ts" "$content"
 
-      # 완료/실패 시 스레드 매핑 정리 (✅/❌ 접두사로 판별)
-      if echo "$content" | grep -qE '^(✅|❌)'; then
+      # 완료/실패/스킵 시 스레드 매핑 정리 (✅/❌/⏭️ 접두사로 판별)
+      if echo "$content" | grep -qE '^(✅|❌|⏭️)'; then
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"  # 혹시 남아있으면 함께 정리
         log "[EVENT] [envoy] Thread closed for task: $task_id"
