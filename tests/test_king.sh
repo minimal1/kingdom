@@ -410,6 +410,11 @@ source_king_functions() {
     local field="$1"
     local value="$2"
     [ "$field" = "*" ] && return 0
+    if [[ "$field" == \*/* ]]; then
+      local step="${field#*/}"
+      (( value % step == 0 )) && return 0
+      return 1
+    fi
     if [[ "$field" == *-* ]]; then
       local low="${field%%-*}"
       local high="${field##*-}"
@@ -420,22 +425,22 @@ source_king_functions() {
     return 1
   }
 
-  already_triggered_today() {
+  already_triggered() {
     local name="$1"
-    local today
-    today=$(date +%Y-%m-%d)
+    local now_key
+    now_key=$(date +%Y-%m-%dT%H:%M)
     local last
     last=$(jq -r --arg n "$name" '.[$n] // ""' "$SCHEDULE_SENT_FILE" 2>/dev/null)
-    [ "$last" = "$today" ]
+    [ "$last" = "$now_key" ]
   }
 
-  mark_triggered_today() {
+  mark_triggered() {
     local name="$1"
-    local today
-    today=$(date +%Y-%m-%d)
+    local now_key
+    now_key=$(date +%Y-%m-%dT%H:%M)
     local current
     current=$(cat "$SCHEDULE_SENT_FILE" 2>/dev/null || echo '{}')
-    echo "$current" | jq --arg n "$name" --arg d "$today" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
+    echo "$current" | jq --arg n "$name" --arg d "$now_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
   }
 
   dispatch_scheduled_task() {
@@ -473,7 +478,7 @@ source_king_functions() {
       sched_name=$(echo "$sched_json" | jq -r '.name')
       local cron_expr
       cron_expr=$(echo "$sched_json" | jq -r '.cron')
-      if cron_matches "$cron_expr" && ! already_triggered_today "$sched_name"; then
+      if cron_matches "$cron_expr" && ! already_triggered "$sched_name"; then
         local task_type
         task_type=$(echo "$sched_json" | jq -r '.task_type')
         local payload
@@ -484,7 +489,7 @@ source_king_functions() {
           continue
         fi
         dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload"
-        mark_triggered_today "$sched_name"
+        mark_triggered "$sched_name"
       fi
     done
   }
@@ -771,14 +776,14 @@ EOF
 
 # --- Schedule ---
 
-@test "king: already_triggered_today prevents duplicate" {
-  mark_triggered_today "test-schedule"
-  run already_triggered_today "test-schedule"
+@test "king: already_triggered prevents duplicate" {
+  mark_triggered "test-schedule"
+  run already_triggered "test-schedule"
   assert_success
 }
 
 @test "king: untriggered schedule returns false" {
-  run already_triggered_today "never-triggered"
+  run already_triggered "never-triggered"
   assert_failure
 }
 
@@ -819,4 +824,40 @@ EOF
 
   # Event should stay in pending (deferred due to max soldiers)
   assert [ -f "$BASE_DIR/queue/events/pending/evt-full.json" ]
+}
+
+# --- Cron Step Pattern ---
+
+@test "king: cron step */10 matches multiples" {
+  run _cron_field_matches "*/10" "0"
+  assert_success
+  run _cron_field_matches "*/10" "20"
+  assert_success
+  run _cron_field_matches "*/10" "7"
+  assert_failure
+}
+
+@test "king: cron step */5 matches multiples" {
+  run _cron_field_matches "*/5" "0"
+  assert_success
+  run _cron_field_matches "*/5" "15"
+  assert_success
+  run _cron_field_matches "*/5" "3"
+  assert_failure
+}
+
+# --- Minute-based Dedup ---
+
+@test "king: already_triggered uses minute-based dedup" {
+  mark_triggered "test-min"
+  run already_triggered "test-min"
+  assert_success
+}
+
+@test "king: different minute is not duplicate" {
+  local old_key
+  old_key=$(date -v-1M +%Y-%m-%dT%H:%M 2>/dev/null || date -d "1 minute ago" +%Y-%m-%dT%H:%M)
+  echo "{}" | jq --arg n "test-old" --arg d "$old_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
+  run already_triggered "test-old"
+  assert_failure
 }

@@ -466,6 +466,13 @@ _cron_field_matches() {
   # Wildcard
   [ "$field" = "*" ] && return 0
 
+  # Step (e.g. */10, */5)
+  if [[ "$field" == \*/* ]]; then
+    local step="${field#*/}"
+    (( value % step == 0 )) && return 0
+    return 1
+  fi
+
   # Range (e.g. 1-5)
   if [[ "$field" == *-* ]]; then
     local low="${field%%-*}"
@@ -479,22 +486,22 @@ _cron_field_matches() {
   return 1
 }
 
-already_triggered_today() {
+already_triggered() {
   local name="$1"
-  local today
-  today=$(date +%Y-%m-%d)
+  local now_key
+  now_key=$(date +%Y-%m-%dT%H:%M)
   local last
   last=$(jq -r --arg n "$name" '.[$n] // ""' "$SCHEDULE_SENT_FILE" 2>/dev/null)
-  [ "$last" = "$today" ]
+  [ "$last" = "$now_key" ]
 }
 
-mark_triggered_today() {
+mark_triggered() {
   local name="$1"
-  local today
-  today=$(date +%Y-%m-%d)
+  local now_key
+  now_key=$(date +%Y-%m-%dT%H:%M)
   local current
   current=$(cat "$SCHEDULE_SENT_FILE" 2>/dev/null || echo '{}')
-  echo "$current" | jq --arg n "$name" --arg d "$today" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
+  echo "$current" | jq --arg n "$name" --arg d "$now_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
 }
 
 dispatch_scheduled_task() {
@@ -548,7 +555,7 @@ check_general_schedules() {
     local cron_expr
     cron_expr=$(echo "$sched_json" | jq -r '.cron')
 
-    if cron_matches "$cron_expr" && ! already_triggered_today "$sched_name"; then
+    if cron_matches "$cron_expr" && ! already_triggered "$sched_name"; then
       local task_type
       task_type=$(echo "$sched_json" | jq -r '.task_type')
       local payload
@@ -562,7 +569,7 @@ check_general_schedules() {
       fi
 
       dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload"
-      mark_triggered_today "$sched_name"
+      mark_triggered "$sched_name"
       log "[EVENT] [king] Scheduled task triggered: $sched_name -> $general"
     fi
   done

@@ -1,0 +1,13 @@
+name: gen-briefing
+description: "Kingdom briefing cat general"
+timeout_seconds: 120
+
+cc_plugins: []
+
+subscribes: []
+
+schedules:
+  - name: briefing-10min
+    cron: "*/10 * * * *"
+    task_type: "briefing"
+    payload: {}
