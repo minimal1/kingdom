@@ -112,7 +112,7 @@ MESSAGE="(2단계에서 작성한 브리핑 텍스트)"
 curl -s -X POST https://slack.com/api/chat.postMessage \
   -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n --arg ch "#kingdom" --arg txt "$MESSAGE" '{channel: $ch, text: $txt}')"
+  -d "$(jq -n --arg ch "#team-eddy" --arg txt "$MESSAGE" '{channel: $ch, text: $txt}')"
 ```
 
 전송 성공 여부는 응답의 `.ok` 필드로 확인한다.
@@ -130,7 +130,7 @@ RESULT_DIR="/opt/kingdom/state/results"
 jq -n --arg tid "$TASK_ID" '{
   task_id: $tid,
   status: "success",
-  summary: "briefing sent to #kingdom"
+  summary: "briefing sent to #team-eddy"
 }' > "$RESULT_DIR/${TASK_ID}.json"
 
 # Slack 전송 실패 시
