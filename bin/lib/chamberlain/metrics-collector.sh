@@ -36,6 +36,12 @@ collect_metrics() {
 
   # uptime: macOS "load averages:", Linux "load average:"
   LOAD_AVG=$(uptime 2>/dev/null | awk -F'load average[s]?:' '{print $2}' | sed 's/^ *//' | tr -d ' ' || echo "0,0,0")
+
+  # 빈 값 방어: 파싱 실패 시 tonumber 에러 → resources.json 파손 방지
+  [[ "$CPU_PERCENT" =~ ^[0-9]*\.?[0-9]+$ ]] || CPU_PERCENT="0"
+  [[ "$MEMORY_PERCENT" =~ ^[0-9]*\.?[0-9]+$ ]] || MEMORY_PERCENT="0"
+  [[ "$DISK_PERCENT" =~ ^[0-9]*\.?[0-9]+$ ]] || DISK_PERCENT="0"
+  if [[ -z "$LOAD_AVG" ]]; then LOAD_AVG="0,0,0"; fi
 }
 
 # --- Health Assessment ---
@@ -106,5 +112,10 @@ update_resources_json() {
       health: $health
     }' > "$BASE_DIR/state/resources.json.tmp"
 
-  mv "$BASE_DIR/state/resources.json.tmp" "$BASE_DIR/state/resources.json"
+  # jq 실패 시 빈 파일이 정상 파일을 덮어쓰지 않도록 검증
+  if jq empty "$BASE_DIR/state/resources.json.tmp" 2>/dev/null; then
+    mv "$BASE_DIR/state/resources.json.tmp" "$BASE_DIR/state/resources.json"
+  else
+    rm -f "$BASE_DIR/state/resources.json.tmp"
+  fi
 }

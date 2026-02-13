@@ -54,6 +54,10 @@ soldier_count=0
 if [ -f "$BASE_DIR/state/sessions.json" ]; then
   soldier_count=$(jq 'length' "$BASE_DIR/state/sessions.json" 2>/dev/null || echo 0)
 fi
+# sessions.json이 없거나 비어있으면 tmux에서 직접 카운트
+if [ "$soldier_count" = "0" ]; then
+  soldier_count=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -c '^soldier-' || echo 0)
+fi
 echo "  Active: $soldier_count"
 
 # --- Resources ---
@@ -61,11 +65,10 @@ echo "  Active: $soldier_count"
 echo ""
 echo "Resources:"
 if [ -f "$BASE_DIR/state/resources.json" ]; then
-  health="" ; cpu="" ; mem="" ; disk=""
-  health=$(jq -r '.health // "unknown"' "$BASE_DIR/state/resources.json")
-  cpu=$(jq -r '.system.cpu_percent // "?"' "$BASE_DIR/state/resources.json")
-  mem=$(jq -r '.system.memory_percent // "?"' "$BASE_DIR/state/resources.json")
-  disk=$(jq -r '.system.disk_percent // "?"' "$BASE_DIR/state/resources.json")
+  health=$(jq -r '.health // "unknown"' "$BASE_DIR/state/resources.json" 2>/dev/null) || health="unknown"
+  cpu=$(jq -r '.system.cpu_percent // "?"' "$BASE_DIR/state/resources.json" 2>/dev/null) || cpu="?"
+  mem=$(jq -r '.system.memory_percent // "?"' "$BASE_DIR/state/resources.json" 2>/dev/null) || mem="?"
+  disk=$(jq -r '.system.disk_percent // "?"' "$BASE_DIR/state/resources.json" 2>/dev/null) || disk="?"
   printf "  Health: %s  CPU: %s%%  MEM: %s%%  DISK: %s%%\n" "$health" "$cpu" "$mem" "$disk"
 else
   echo "  resources.json not found"
