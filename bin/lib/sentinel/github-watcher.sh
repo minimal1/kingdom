@@ -33,7 +33,10 @@ github_fetch() {
   # ETag + notification IDs 저장
   local new_etag
   new_etag=$(echo "$response" | grep -i '^etag:' | awk '{print $2}' | tr -d '\r')
-  if [[ -n "$new_etag" ]]; then
+  # 빈 ETag 방어: GitHub가 W/"" 또는 "" 를 반환하면 무시 (영구 304 방지)
+  local stripped
+  stripped=$(echo "$new_etag" | sed 's/^W\///' | tr -d '"')
+  if [[ -n "$stripped" ]]; then
     state=$(echo "$state" | jq --arg e "$new_etag" '.etag = $e')
   fi
 
