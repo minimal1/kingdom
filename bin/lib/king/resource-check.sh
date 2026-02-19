@@ -35,11 +35,32 @@ get_resource_health() {
   echo "$health"
 }
 
-# Decide if a task can be accepted based on health + priority
+# Read token status from resources.json
+get_token_status() {
+  local data
+  data=$(cat "$RESOURCES_FILE" 2>/dev/null || echo '{}')
+  echo "$data" | jq -r '.tokens.status // "ok"'
+}
+
+# Decide if a task can be accepted based on health + priority + token status
 can_accept_task() {
   local health="$1"
   local priority="$2"
+  local token_status="$3"
 
+  # Token status critical: high priority only
+  if [[ "$token_status" == "critical" ]]; then
+    [ "$priority" = "high" ] && return 0
+    return 1
+  fi
+
+  # Token status warning: high OR health=green
+  if [[ "$token_status" == "warning" ]]; then
+    [[ "$priority" == "high" || "$health" == "green" ]] && return 0
+    return 1
+  fi
+
+  # Token status ok/unknown: use existing health-based logic
   case "$health" in
     green)  return 0 ;;
     yellow) [ "$priority" = "high" ] && return 0
