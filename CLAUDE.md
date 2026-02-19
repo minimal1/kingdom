@@ -1,6 +1,9 @@
 # Kingdom
 
-EC2 기반 자율 개발 에이전트 시스템. Claude Code + tmux 하이브리드 아키텍처.
+빈 컴퓨터 한 대에 정착하여 팀의 일원으로 일하는 AI 동료. Claude Code + tmux 하이브리드 아키텍처.
+
+GitHub·Jira·Slack을 통해 업무를 감지하고, 장군 패키지로 정의된 역할에 따라 자율적으로 작업한다.
+모르면 사람에게 물어보고, 일하며 배운 것은 메모리에 축적한다.
 
 역할 체계: **파수꾼(sentinel)** → **왕(king)** → **장군(general)** → **병사(soldier)** / **사절(envoy)** / **내관(chamberlain)**
 

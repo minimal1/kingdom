@@ -1,11 +1,36 @@
 # Kingdom - Architecture Blueprint
 
-> "주니어 시절의 나를 만들어, 쉴새없이 일하게 한다"
+> 빈 컴퓨터 한 대에 정착하여, 팀의 일원으로 일하는 AI 동료
 
 ## 비전
 
-EC2 인스턴스에 Eddy의 로컬 개발 환경을 재현하고, Claude Code 기반의 자율적인 개발 작업자를 만든다.
+빈 컴퓨터(EC2, Mac 등) 한 대에 셋업하면, 팀의 GitHub·Jira·Slack을 감시하며
+주어진 역할(장군 패키지)에 따라 스스로 작업을 수행하는 AI 팀 동료를 만든다.
+사람에게 확인이 필요하면 Slack으로 물어보고, 작업하며 배운 것은 메모리에 축적하여 점점 더 잘 일한다.
 한번 쓰고 버리는 PoC가 아닌, 계속 발전시킬 장기 프로젝트이다.
+
+### 아이덴티티의 3축
+
+| 축 | 설명 | 구현체 |
+|---|------|--------|
+| **자율성** | 이벤트 감지 → 판단 → 실행 | 파수꾼 + 왕 + 장군 + 병사 |
+| **소통** | 모르면 물어보고, 결과를 보고 | 사절 (Slack 양방향) |
+| **성장** | 일하며 배우고, 경험을 축적 | 3계층 메모리 (Session → Task → Shared) |
+
+### 기존 자동화와의 차이
+
+| 기존 자동화 (CI/CD, Actions) | Kingdom |
+|------------------------------|---------|
+| 규칙 기반 (if-then) | LLM 추론 기반 |
+| 코드를 실행 | 코드를 읽고/쓰고/판단 |
+| 빌드·테스트·배포 파이프라인 | 사고가 필요한 작업 (리뷰, 구현, 테스트 작성) |
+| 트리거 → 고정 동작 | 트리거 → 맥락 이해 → 동적 대응 |
+| 메모리 없음 | 3계층 메모리로 경험 축적 |
+
+### 작업 범위
+
+현재는 소프트웨어 개발 작업에 집중하지만, 장군 패키지 시스템은 도메인 무관하게 설계되어 있다.
+새 watcher(이벤트 소스)와 장군 패키지를 추가하면 지식 노동 전반으로 확장 가능하다.
 
 ## 구성 원칙
 
@@ -13,7 +38,7 @@ EC2 인스턴스에 Eddy의 로컬 개발 환경을 재현하고, Claude Code �
 |------------|--------------|--------|
 | 지능 | LLM + Prompt | Claude Code + Plugins/Skills |
 | 기억 | Memory 관리 | File-based Memory + CLAUDE.md |
-| 몸 | 하드웨어 | EC2 Instance (M5.xlarge) |
+| 몸 | 하드웨어 | EC2 / Mac / Cloud Instance |
 | 손발 | 도구 | CLI, MCP, GitHub, Jira, Slack |
 | 소통 | 사절 | Slack Web API (curl) |
 
@@ -111,5 +136,4 @@ EC2 인스턴스에 Eddy의 로컬 개발 환경을 재현하고, Claude Code �
 
 ## 참고 문서
 
-- [Confluence: 20260206 - Lil Eddy 만들기](confluence/20260206-concept.md)
-- [Confluence: 20260207 - Lil Eddy 동작 구상](confluence/20260207-operation-design.md)
+- [archive/confluence/](../archive/confluence/) — 프로젝트 초기 컨셉 문서 (히스토리, 실제와 다를 수 있음)
