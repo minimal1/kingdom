@@ -37,3 +37,15 @@ daily_report:
 
 events_rotation:
   hour: 0
+
+token_limits:
+  enabled: true
+  daily_budget_usd: 300
+  warning_pct: 70
+  critical_pct: 90
+  monitoring_interval_seconds: 60
+
+pricing:
+  input_per_mtok: 15.0
+  output_per_mtok: 75.0
+  cache_read_per_mtok: 1.5

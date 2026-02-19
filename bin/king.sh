@@ -154,10 +154,11 @@ process_pending_events() {
       continue
     fi
 
-    # 1. Resource check
-    local health
+    # 1. Resource check (health + token status)
+    local health token_status
     health=$(get_resource_health)
-    if ! can_accept_task "$health" "$priority"; then
+    token_status=$(get_token_status)
+    if ! can_accept_task "$health" "$priority" "$token_status"; then
       continue
     fi
 
@@ -575,10 +576,11 @@ check_general_schedules() {
       local payload
       payload=$(echo "$sched_json" | jq '.payload')
 
-      local health
+      local health token_status
       health=$(get_resource_health)
-      if ! can_accept_task "$health" "normal"; then
-        log "[WARN] [king] Skipping schedule '$sched_name': resource $health"
+      token_status=$(get_token_status)
+      if ! can_accept_task "$health" "normal" "$token_status"; then
+        log "[WARN] [king] Skipping schedule '$sched_name': resource $health, token $token_status"
         continue
       fi
 

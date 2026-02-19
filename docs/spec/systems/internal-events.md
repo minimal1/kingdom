@@ -127,6 +127,8 @@ emit_internal_event() {
 | `system.heartbeat_missed` | chamberlain | 역할의 heartbeat mtime이 갱신 주기 초과 | `target`, `last_seen`, `threshold_seconds` |
 | `system.session_orphaned` | chamberlain | sessions.json에 있으나 tmux 세션 미존재 | `soldier_id`, `task_id` |
 | `system.resource_warning` | chamberlain | 리소스 임계값 초과 | `metric`, `value`, `threshold` |
+| `system.token_status_changed` | chamberlain | Token status 전환 (ok ↔ warning ↔ critical) | `from`, `to`, `daily_cost_usd` |
+| `system.token_budget_reset` | chamberlain | 일일 예산 자정 리셋 | `date`, `previous_cost` |
 | `system.startup` | system | 시스템 전체 시작 | `version` |
 | `system.shutdown` | system | 시스템 전체 종료 | `reason` |
 
@@ -134,6 +136,8 @@ emit_internal_event() {
 {"ts": "...", "type": "system.health_changed", "actor": "chamberlain", "data": {"from": "green", "to": "yellow", "reason": "cpu_percent: 72"}}
 {"ts": "...", "type": "system.heartbeat_missed", "actor": "chamberlain", "data": {"target": "gen-pr", "last_seen": "2026-02-07T09:55:00Z", "threshold_seconds": 120}}
 {"ts": "...", "type": "system.session_orphaned", "actor": "chamberlain", "data": {"soldier_id": "soldier-1707300000-1234", "task_id": "task-20260207-001"}}
+{"ts": "...", "type": "system.token_status_changed", "actor": "chamberlain", "data": {"from": "ok", "to": "warning", "daily_cost_usd": "215.40"}}
+{"ts": "...", "type": "system.token_budget_reset", "actor": "chamberlain", "data": {"date": "2026-02-08", "previous_cost": "285.60"}}
 ```
 
 ### 5. recovery — 자동 복구

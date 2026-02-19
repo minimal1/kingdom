@@ -185,6 +185,66 @@
           "default": 0
         }
       }
+    },
+    "token_limits": {
+      "type": "object",
+      "description": "토큰 비용 모니터링 및 제어",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "토큰 모니터링 활성화",
+          "default": true
+        },
+        "daily_budget_usd": {
+          "type": "number",
+          "description": "일일 비용 예산 (USD)",
+          "minimum": 0,
+          "default": 300
+        },
+        "warning_pct": {
+          "type": "integer",
+          "description": "Warning 임계값 (%)",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 70
+        },
+        "critical_pct": {
+          "type": "integer",
+          "description": "Critical 임계값 (%)",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 90
+        },
+        "monitoring_interval_seconds": {
+          "type": "integer",
+          "description": "stats-cache.json 폴링 주기",
+          "minimum": 30,
+          "default": 60
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "description": "Anthropic 가격표 (모델 변경 시 조정)",
+      "additionalProperties": false,
+      "properties": {
+        "input_per_mtok": {
+          "type": "number",
+          "description": "입력 토큰 가격 ($/1M tokens)",
+          "default": 15.0
+        },
+        "output_per_mtok": {
+          "type": "number",
+          "description": "출력 토큰 가격 ($/1M tokens)",
+          "default": 75.0
+        },
+        "cache_read_per_mtok": {
+          "type": "number",
+          "description": "캐시 읽기 가격 ($/1M tokens)",
+          "default": 1.5
+        }
+      }
     }
   }
 }
