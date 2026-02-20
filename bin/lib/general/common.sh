@@ -352,6 +352,7 @@ main_loop() {
 
     local prompt_file="$BASE_DIR/state/prompts/${task_id}.md"
     build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+    check_prompt_size "$prompt_file"
 
     local attempt=0
     local final_status="failed"

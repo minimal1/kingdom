@@ -464,7 +464,19 @@ update_memory() {
 
 ### build_prompt
 
-장군별 프롬프트 템플릿에 변수를 치환하여 최종 프롬프트를 stdout으로 출력. `{{payload.KEY}}` 구문으로 payload 필드를 인라인 치환할 수 있다.
+계층형 Soul 시스템으로 프롬프트를 조립한다. soul → user → template → memory 순으로 레이어가 쌓인다.
+
+```
+[config/soul.md]                  → Kingdom 공통 원칙 (모든 병사)
+[generals/gen-{name}/soul.md]     → 장군별 성격 (해당 장군의 병사만, 선택적)
+[config/user.md]                  → 팀/회사 맥락 (모든 병사)
+[template + payload + memory]     → 작업 지시 (기존과 동일)
+```
+
+- `config/soul.md`: 공통 원칙, 출력 계약, 메모리 성장 규칙
+- `generals/gen-{name}/soul.md`: 장군별 성격 (예: gen-briefing의 F.R.I.D.A.Y. 톤). **없으면 스킵** → 기존 장군 호환
+- `config/user.md`: 팀/회사 컨텍스트 (기술 스택, 컨벤션)
+- 프롬프트 빌드 후 `check_prompt_size()`로 크기 가드 (200KB 초과 시 memory 섹션 truncate)
 
 ```bash
 # bin/lib/general/prompt-builder.sh
@@ -480,13 +492,18 @@ build_prompt() {
   payload=$(echo "$task_json" | jq -c '.payload')
   repo=$(echo "$task_json" | jq -r '.repo // ""')
 
-  # 장군별 프롬프트 템플릿 선택 (없으면 default.md 폴백)
+  # --- Layer 1: Soul (common + general-specific) ---
+  _emit_soul_layer
+
+  # --- Layer 2: User Context ---
+  _emit_user_layer
+
+  # --- Layer 3: Task Prompt (template) ---
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
   if [ ! -f "$template" ]; then
     template="$BASE_DIR/config/generals/templates/default.md"
   fi
 
-  # 기본 플레이스홀더 치환
   local content
   content=$(sed -e "s|{{TASK_ID}}|$task_id|g" \
                 -e "s|{{TASK_TYPE}}|$task_type|g" \
@@ -504,9 +521,8 @@ build_prompt() {
 
   echo "$content"
 
-  # 동적 섹션 — 템플릿이 {{payload.*}} 플레이스홀더를 사용하면 payload dump 생략
   if grep -q '{{payload\.' "$template" 2>/dev/null; then
-    : # 템플릿이 payload를 인라인으로 소비 — dump 불필요
+    :
   else
     echo ""
     echo "## Task Payload"
@@ -515,7 +531,6 @@ build_prompt() {
     echo '```'
   fi
 
-  # 메모리 / 레포 컨텍스트 (있으면 추가)
   [ -n "$memory" ] && echo "" && echo "## Domain Memory" && echo "$memory"
   [ -n "$repo_context" ] && echo "" && echo "## Repository Context" && echo "$repo_context"
 }
@@ -904,7 +919,7 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 
 ```
 generals/                                # 장군 패키지 (소스)
-├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md
+├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md + soul.md(선택)
 ├── gen-jira/
 └── gen-test/
 

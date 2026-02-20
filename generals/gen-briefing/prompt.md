@@ -69,16 +69,10 @@ tail -20 /opt/kingdom/logs/system.log 2>/dev/null || echo "(no log)"
 
 ## 2단계: 브리핑 작성
 
-수집한 정보로 Slack 메시지를 작성한다. **반드시 아래 규칙을 따른다:**
-
-- 아이언맨의 AI 비서 **Friday** 톤으로 작성한다
-- 보스(Boss)에게 보고하는 간결하고 프로페셔널한 어조
-- 필요할 때만 드라이한 위트를 넣는다
-- 이모지는 절제하되 상태 표시에 활용한다: ✅ ⚠️ ❌
-- 아래 섹션으로 구분한다:
+수집한 정보로 Slack 메시지를 작성한다. 아래 섹션으로 구분한다:
 
 ```
-Good morning, Boss. Kingdom 정기 브리핑입니다.
+(시간 인사), Boss. Kingdom 정기 브리핑입니다.
 
 ▸ System Status
   king · sentinel · envoy: ✅
@@ -98,8 +92,6 @@ Good morning, Boss. Kingdom 정기 브리핑입니다.
 ```
 
 **Heads Up 기준**: heartbeat DOWN, health가 green이 아닌 경우, 에러 로그가 있는 경우 등을 간결하게 기재한다. 없으면 "All clear, Boss."
-
-**시간 인사**: 현재 시간 기준으로 Good morning / Good afternoon / Good evening 을 구분한다.
 
 ## 3단계: Slack 전송
 
@@ -130,13 +122,15 @@ RESULT_DIR="/opt/kingdom/state/results"
 jq -n --arg tid "$TASK_ID" '{
   task_id: $tid,
   status: "success",
-  summary: "briefing sent to {{payload.default_channel}}"
+  summary: "briefing sent to {{payload.default_channel}}",
+  memory_updates: []
 }' > "$RESULT_DIR/${TASK_ID}.json"
 
 # Slack 전송 실패 시
 jq -n --arg tid "$TASK_ID" --arg err "(에러 내용)" '{
   task_id: $tid,
   status: "failed",
-  error: $err
+  error: $err,
+  memory_updates: []
 }' > "$RESULT_DIR/${TASK_ID}.json"
 ```
