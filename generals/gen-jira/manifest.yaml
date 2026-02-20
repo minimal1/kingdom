@@ -4,7 +4,7 @@ description: "Jira ticket implementation general"
 timeout_seconds: 5400
 
 cc_plugins:
-  - sunday
+  - sunday@qp-plugin
 
 subscribes:
   - jira.ticket.assigned

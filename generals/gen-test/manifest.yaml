@@ -4,7 +4,7 @@ description: "Test writing general"
 timeout_seconds: 3600
 
 cc_plugins:
-  - saturday
+  - saturday@qp-plugin
 
 subscribes: []
 
