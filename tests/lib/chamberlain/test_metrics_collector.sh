@@ -12,6 +12,12 @@ setup() {
 
   # Initialize sessions.json
   echo '[]' > "$BASE_DIR/state/sessions.json"
+
+  # Initialize token-related variables (used by update_resources_json)
+  ESTIMATED_DAILY_COST="0.00"
+  TOKEN_STATUS="ok"
+  DAILY_INPUT_TOKENS=0
+  DAILY_OUTPUT_TOKENS=0
 }
 
 teardown() {

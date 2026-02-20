@@ -158,6 +158,20 @@
         }
       }
     },
+    "cleanup": {
+      "type": "object",
+      "description": "만료 파일 정리 스케줄",
+      "additionalProperties": false,
+      "properties": {
+        "hour": {
+          "type": "integer",
+          "description": "정리 실행 시각 (0-23, UTC)",
+          "minimum": 0,
+          "maximum": 23,
+          "default": 3
+        }
+      }
+    },
     "daily_report": {
       "type": "object",
       "description": "일일 리포트 스케줄",

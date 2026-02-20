@@ -32,6 +32,9 @@ retention:
   session_logs_days: 7
   seen_days: 30
 
+cleanup:
+  hour: 3
+
 daily_report:
   hour: 9
 
