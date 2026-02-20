@@ -45,6 +45,7 @@ source "$BASE_DIR/bin/lib/chamberlain/session-checker.sh"
 source "$BASE_DIR/bin/lib/chamberlain/event-consumer.sh"
 source "$BASE_DIR/bin/lib/chamberlain/auto-recovery.sh"
 source "$BASE_DIR/bin/lib/chamberlain/log-rotation.sh"
+source "$BASE_DIR/bin/lib/chamberlain/token-monitor.sh"
 
 INTERVAL=$(get_config "chamberlain" "monitoring.interval_seconds" 30)
 
@@ -81,7 +82,10 @@ while $RUNNING; do
   # ── 6. 임계값 확인 → 알림/복구 ──
   check_thresholds_and_act "$curr_health"
 
-  # ── 7. 정기 작업 (로그 로테이션, 만료 파일 정리) ──
+  # ── 7. 토큰 비용 모니터링 ──
+  collect_token_metrics
+
+  # ── 8. 정기 작업 (로그 로테이션, 만료 파일 정리) ──
   run_periodic_tasks
 
   sleep "$INTERVAL"
@@ -772,6 +776,122 @@ generate_daily_report() {
 
 ---
 
+## 토큰 비용 모니터링
+
+Claude Code의 `~/.claude/stats-cache.json`에서 일일 토큰 사용량을 읽어 비용을 추산하고, 예산 대비 상태를 평가한다.
+
+```bash
+# bin/lib/chamberlain/token-monitor.sh
+
+TOKEN_STATUS="ok"           # ok, warning, critical, unknown
+DAILY_INPUT_TOKENS=0
+DAILY_OUTPUT_TOKENS=0
+ESTIMATED_DAILY_COST="0"
+
+collect_token_metrics() {
+  # 비활성화 시 즉시 반환
+  local enabled=$(get_config "chamberlain" "token_limits.enabled" "true")
+  [[ "$enabled" != "true" ]] && return 0
+
+  # stats-cache.json에서 오늘 날짜 토큰 합산
+  local today=$(date +%Y-%m-%d)
+  local daily_total_tokens=$(jq -r --arg date "$today" '
+    .dailyModelTokens[]? | select(.date == $date) | .tokensByModel
+    | to_entries[] | .value
+  ' "$HOME/.claude/stats-cache.json" 2>/dev/null | awk '{s+=$1} END {print s+0}')
+
+  # 입출력 비율 추정 (70% input, 30% output)
+  DAILY_INPUT_TOKENS=$(echo "$daily_total_tokens * 0.7" | bc | awk '{printf "%.0f", $0}')
+  DAILY_OUTPUT_TOKENS=$(echo "$daily_total_tokens * 0.3" | bc | awk '{printf "%.0f", $0}')
+
+  # 비용 추산
+  estimate_daily_cost
+
+  # 상태 평가
+  evaluate_token_status
+}
+```
+
+### estimate_daily_cost
+
+```bash
+estimate_daily_cost() {
+  local input_price=$(get_config "chamberlain" "pricing.input_per_mtok" "15.0")
+  local output_price=$(get_config "chamberlain" "pricing.output_per_mtok" "75.0")
+
+  ESTIMATED_DAILY_COST=$(echo "scale=2; ($DAILY_INPUT_TOKENS * $input_price + $DAILY_OUTPUT_TOKENS * $output_price) / 1000000" | bc)
+}
+```
+
+### evaluate_token_status
+
+```bash
+evaluate_token_status() {
+  local daily_budget=$(get_config "chamberlain" "token_limits.daily_budget_usd" "300")
+  local warning_pct=$(get_config "chamberlain" "token_limits.warning_pct" "70")
+  local critical_pct=$(get_config "chamberlain" "token_limits.critical_pct" "90")
+
+  local warning_threshold=$(echo "scale=2; $daily_budget * $warning_pct / 100" | bc)
+  local critical_threshold=$(echo "scale=2; $daily_budget * $critical_pct / 100" | bc)
+
+  if (( $(echo "$ESTIMATED_DAILY_COST >= $critical_threshold" | bc -l) )); then
+    TOKEN_STATUS="critical"
+  elif (( $(echo "$ESTIMATED_DAILY_COST >= $warning_threshold" | bc -l) )); then
+    TOKEN_STATUS="warning"
+  else
+    TOKEN_STATUS="ok"
+  fi
+}
+```
+
+### detect_date_change
+
+일일 예산 리셋 감지. 날짜가 바뀌면 `system.token_budget_reset` 이벤트를 발행한다.
+
+```bash
+detect_date_change() {
+  local last_date_file="$BASE_DIR/state/last_token_date.txt"
+  local today=$(date +%Y-%m-%d)
+
+  local last_date=$(cat "$last_date_file" 2>/dev/null || echo "")
+  if [[ "$today" != "$last_date" ]] && [[ -n "$last_date" ]]; then
+    echo "$today" > "$last_date_file"
+    return 0  # Date changed
+  fi
+
+  echo "$today" > "$last_date_file"
+  return 1  # No change or first run
+}
+```
+
+### 토큰 상태 레벨
+
+| 상태 | 조건 | 왕의 행동 |
+|------|------|----------|
+| `ok` | 비용 < 예산 × 70% | 정상 — health 기반 판단만 |
+| `warning` | 비용 ≥ 예산 × 70% | high 우선순위 또는 green일 때만 수용 |
+| `critical` | 비용 ≥ 예산 × 90% | high 우선순위만 수용 |
+| `unknown` | stats-cache.json 없음/파싱 실패 | ok로 취급 (안전 기본값) |
+
+> 왕의 `can_accept_task(health, priority, token_status)` 함수가 토큰 상태를 3번째 인자로 받는다. 상세: [roles/king.md](king.md)
+
+### resources.json 토큰 필드
+
+`update_resources_json`에서 토큰 관련 필드가 추가된다:
+
+```json
+{
+  "tokens": {
+    "status": "ok",
+    "daily_cost_usd": "12.50",
+    "daily_input_tokens": 500000,
+    "daily_output_tokens": 214285
+  }
+}
+```
+
+---
+
 ## Health 판단 기준
 
 | Health | 조건 | 의미 | 왕의 행동 |
@@ -943,6 +1063,18 @@ daily_report:
 
 events_rotation:
   hour: 0                       # events.log 일별 분할 시각 (00:00)
+
+token_limits:
+  enabled: true
+  daily_budget_usd: 300         # 일일 비용 예산 (USD)
+  warning_pct: 70               # Warning 임계값 (예산의 70%)
+  critical_pct: 90              # Critical 임계값 (예산의 90%)
+  monitoring_interval_seconds: 60
+
+pricing:
+  input_per_mtok: 15.0          # 입력 토큰 가격 ($/1M tokens)
+  output_per_mtok: 75.0         # 출력 토큰 가격 ($/1M tokens)
+  cache_read_per_mtok: 1.5      # 캐시 읽기 가격 ($/1M tokens)
 ```
 
 ---
@@ -961,6 +1093,8 @@ bin/lib/chamberlain/
 │                                           # aggregate_metrics, detect_anomalies
 ├── auto-recovery.sh                        # check_thresholds_and_act,
 │                                           # create_alert_message
+├── token-monitor.sh                        # collect_token_metrics, estimate_daily_cost,
+│                                           # evaluate_token_status, detect_date_change
 └── log-rotation.sh                         # run_periodic_tasks, should_run_daily,
                                             # rotate_logs_if_needed, cleanup_expired_files,
                                             # rotate_events_log, generate_daily_report

@@ -177,7 +177,8 @@ read_thread_replies() {
 ├─ report          │──→ 채널 메시지 (스레드 없이)
 └──────────────────┘
        ▼
-  메시지를 sent/로 이동
+  성공 → sent/로 이동
+  실패 → 재시도 (max 3회) → 초과 시 failed/로 격리
 ```
 
 ### 메시지 타입별 처리
@@ -569,40 +570,48 @@ done
 ### 아웃바운드 큐 처리
 
 ```bash
+MAX_RETRY_COUNT=$(get_config "envoy" "retry.max_count" "3")
+
 process_outbound_queue() {
   local pending_dir="$BASE_DIR/queue/messages/pending"
   local sent_dir="$BASE_DIR/queue/messages/sent"
+  local failed_dir="$BASE_DIR/queue/messages/failed"
+  mkdir -p "$failed_dir"
 
   for msg_file in "$pending_dir"/*.json; do
     [ -f "$msg_file" ] || continue
 
     local msg=$(cat "$msg_file")
     local msg_type=$(echo "$msg" | jq -r '.type')
-    local task_id=$(echo "$msg" | jq -r '.task_id // empty')
 
+    local send_ok=true
     case "$msg_type" in
-      thread_start)
-        process_thread_start "$msg"
-        ;;
-      thread_update)
-        process_thread_update "$msg"
-        ;;
-      human_input_request)
-        process_human_input_request "$msg"
-        ;;
-      notification)
-        process_notification "$msg"
-        ;;
-      report)
-        process_report "$msg"
-        ;;
-      *)
-        log "[EVENT] [envoy] Unknown message type: $msg_type"
-        ;;
+      thread_start)       process_thread_start "$msg" || send_ok=false ;;
+      thread_update)      process_thread_update "$msg" || send_ok=false ;;
+      human_input_request) process_human_input_request "$msg" || send_ok=false ;;
+      notification)       process_notification "$msg" || send_ok=false ;;
+      report)             process_report "$msg" || send_ok=false ;;
+      *)                  log "[EVENT] [envoy] Unknown message type: $msg_type" ;;
     esac
 
-    # sent로 이동
-    mv "$msg_file" "$sent_dir/"
+    if $send_ok; then
+      mv "$msg_file" "$sent_dir/"
+    else
+      # 재시도 카운터 증가
+      local retry_count=$(echo "$msg" | jq -r '.retry_count // 0')
+      retry_count=$((retry_count + 1))
+
+      if (( retry_count >= MAX_RETRY_COUNT )); then
+        # 최대 재시도 초과 → 영구 실패 격리
+        log "[ERROR] [envoy] Message permanently failed after $retry_count retries: $(basename "$msg_file")"
+        mv "$msg_file" "$failed_dir/"
+      else
+        # pending에 유지, retry_count 갱신
+        echo "$msg" | jq --argjson rc "$retry_count" '.retry_count = $rc' > "${msg_file}.tmp"
+        mv "${msg_file}.tmp" "$msg_file"
+        log "[WARN] [envoy] Message send failed (retry $retry_count/$MAX_RETRY_COUNT): $(basename "$msg_file")"
+      fi
+    fi
   done
 }
 ```
@@ -712,7 +721,8 @@ intervals:
 |------|------|
 | Slack API 실패 (401/403) | 로그 기록, SLACK_BOT_TOKEN 만료 가능 → 사람에게 알림 불가하므로 내관이 감지 |
 | Slack API 실패 (429 Rate Limit) | 로그 기록, Retry-After 헤더 확인 후 대기 |
-| Slack API 실패 (5xx) | 로그 기록, 다음 주기에 재시도 |
+| Slack API 실패 (5xx) | 로그 기록, retry_count 증가 후 다음 주기에 재시도 (최대 3회) |
+| 메시지 전송 영구 실패 (3회 초과) | `queue/messages/failed/`로 격리, 에러 로그 |
 | 사절 프로세스 죽음 | 내관이 `state/envoy/heartbeat` mtime 확인 → tmux 재시작 |
 | 사절 프로세스 hang | heartbeat 갱신 안됨 → 내관이 SIGTERM → 재시작 |
 | SIGTERM/SIGINT 수신 | 현재 루프 완료 후 graceful shutdown |

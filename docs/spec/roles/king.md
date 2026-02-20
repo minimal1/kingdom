@@ -49,7 +49,7 @@ description: "PR 리뷰 전문 장군"
 timeout_seconds: 1800       # 30분 — 리뷰는 읽기 + 코멘트 위주
 
 cc_plugins:
-  - friday
+  - friday@qp-plugin
 
 # 구독: 이 장군이 처리할 수 있는 이벤트 타입
 subscribes:
@@ -68,7 +68,7 @@ description: "Jira 티켓 구현 장군"
 timeout_seconds: 5400       # 90분 — 코드 구현 + lint + test
 
 cc_plugins:
-  - sunday
+  - sunday@qp-plugin
 
 subscribes:
   - jira.ticket.assigned
@@ -84,7 +84,7 @@ description: "테스트 코드 작성 장군"
 timeout_seconds: 3600       # 60분 — 코드 분석 + 테스트 작성 + 실행
 
 cc_plugins:
-  - saturday
+  - saturday@qp-plugin
 
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
 
@@ -315,9 +315,10 @@ process_pending_events() {
 
     # ── 새 작업 경로 ──
 
-    # 1. 리소스 확인
+    # 1. 리소스 + 토큰 확인
     local health=$(get_resource_health)
-    if ! can_accept_task "$health" "$priority"; then
+    local token_status=$(get_token_status)
+    if ! can_accept_task "$health" "$priority" "$token_status"; then
       # 보류: pending에 그대로 둠, 다음 주기에 재시도
       continue
     fi
@@ -757,10 +758,11 @@ check_general_schedules() {
       local task_type=$(echo "$sched_json" | jq -r '.task_type')
       local payload=$(echo "$sched_json" | jq '.payload')
 
-      # 리소스 확인
+      # 리소스 + 토큰 확인
       local health=$(get_resource_health)
-      if ! can_accept_task "$health" "normal"; then
-        log "[WARN] [king] Skipping schedule '$sched_name': resource $health"
+      local token_status=$(get_token_status)
+      if ! can_accept_task "$health" "normal" "$token_status"; then
+        log "[WARN] [king] Skipping schedule '$sched_name': resource $health, token $token_status"
         continue
       fi
 
@@ -842,11 +844,31 @@ get_resource_health() {
   echo "$health"
 }
 
-# health + priority에 따라 작업 수용 가능 여부 판단
+# Read token status from resources.json
+get_token_status() {
+  local data=$(cat "$RESOURCES_FILE" 2>/dev/null || echo '{}')
+  echo "$data" | jq -r '.tokens.status // "ok"'
+}
+
+# health + priority + token_status에 따라 작업 수용 가능 여부 판단
 can_accept_task() {
   local health="$1"
   local priority="$2"
+  local token_status="$3"
 
+  # 토큰 예산 critical: high만 수용
+  if [[ "$token_status" == "critical" ]]; then
+    [ "$priority" = "high" ] && return 0
+    return 1
+  fi
+
+  # 토큰 예산 warning: high 또는 health=green일 때만 수용
+  if [[ "$token_status" == "warning" ]]; then
+    [[ "$priority" == "high" || "$health" == "green" ]] && return 0
+    return 1
+  fi
+
+  # 토큰 ok/unknown: 기존 health 기반 로직
   case "$health" in
     green)  return 0 ;;                           # 모든 작업 수용
     yellow) [ "$priority" = "high" ] && return 0   # high만 수용
@@ -864,6 +886,16 @@ can_accept_task() {
 | `orange` | CPU > 80% OR Memory > 80% | 신규 작업 중단, 진행 중 작업 완료 대기 |
 | `red` | CPU > 90% OR Memory > 90% | 긴급 정리 모드, 사절에게 알림 |
 
+### 토큰 예산 상태
+
+| Token Status | 조건 (내관이 판단) | 왕의 행동 |
+|-------------|-------------------|----------|
+| `ok` | 일일 비용 < 예산 × 70% | health 기반 판단만 |
+| `warning` | 일일 비용 ≥ 예산 × 70% | `high` 또는 health=green일 때만 수용 |
+| `critical` | 일일 비용 ≥ 예산 × 90% | `high` 우선순위만 수용 |
+| `unknown` | stats-cache.json 없음 | `ok`로 취급 |
+
+> 토큰 상태는 health 판단보다 먼저 평가된다. `critical`이면 health가 green이어도 normal 작업을 거부한다.
 > `orange`/`red` 상태에서도 pending 이벤트는 삭제하지 않고 보류한다. 리소스가 회복되면 다음 주기에 자동으로 소비됨.
 
 ---
@@ -1018,10 +1050,11 @@ state/king/
 
 ```
 bin/
-├── king.sh                              # 메인 polling loop
+├── king.sh                              # 메인 polling loop (thin wrapper)
 └── lib/king/
+    ├── functions.sh                     # 왕 핵심 함수 (이벤트/결과/스케줄 처리)
     ├── router.sh                        # 매니페스트 로딩, 라우팅 테이블, find_general
-    └── resource-check.sh                # 리소스 상태 확인, can_accept_task
+    └── resource-check.sh                # 리소스 + 토큰 상태 확인, can_accept_task
 ```
 
 ```
