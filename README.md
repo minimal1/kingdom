@@ -137,25 +137,17 @@ Write-then-Rename 원자성, 실패 메시지 재시도(3회), 영구 실패 격
 ## Quick Start
 
 ```bash
-# 1. 소스 배포
-DEST="${KINGDOM_BASE_DIR:-/opt/kingdom}"
-cp -r bin config "$DEST/"
-chmod +x "$DEST"/bin/*.sh
-
-# 2. 디렉토리 초기화
-"$DEST/bin/init-dirs.sh"
-
-# 3. 빌트인 장군 설치
-for pkg in generals/gen-*; do
-  "$DEST/bin/install-general.sh" "$pkg"
-done
-
-# 4. 환경 검증
-"$DEST/bin/check-prerequisites.sh"
-
-# 5. 시작
-"$DEST/bin/start.sh"
+git clone https://github.com/eddy-jeon/kingdom.git
+cd kingdom
+bin/setup.sh
 ```
+
+setup.sh가 대화형으로 안내합니다:
+1. 설치 경로 선택
+2. 의존성 확인 및 설치 안내
+3. GitHub/Jira/Slack 인증 설정
+4. 감시 대상 레포 및 Slack 채널 설정
+5. 시스템 초기화 및 검증
 
 자세한 설치 가이드: [`docs/guides/install-guide.md`](docs/guides/install-guide.md)
 

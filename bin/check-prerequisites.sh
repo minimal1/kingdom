@@ -4,6 +4,15 @@
 
 set -euo pipefail
 
+# .env 파일이 있으면 환경변수 로드
+KINGDOM_BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+if [[ -f "$KINGDOM_BASE_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$KINGDOM_BASE_DIR/.env"
+  set +a
+fi
+
 PASS=0
 FAIL=0
 TOTAL=0
@@ -89,8 +98,9 @@ else
 fi
 
 # Jira
-if [[ -n "${JIRA_API_TOKEN:-}" && -n "${JIRA_URL:-}" ]]; then
-  jira_name=$(curl -s -u "eddy@chequer.io:$JIRA_API_TOKEN" \
+JIRA_USER_EMAIL="${JIRA_USER_EMAIL:-}"
+if [[ -n "${JIRA_API_TOKEN:-}" && -n "${JIRA_URL:-}" && -n "$JIRA_USER_EMAIL" ]]; then
+  jira_name=$(curl -s -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
     "$JIRA_URL/rest/api/3/myself" 2>/dev/null | jq -r '.displayName // "unknown"') || jira_name="unknown"
   if [[ "$jira_name" != "null" && "$jira_name" != "unknown" ]]; then
     check "Jira" "ok" "authenticated ($jira_name)"
@@ -98,7 +108,7 @@ if [[ -n "${JIRA_API_TOKEN:-}" && -n "${JIRA_URL:-}" ]]; then
     check "Jira" "fail" "authentication failed"
   fi
 else
-  check "Jira" "fail" "JIRA_API_TOKEN or JIRA_URL not set"
+  check "Jira" "fail" "JIRA_API_TOKEN, JIRA_URL, or JIRA_USER_EMAIL not set"
 fi
 
 # Slack
