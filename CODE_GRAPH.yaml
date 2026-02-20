@@ -1,0 +1,460 @@
+# Kingdom Code Graph — Agent 탐색 지도
+# 이 파일은 코드베이스의 구조를 명시적으로 기술하여
+# Agent가 맹목적 탐색 없이 목적 파일에 바로 도달하도록 돕는다.
+#
+# 구조: 모듈 → entry_point + key_files + functions + dependencies + data_flow
+# 갱신: 코드 변경 시 이 파일도 함께 업데이트할 것
+
+# ============================================================
+# ROLES — 6개 역할 (핵심 비즈니스 로직)
+# ============================================================
+
+king:
+  description: "이벤트 소비 → 장군 라우팅 → 작업 배정 → 결과 처리. 시스템의 두뇌."
+  entry_point: "bin/king.sh"
+  key_files:
+    - path: "bin/lib/king/functions.sh"
+      description: "왕 핵심 함수 전체 (king.sh는 thin wrapper)"
+      functions:
+        - "next_seq_id(), next_task_id(), next_msg_id()"
+        - "write_to_queue()"
+        - "process_pending_events()"
+        - "dispatch_new_task()"
+        - "process_human_response()"
+        - "check_task_results()"
+        - "handle_success(), handle_failure(), handle_needs_human(), handle_skipped()"
+        - "complete_task()"
+        - "cron_matches(), _cron_field_matches()"
+        - "already_triggered(), mark_triggered()"
+        - "check_general_schedules(), dispatch_scheduled_task()"
+        - "create_thread_start_message(), create_thread_update_message(), create_notification_message()"
+    - path: "bin/lib/king/router.sh"
+      description: "매니페스트 로딩 → 이벤트→장군 라우팅 테이블"
+      functions:
+        - "load_general_manifests()"
+        - "find_general()"
+        - "collect_and_sort_events()"
+    - path: "bin/lib/king/resource-check.sh"
+      description: "리소스 + 토큰 상태 읽기 → 작업 수용 판단"
+      functions:
+        - "get_resource_health()"
+        - "get_token_status()"
+        - "can_accept_task(health, priority, token_status)"
+  dependencies:
+    - common           # lib/common.sh
+    - general_packages # config/generals/*.yaml 매니페스트
+    - chamberlain      # state/resources.json (health + token 읽기)
+    - envoy            # queue/messages/pending/ (메시지 생성)
+  data_flow: "queue/events/pending/ → 라우팅 → queue/tasks/pending/ → state/results/*.json → queue/messages/pending/"
+  state_files:
+    - "state/king/task-seq"
+    - "state/king/msg-seq"
+    - "state/king/schedule-sent.json"
+  config: "config/king.yaml"
+  schema: "schemas/king.schema.json"
+  spec: "docs/spec/roles/king.md"
+  tests:
+    - "tests/test_king.sh"
+    - "tests/lib/king/test_router.sh"
+    - "tests/lib/king/test_resource_check.sh"
+
+sentinel:
+  description: "GitHub·Jira 폴링으로 외부 이벤트 감지 → 이벤트 큐에 적재"
+  entry_point: "bin/sentinel.sh"
+  key_files:
+    - path: "bin/lib/sentinel/watcher-common.sh"
+      description: "Watcher 공통 인터페이스 (fetch→parse→emit 추상화)"
+      functions:
+        - "sentinel_emit_event()"
+        - "is_duplicate()"
+        - "load_state(), save_state()"
+        - "get_interval()"
+    - path: "bin/lib/sentinel/github-watcher.sh"
+      description: "GitHub Notifications API + ETag 기반 폴링"
+      functions:
+        - "github_fetch()"
+        - "github_parse()"
+        - "github_post_emit()"
+    - path: "bin/lib/sentinel/jira-watcher.sh"
+      description: "Jira REST API + JQL 기반 폴링"
+      functions:
+        - "jira_fetch()"
+        - "jira_parse()"
+  dependencies:
+    - common
+  data_flow: "GitHub/Jira API → fetch → parse → emit → queue/events/pending/"
+  state_files:
+    - "state/sentinel/seen/"
+    - "state/sentinel/heartbeat"
+    - "state/sentinel/github-watcher.json"
+    - "state/sentinel/jira-watcher.json"
+  config: "config/sentinel.yaml"
+  schema: "schemas/sentinel.schema.json"
+  spec: "docs/spec/roles/sentinel.md"
+  tests:
+    - "tests/test_sentinel.sh"
+    - "tests/lib/sentinel/test_github_watcher.sh"
+    - "tests/lib/sentinel/test_jira_watcher.sh"
+    - "tests/lib/sentinel/test_watcher_common.sh"
+
+envoy:
+  description: "Slack 양방향 소통 전담 — 아웃바운드 메시지 + 사람 응답 수집"
+  entry_point: "bin/envoy.sh"
+  key_files:
+    - path: "bin/lib/envoy/slack-api.sh"
+      description: "Slack Web API curl 래퍼"
+      functions:
+        - "slack_api()"
+        - "send_message()"
+        - "send_thread_reply()"
+        - "read_thread_replies()"
+    - path: "bin/lib/envoy/thread-manager.sh"
+      description: "task_id ↔ thread_ts 매핑 + awaiting 응답 관리"
+      functions:
+        - "save_thread_mapping(), get_thread_mapping(), remove_thread_mapping()"
+        - "add_awaiting_response(), remove_awaiting_response()"
+  dependencies:
+    - common
+  data_flow: "queue/messages/pending/ → Slack API → sent/ | failed/"
+  message_types:
+    - "thread_start    — 작업 시작 (스레드 생성)"
+    - "thread_update   — 진행 상황 (스레드 답글)"
+    - "human_input_request — 사람 질문 (awaiting 등록)"
+    - "notification    — 완료/실패 알림"
+    - "report          — 일일 리포트"
+  state_files:
+    - "state/envoy/thread-mappings.json"
+    - "state/envoy/awaiting-responses.json"
+    - "state/envoy/heartbeat"
+  config: "config/envoy.yaml"
+  schema: "schemas/envoy.schema.json"
+  spec: "docs/spec/roles/envoy.md"
+  tests:
+    - "tests/test_envoy.sh"
+    - "tests/lib/envoy/test_slack_api.sh"
+    - "tests/lib/envoy/test_thread_manager.sh"
+
+chamberlain:
+  description: "시스템 모니터링, 토큰 비용 추적, 세션 관리, 로그 로테이션, 자동 복구"
+  entry_point: "bin/chamberlain.sh"
+  key_files:
+    - path: "bin/lib/chamberlain/metrics-collector.sh"
+      description: "CPU/Mem/Disk 수집 → health 판단 → resources.json 갱신"
+      functions:
+        - "collect_metrics()"
+        - "get_current_health(), evaluate_health()"
+        - "update_resources_json()"
+    - path: "bin/lib/chamberlain/token-monitor.sh"
+      description: "Claude Code stats-cache.json → 일일 비용 추산 → 토큰 상태 평가"
+      functions:
+        - "collect_token_metrics()"
+        - "estimate_daily_cost()"
+        - "evaluate_token_status()"
+        - "detect_date_change()"
+    - path: "bin/lib/chamberlain/session-checker.sh"
+      description: "heartbeat 감시 + 죽은 역할 복구 + 고아 세션 정리"
+      functions:
+        - "check_heartbeats()"
+        - "handle_dead_role()"
+        - "kill_soldiers_of_dead_general()"
+        - "check_and_clean_sessions()"
+    - path: "bin/lib/chamberlain/event-consumer.sh"
+      description: "logs/events.log 소비 → 메트릭 집계 + 이상 감지"
+      functions:
+        - "consume_internal_events()"
+        - "aggregate_metrics()"
+        - "detect_anomalies()"
+    - path: "bin/lib/chamberlain/auto-recovery.sh"
+      description: "health 임계값 기반 알림 생성"
+      functions:
+        - "create_alert_message()"
+        - "check_thresholds_and_act()"
+    - path: "bin/lib/chamberlain/log-rotation.sh"
+      description: "정기 작업 — 로그 로테이션, 만료 파일 정리, 일일 리포트"
+      functions:
+        - "run_periodic_tasks()"
+        - "should_run_daily()"
+        - "rotate_logs_if_needed()"
+        - "cleanup_expired_files()"
+        - "rotate_events_log()"
+        - "generate_daily_report()"
+  dependencies:
+    - common
+  data_flow: "시스템 메트릭 → resources.json (왕이 소비) / queue/messages/pending/ (사절이 소비)"
+  state_files:
+    - "state/resources.json"
+    - "state/sessions.json"
+    - "state/chamberlain/events-offset"
+    - "state/chamberlain/daily-*"
+    - "state/last_token_date.txt"
+    - "logs/analysis/stats.json"
+  config: "config/chamberlain.yaml"
+  schema: "schemas/chamberlain.schema.json"
+  spec: "docs/spec/roles/chamberlain.md"
+  tests:
+    - "tests/lib/chamberlain/test_metrics_collector.sh"
+    - "tests/lib/chamberlain/test_token_monitor.sh"
+    - "tests/lib/chamberlain/test_session_checker.sh"
+    - "tests/lib/chamberlain/test_event_consumer.sh"
+    - "tests/lib/chamberlain/test_log_rotation.sh"
+
+general:
+  description: "도메인 전문가 — 태스크 수취 → Soul+프롬프트 조립 → 병사 스폰 → 결과 보고"
+  entry_point: "bin/generals/gen-{name}.sh (install-general.sh가 자동 생성)"
+  key_files:
+    - path: "bin/lib/general/common.sh"
+      description: "장군 공통 함수 — 태스크 선택, 워크스페이스, 메모리, 병사 관리"
+      functions:
+        - "pick_next_task()"
+        - "ensure_workspace()"
+        - "load_domain_memory(), load_repo_memory()"
+        - "update_memory()"
+        - "spawn_soldier()"
+        - "wait_for_soldier()"
+        - "report_to_king()"
+        - "escalate_to_king()"
+        - "main_loop()"
+    - path: "bin/lib/general/prompt-builder.sh"
+      description: "3계층 Soul + 프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립"
+      functions:
+        - "build_prompt()"
+        - "_emit_soul_layer()   — config/soul.md + generals/gen-*/soul.md"
+        - "_emit_user_layer()   — config/user.md"
+        - "check_prompt_size()  — 200KB 가드"
+    - path: "bin/spawn-soldier.sh"
+      description: "tmux 세션 생성 → claude -p 실행 → 결과 대기"
+  dependencies:
+    - common
+    - king  # queue/tasks/pending/ (태스크 소비), state/results/ (결과 기록)
+  data_flow: "queue/tasks/pending/ → 프롬프트 조립 → claude -p → state/results/*.json"
+  spec: "docs/spec/roles/general.md"
+  tests:
+    - "tests/lib/general/test_common.sh"
+    - "tests/lib/general/test_prompt_builder.sh"
+    - "tests/test_spawn_soldier.sh"
+
+soldier:
+  description: "Claude Code -p 모드로 실제 작업 수행하는 일회성 프로세스"
+  entry_point: "bin/spawn-soldier.sh"
+  key_files:
+    - path: "config/workspace-claude.md"
+      description: "병사의 CLAUDE.md — 결과 JSON 스키마 지시"
+  data_flow: "프롬프트 파일 → claude -p → stdout → .kingdom-task.json 참조 → result.json"
+  spec: "docs/spec/roles/soldier.md"
+  tests:
+    - "tests/test_spawn_soldier.sh"
+    - "tests/test_workspace_claude.sh"
+
+# ============================================================
+# INFRASTRUCTURE — 공통 라이브러리 + 시스템 스크립트
+# ============================================================
+
+common:
+  description: "모든 역할이 공유하는 기반 함수 — 로깅, 설정, heartbeat, 이벤트, 플랫폼 호환"
+  entry_point: "bin/lib/common.sh"
+  functions:
+    - "is_macos(), is_linux()"
+    - "log()"
+    - "get_config(role, key, default)"
+    - "update_heartbeat(), start_heartbeat_daemon(), stop_heartbeat_daemon()"
+    - "emit_event(), emit_internal_event()"
+    - "portable_date(), get_mtime(), portable_flock()"
+  tests:
+    - "tests/lib/test_common.sh"
+
+system_scripts:
+  description: "시스템 관리 유틸리티"
+  key_files:
+    - path: "bin/start.sh"
+      description: "tmux 세션 생성 + watchdog loop"
+    - path: "bin/stop.sh"
+      description: "역순 graceful shutdown"
+    - path: "bin/status.sh"
+      description: "시스템 상태 대시보드"
+    - path: "bin/init-dirs.sh"
+      description: "런타임 디렉토리 구조 초기화 (멱등)"
+    - path: "bin/check-prerequisites.sh"
+      description: "CLI 도구 + 인증 검증"
+    - path: "bin/install-general.sh"
+      description: "장군 패키지 설치 (소스→런타임)"
+    - path: "bin/uninstall-general.sh"
+      description: "장군 패키지 제거"
+  tests:
+    - "tests/test_system_scripts.sh"
+    - "tests/test_init_dirs.sh"
+    - "tests/test_check_prerequisites.sh"
+    - "tests/test_install_general.sh"
+
+# ============================================================
+# GENERAL PACKAGES — 빌트인 장군 4종
+# ============================================================
+
+general_packages:
+  description: "자기완결적 장군 패키지. manifest + prompt + soul(선택) + install + README"
+  schema: "schemas/general-manifest.schema.json"
+  spec: "docs/spec/roles/general.md"
+  packages:
+    gen-pr:
+      path: "generals/gen-pr/"
+      description: "PR 리뷰 전문 장군"
+      subscribes: ["github.pr.review_requested"]
+      schedules: []
+      cc_plugins: ["friday@qp-plugin"]
+      timeout: 1800
+      has_soul: false
+    gen-jira:
+      path: "generals/gen-jira/"
+      description: "Jira 티켓 구현 장군"
+      subscribes: ["jira.ticket.assigned", "jira.ticket.updated"]
+      schedules: []
+      cc_plugins: ["sunday@qp-plugin"]
+      timeout: 5400
+      has_soul: false
+    gen-test:
+      path: "generals/gen-test/"
+      description: "테스트 코드 작성 장군 (스케줄 전용)"
+      subscribes: []
+      schedules: ["daily-test: 0 22 * * 1-5"]
+      cc_plugins: ["saturday@qp-plugin"]
+      timeout: 3600
+      has_soul: false
+    gen-briefing:
+      path: "generals/gen-briefing/"
+      description: "일일 브리핑 장군 (F.R.I.D.A.Y. 성격)"
+      subscribes: []
+      schedules: ["daily-briefing"]
+      cc_plugins: []
+      timeout: 600
+      has_soul: true  # generals/gen-briefing/soul.md
+
+# ============================================================
+# SOUL SYSTEM — 아이덴티티 계층
+# ============================================================
+
+soul_system:
+  description: "병사에게 '나는 누구인가' + '이 팀은 어떤 맥락인가'를 주입하는 계층형 시스템"
+  key_files:
+    - path: "config/soul.md"
+      description: "공통 원칙 — 모든 병사에게 주입"
+    - path: "config/user.md"
+      description: "팀/회사 맥락 — 모든 병사에게 주입"
+    - path: "generals/gen-{name}/soul.md"
+      description: "장군별 성격 — 해당 장군 병사만 (선택적)"
+  injection_order: "soul.md → gen-*/soul.md → user.md → prompt.md + payload + memory"
+  implementation: "bin/lib/general/prompt-builder.sh (_emit_soul_layer, _emit_user_layer)"
+
+# ============================================================
+# MESSAGE QUEUE — 파일 기반 MQ
+# ============================================================
+
+message_queue:
+  description: "디렉토리 위치 = 상태. Write-then-Rename 원자성. 외부 의존성 제로."
+  queues:
+    events:
+      path: "queue/events/"
+      flow: "pending/ → dispatched/ → completed/"
+      producer: sentinel
+      consumer: king
+    tasks:
+      path: "queue/tasks/"
+      flow: "pending/ → in_progress/ → completed/"
+      producer: king
+      consumer: general
+    messages:
+      path: "queue/messages/"
+      flow: "pending/ → sent/ | failed/"
+      producer: king, chamberlain
+      consumer: envoy
+      retry: "최대 3회, 초과 시 failed/로 격리"
+
+# ============================================================
+# SCHEMAS & CONFIG — Schema-First 개발
+# ============================================================
+
+schema_config_mapping:
+  description: "JSON Schema가 SSOT. schemas/ → config/ → docs/spec/ → bin/ → tests/ 순서."
+  pairs:
+    - schema: "schemas/system.schema.json"
+      config: "config/system.yaml"
+    - schema: "schemas/king.schema.json"
+      config: "config/king.yaml"
+    - schema: "schemas/sentinel.schema.json"
+      config: "config/sentinel.yaml"
+    - schema: "schemas/envoy.schema.json"
+      config: "config/envoy.yaml"
+    - schema: "schemas/chamberlain.schema.json"
+      config: "config/chamberlain.yaml"
+    - schema: "schemas/general-manifest.schema.json"
+      config: "generals/gen-*/manifest.yaml"
+
+# ============================================================
+# DOCUMENTATION — 문서 구조
+# ============================================================
+
+documentation:
+  spec:
+    description: "설계 명세 (구현 기준)"
+    architecture: "docs/spec/architecture.md"
+    roles:
+      - "docs/spec/roles/king.md"
+      - "docs/spec/roles/sentinel.md"
+      - "docs/spec/roles/envoy.md"
+      - "docs/spec/roles/chamberlain.md"
+      - "docs/spec/roles/general.md"
+      - "docs/spec/roles/soldier.md"
+    systems:
+      - "docs/spec/systems/event-types.md      — 이벤트 타입 카탈로그"
+      - "docs/spec/systems/message-passing.md   — MQ 프로토콜"
+      - "docs/spec/systems/data-lifecycle.md    — 보존 정책"
+      - "docs/spec/systems/filesystem.md        — 디렉토리 구조"
+      - "docs/spec/systems/logging.md           — 로깅 체계"
+      - "docs/spec/systems/memory.md            — 메모리 계층"
+      - "docs/spec/systems/internal-events.md   — 내부 이벤트"
+    examples:
+      - "docs/spec/examples/scenario-gen-pr.md"
+      - "docs/spec/examples/scenario-gen-test.md"
+  guides:
+    - "docs/guides/install-guide.md"
+    - "docs/guides/local-install-guide.md"
+  analysis:
+    - "docs/analysis/kingdom-vs-openclaw.md"
+
+# ============================================================
+# TESTS — 262개 테스트
+# ============================================================
+
+test_mapping:
+  description: "소스 → 테스트 매핑. bats-core + bats-assert 사용."
+  common: "tests/lib/test_common.sh"
+  king: "tests/test_king.sh"
+  king_router: "tests/lib/king/test_router.sh"
+  king_resource: "tests/lib/king/test_resource_check.sh"
+  sentinel: "tests/test_sentinel.sh"
+  github_watcher: "tests/lib/sentinel/test_github_watcher.sh"
+  jira_watcher: "tests/lib/sentinel/test_jira_watcher.sh"
+  watcher_common: "tests/lib/sentinel/test_watcher_common.sh"
+  envoy: "tests/test_envoy.sh"
+  slack_api: "tests/lib/envoy/test_slack_api.sh"
+  thread_manager: "tests/lib/envoy/test_thread_manager.sh"
+  general_common: "tests/lib/general/test_common.sh"
+  prompt_builder: "tests/lib/general/test_prompt_builder.sh"
+  metrics: "tests/lib/chamberlain/test_metrics_collector.sh"
+  token_monitor: "tests/lib/chamberlain/test_token_monitor.sh"
+  sessions: "tests/lib/chamberlain/test_session_checker.sh"
+  events: "tests/lib/chamberlain/test_event_consumer.sh"
+  log_rotation: "tests/lib/chamberlain/test_log_rotation.sh"
+  spawn_soldier: "tests/test_spawn_soldier.sh"
+  install: "tests/test_install_general.sh"
+  init_dirs: "tests/test_init_dirs.sh"
+  prerequisites: "tests/test_check_prerequisites.sh"
+  system: "tests/test_system_scripts.sh"
+  workspace: "tests/test_workspace_claude.sh"
+  integration:
+    - "tests/integration/test_event_to_task.sh"
+    - "tests/integration/test_task_to_result.sh"
+    - "tests/integration/test_full_pipeline.sh"
+    - "tests/integration/test_needs_human_flow.sh"
+  helpers:
+    - "tests/test_helper.bash"
+    - "tests/mocks/     — gh, curl, tmux, claude, yq, git 목"
+    - "tests/fixtures/  — 테스트 JSON 데이터"

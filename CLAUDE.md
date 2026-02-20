@@ -2,6 +2,8 @@
 
 빈 컴퓨터 한 대에 정착하여 팀의 일원으로 일하는 AI 동료. Claude Code + tmux 하이브리드 아키텍처.
 
+> **코드 탐색 시 `CODE_GRAPH.yaml`을 먼저 읽어라.** 역할별 entry_point, key_files, functions, dependencies, data_flow가 모두 매핑되어 있다. 맹목적 Glob/Grep 대신 지도를 따라 목적 파일에 바로 도달할 것.
+
 GitHub·Jira·Slack을 통해 업무를 감지하고, 장군 패키지로 정의된 역할에 따라 자율적으로 작업한다.
 모르면 사람에게 물어보고, 일하며 배운 것은 메모리에 축적한다.
 
@@ -32,7 +34,7 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 
 | 역할 | schema | config | spec | bin | test |
 |------|--------|--------|------|-----|------|
-| king | `schemas/king.schema.json` | `config/king.yaml` | `docs/spec/roles/king.md` | `bin/king.sh` | `tests/test_king.sh` |
+| king | `schemas/king.schema.json` | `config/king.yaml` | `docs/spec/roles/king.md` | `bin/king.sh`, `bin/lib/king/functions.sh` | `tests/test_king.sh` |
 | envoy | `schemas/envoy.schema.json` | `config/envoy.yaml` | `docs/spec/roles/envoy.md` | `bin/envoy.sh` | `tests/test_envoy.sh` |
 | sentinel | `schemas/sentinel.schema.json` | `config/sentinel.yaml` | `docs/spec/roles/sentinel.md` | `bin/sentinel.sh` | `tests/test_sentinel.sh` |
 | chamberlain | `schemas/chamberlain.schema.json` | `config/chamberlain.yaml` | `docs/spec/roles/chamberlain.md` | `bin/chamberlain.sh` | 개별 lib 테스트 |
@@ -55,15 +57,27 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 
 ### 장군 패키지 구조
 
-각 패키지는 `generals/gen-{name}/` 아래 4파일로 자기완결적:
+각 패키지는 `generals/gen-{name}/` 아래 자기완결적:
 
 ```
 generals/gen-{name}/
 ├── manifest.yaml   # 메타데이터 + 이벤트/스케줄 설정
 ├── prompt.md       # 병사에게 전달할 프롬프트 템플릿
+├── soul.md         # 장군별 성격/톤 (선택적)
 ├── install.sh      # 설치 스크립트
 └── README.md       # 사용자 문서
 ```
+
+### Soul 시스템 (프롬프트 조립 순서)
+
+```
+config/soul.md              → Kingdom 공통 원칙 (모든 병사)
+generals/gen-{name}/soul.md → 장군별 성격 (선택적)
+config/user.md              → 팀/회사 맥락 (모든 병사)
+prompt.md + payload + memory → 작업 지시 (기존과 동일)
+```
+
+`prompt-builder.sh`에서 soul → user → prompt 순으로 자동 조립. 200KB 크기 가드 포함.
 
 ## 변경 체크리스트
 
@@ -72,6 +86,7 @@ generals/gen-{name}/
 1. 매핑 테이블의 schema, config, spec, bin, test 모두 동기화 확인
 2. `docs/spec/architecture.md` 역할 체계와 일관성 확인
 3. 관련 시스템 문서 (`event-types.md`, `message-passing.md` 등) 영향 확인
+4. `CODE_GRAPH.yaml` — 함수 추가/제거/이동 시 해당 모듈의 functions 목록 갱신
 
 ### Builtin 장군 수정 시
 
