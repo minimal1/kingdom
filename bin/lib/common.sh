@@ -4,6 +4,14 @@
 
 BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
 
+# --- Load .env ---
+
+if [[ -f "$BASE_DIR/.env" ]]; then
+  set -a
+  source "$BASE_DIR/.env"
+  set +a
+fi
+
 # --- Platform Detection ---
 
 PLATFORM="$(uname -s)"
