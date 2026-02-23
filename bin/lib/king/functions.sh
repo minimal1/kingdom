@@ -241,6 +241,8 @@ process_human_response() {
   original_general=$(echo "$checkpoint" | jq -r '.target_general')
   local repo
   repo=$(echo "$checkpoint" | jq -r '.repo // empty')
+  local session_id
+  session_id=$(echo "$checkpoint" | jq -r '.session_id // empty')
 
   local task
   task=$(jq -n \
@@ -251,6 +253,7 @@ process_human_response() {
     --arg response "$human_response" \
     --arg repo "$repo" \
     --arg checkpoint_path "$checkpoint_file" \
+    --arg session_id "$session_id" \
     '{
       id: $id,
       event_id: $event_id,
@@ -260,7 +263,8 @@ process_human_response() {
       payload: {
         original_task_id: $original_task,
         checkpoint_path: $checkpoint_path,
-        human_response: $response
+        human_response: $response,
+        session_id: $session_id
       },
       priority: "high",
       retry_count: 0,
@@ -288,7 +292,7 @@ check_task_results() {
     [ -f "$result_file" ] || continue
 
     # Skip general-internal files
-    echo "$result_file" | grep -qE '\-(checkpoint|raw|soldier-id)\.' && continue
+    echo "$result_file" | grep -qE '\-(checkpoint|raw|soldier-id|session-id)\.' && continue
 
     local result
     result=$(cat "$result_file")

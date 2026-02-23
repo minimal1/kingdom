@@ -56,6 +56,7 @@ pending ──왕이 읽고 task 생성──→ dispatched ──작업 완료�
 | `state/results/{task-id}.json` | 장군 | 왕 | **7일 후 삭제** |
 | `state/results/{task-id}-raw.json` | 병사 | 장군 | **7일 후 삭제** |
 | `state/results/{task-id}-soldier-id` | 병사 | 장군, 내관 | **7일 후 삭제** |
+| `state/results/{task-id}-session-id` | 병사 | 장군 (resume) | **7일 후 삭제** |
 
 결과 파일은 Layer 2 메모리 역할을 겸한다. 장군이 이전 작업의 결과를 참고할 수 있는 기간이 7일.
 
@@ -88,7 +89,8 @@ pending ──왕이 읽고 task 생성──→ dispatched ──작업 완료�
 | `logs/tasks.log.old` | 내관 (rotate) | **7일 후 삭제** |
 | `logs/metrics.log` | 내관 (메트릭 수집) | 상주 (100MB 초과 시 .old 로테이션) |
 | `logs/metrics.log.old` | 내관 (rotate) | **7일 후 삭제** |
-| `logs/sessions/{soldier-id}.log` | 병사 (stdout/stderr) | **7일 후 삭제** |
+| `logs/sessions/{soldier-id}.json` | 병사 (stdout JSON) | **7일 후 삭제** |
+| `logs/sessions/{soldier-id}.err` | 병사 (stderr) | **7일 후 삭제** |
 
 ### 사절 상태 (`state/envoy/`)
 

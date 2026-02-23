@@ -86,7 +86,10 @@
 │   │   └── {task-id}.md
 │   ├── results/                      # 작업 결과
 │   │   ├── {task-id}.json            # 최종 결과 (장군 → 왕)
-│   │   └── {task-id}-raw.json        # 병사 원본 결과 (장군만 읽음)
+│   │   ├── {task-id}-raw.json        # 병사 원본 결과 (장군만 읽음)
+│   │   ├── {task-id}-soldier-id      # 병사 tmux 세션 ID (장군, 내관)
+│   │   ├── {task-id}-session-id      # Claude CLI session_id (session resume용)
+│   │   └── {task-id}-checkpoint.json # needs_human 체크포인트 (장군 → 왕)
 │   ├── king/                         # 왕 상태
 │   │   ├── heartbeat                 # 생존 확인
 │   │   ├── task-seq                  # Task ID 시퀀스 (date:seq, 재시작 안전)
@@ -121,7 +124,8 @@
 │   ├── tasks.log
 │   ├── metrics.log
 │   ├── sessions/
-│   │   └── {session-name}.log
+│   │   ├── {soldier-id}.json         # 병사 stdout (JSON, session_id 추출용)
+│   │   └── {soldier-id}.err          # 병사 stderr (디버깅용)
 │   └── analysis/                     # 자동 분석 결과
 │       ├── failures.json
 │       └── stats.json

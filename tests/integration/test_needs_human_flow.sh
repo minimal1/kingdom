@@ -27,6 +27,9 @@ EOF
 
   GENERAL_DOMAIN="gen-pr"
 
+  # Simulate session_id file from soldier's output
+  echo "sess-test-050" > "$BASE_DIR/state/results/${task_id}-session-id"
+
   # General's soldier returns needs_human result
   local raw_result
   raw_result=$(jq -n \
@@ -37,11 +40,13 @@ EOF
   # General calls escalate_to_king
   escalate_to_king "$task_id" "$raw_result"
 
-  # Checkpoint file created
+  # Checkpoint file created with session_id
   local checkpoint_file="$BASE_DIR/state/results/${task_id}-checkpoint.json"
   assert [ -f "$checkpoint_file" ]
   run jq -r '.target_general' "$checkpoint_file"
   assert_output "gen-pr"
+  run jq -r '.session_id' "$checkpoint_file"
+  assert_output "sess-test-050"
 
   # Result file created with needs_human status
   local result_file="$BASE_DIR/state/results/${task_id}.json"
@@ -75,11 +80,12 @@ EOF
 EOF
   echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-060.json"
 
-  # Checkpoint from previous escalation
+  # Checkpoint from previous escalation (with session_id)
   jq -n \
     --arg tid "$original_task_id" \
     '{task_id: $tid, target_general: "gen-pr", repo: "chequer/qp",
-      payload: {pr_number: 77}, type: "github.pr.review_requested", created_at: "2026-02-10T10:00:00Z"}' \
+      payload: {pr_number: 77}, session_id: "sess-resume-060",
+      type: "github.pr.review_requested", created_at: "2026-02-10T10:00:00Z"}' \
     > "$BASE_DIR/state/results/${original_task_id}-checkpoint.json"
 
   # Envoy detects human reply → emits slack.human_response event
@@ -117,6 +123,9 @@ EOF
   assert_output "Use JWT with refresh tokens"
   run jq -r '.payload.original_task_id' "$resume_file"
   assert_output "$original_task_id"
+  # Session ID from checkpoint should be in resume task payload
+  run jq -r '.payload.session_id' "$resume_file"
+  assert_output "sess-resume-060"
 }
 
 @test "needs_human: full cycle — escalate → respond → resume → complete" {
@@ -131,6 +140,9 @@ EOF
   echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-070.json"
 
   GENERAL_DOMAIN="gen-pr"
+
+  # Simulate session_id from soldier output
+  echo "sess-full-cycle-070" > "$BASE_DIR/state/results/${task_id}-session-id"
 
   # Step 1: General escalates
   local raw_result

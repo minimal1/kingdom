@@ -237,7 +237,7 @@ soldier:
   key_files:
     - path: "config/workspace-claude.md"
       description: "병사의 CLAUDE.md — 결과 JSON 스키마 지시"
-  data_flow: "프롬프트 파일 → claude -p → stdout → .kingdom-task.json 참조 → result.json"
+  data_flow: "프롬프트 파일 → claude -p [--resume SESSION_ID] → stdout JSON → session-id 캡처 → .kingdom-task.json 참조 → result.json"
   spec: "docs/spec/roles/soldier.md"
   tests:
     - "tests/test_spawn_soldier.sh"

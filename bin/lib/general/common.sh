@@ -184,9 +184,28 @@ spawn_soldier() {
     return 1
   fi
 
+  # Check if this is a resume task → load original session_id
+  local resume_session_id=""
+  local task_file="$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
+  if [ -f "$task_file" ]; then
+    local task_type
+    task_type=$(jq -r '.type // ""' "$task_file" 2>/dev/null || true)
+    if [ "$task_type" = "resume" ]; then
+      local orig_task_id
+      orig_task_id=$(jq -r '.payload.original_task_id // ""' "$task_file" 2>/dev/null || true)
+      if [ -n "$orig_task_id" ]; then
+        local sid_file="$BASE_DIR/state/results/${orig_task_id}-session-id"
+        if [ -f "$sid_file" ]; then
+          resume_session_id=$(cat "$sid_file")
+          log "[SYSTEM] [$GENERAL_DOMAIN] Resume session_id loaded: $resume_session_id"
+        fi
+      fi
+    fi
+  fi
+
   # Spawn soldier via script (relative to this file's bin/ location)
   local spawn_script="${SPAWN_SOLDIER_SCRIPT:-$_GENERAL_LIB_DIR/../../spawn-soldier.sh}"
-  "$spawn_script" "$task_id" "$prompt_file" "$work_dir"
+  "$spawn_script" "$task_id" "$prompt_file" "$work_dir" "$resume_session_id"
   local exit_code=$?
 
   if [ $exit_code -ne 0 ]; then
@@ -281,14 +300,22 @@ escalate_to_king() {
   local task
   task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null || echo '{}')
 
+  # Load session_id from soldier's output (for session resume on human response)
+  local session_id=""
+  local session_id_file="$BASE_DIR/state/results/${task_id}-session-id"
+  if [ -f "$session_id_file" ]; then
+    session_id=$(cat "$session_id_file")
+  fi
+
   jq -n \
     --arg task_id "$task_id" \
     --arg general "$GENERAL_DOMAIN" \
     --argjson repo "$(echo "$task" | jq '.repo')" \
     --argjson payload "$(echo "$task" | jq '.payload')" \
+    --arg session_id "$session_id" \
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{task_id: $task_id, target_general: $general, repo: $repo,
-      payload: $payload, created_at: $ts}' \
+      payload: $payload, session_id: $session_id, created_at: $ts}' \
     > "$checkpoint_file"
 
   local result_file="$BASE_DIR/state/results/${task_id}.json"
@@ -351,7 +378,31 @@ main_loop() {
     repo_context=$(load_repo_memory "$GENERAL_DOMAIN" "$repo")
 
     local prompt_file="$BASE_DIR/state/prompts/${task_id}.md"
-    build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+
+    # Resume task with session_id → minimal prompt (context preserved in session)
+    local task_type
+    task_type=$(echo "$task" | jq -r '.type // ""')
+    local resume_session_id=""
+    if [ "$task_type" = "resume" ]; then
+      local orig_id
+      orig_id=$(echo "$task" | jq -r '.payload.original_task_id // ""')
+      if [ -n "$orig_id" ]; then
+        local sid_file="$BASE_DIR/state/results/${orig_id}-session-id"
+        if [ -f "$sid_file" ]; then
+          resume_session_id=$(cat "$sid_file")
+        fi
+      fi
+    fi
+
+    if [ -n "$resume_session_id" ]; then
+      # Session resume: only pass human response (full context in session history)
+      local human_response
+      human_response=$(echo "$task" | jq -r '.payload.human_response // ""')
+      printf '사람의 응답: %s\n\n이전 작업을 이어서 진행하라.\n' "$human_response" > "$prompt_file"
+      log "[SYSTEM] [$GENERAL_DOMAIN] Resume prompt built for task: $task_id (session: $resume_session_id)"
+    else
+      build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+    fi
     check_prompt_size "$prompt_file"
 
     local attempt=0

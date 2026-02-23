@@ -68,53 +68,80 @@
 #!/bin/bash
 # bin/spawn-soldier.sh — 병사 tmux 세션 생성
 # 호출: 장군의 spawn_soldier() 함수에서 호출
-# 역할: 컨텍스트 파일 생성 + tmux 세션 생성 + soldier-id 파일 기록
+# 역할: 컨텍스트 파일 생성 + tmux 세션 생성 + soldier-id/session-id 파일 기록
 # 세션 등록(sessions.json)은 장군의 spawn_soldier()가 수행 (레이어드 구조)
 
 source "$BASE_DIR/bin/lib/common.sh"
 
 TASK_ID="$1"
 PROMPT_FILE="$2"
-WORK_DIR="$3"  # 장군의 workspace 경로
+WORK_DIR="$3"                    # 장군의 workspace 경로
+RESUME_SESSION_ID="${4:-}"       # (선택) resume할 Claude session_id
 SOLDIER_ID="soldier-$(date +%s)-$$"
 RAW_FILE="$BASE_DIR/state/results/${TASK_ID}-raw.json"
+SESSION_ID_FILE="$BASE_DIR/state/results/${TASK_ID}-session-id"
 
 # ── Pre-flight Checks ──
-if ! command -v claude &> /dev/null; then
-  log "[ERROR] [soldier] claude command not found"
-  exit 1
-fi
+# (생략)
 
 # ── Context File ──
-# .kingdom-task.json을 workspace에 생성 (CLAUDE.md가 병사에게 이 파일을 읽으라고 지시)
-jq -n \
-  --arg task_id "$TASK_ID" \
-  --arg result_path "$RAW_FILE" \
-  '{task_id: $task_id, result_path: $result_path}' \
-  > "$WORK_DIR/.kingdom-task.json"
+# .kingdom-task.json을 workspace에 생성
 
 # ── Session Creation ──
-# workspace에서 실행 → .claude/plugins.json이 CC Plugin을 자동 로드
-# workspace/CLAUDE.md가 자동 로드되어 결과 보고 방식을 지시
-# --dangerously-skip-permissions: 자동화 환경에서 모든 도구 승인 없이 실행 (리스크 인지)
-# stdout+stderr → 로그 파일 (병사는 Write 도구로 결과를 직접 생성)
+# --output-format json: stdout JSON에 session_id 포함
+# --resume SESSION_ID: needs_human 후 같은 세션 이어가기 (4번째 인자)
+# stdout → JSON (session_id 추출용), stderr → 별도 로그
+CLAUDE_ARGS="--dangerously-skip-permissions --output-format json"
+if [ -n "$RESUME_SESSION_ID" ]; then
+  CLAUDE_ARGS="$CLAUDE_ARGS --resume '$RESUME_SESSION_ID'"
+fi
+
 if ! tmux new-session -d -s "$SOLDIER_ID" \
-  "cd '$WORK_DIR' && claude -p \
-    --dangerously-skip-permissions \
+  "cd '$WORK_DIR' && eval claude -p $CLAUDE_ARGS \
     < '$PROMPT_FILE' \
-    > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.log' 2>&1; \
+    > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' 2>'$BASE_DIR/logs/sessions/${SOLDIER_ID}.err'; \
+   jq -r '.session_id // empty' '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' \
+    > '$SESSION_ID_FILE' 2>/dev/null; \
    tmux wait-for -S ${SOLDIER_ID}-done"; then
   log "[ERROR] [soldier] Failed to create tmux session: $SOLDIER_ID"
   exit 1
 fi
 
-# soldier_id를 파일에 기록 (장군의 spawn_soldier가 읽어 세션 등록, wait_for_soldier가 timeout 시 kill용)
 echo "$SOLDIER_ID" > "$BASE_DIR/state/results/${TASK_ID}-soldier-id"
-
-log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 ```
 
 > CC Plugin은 프롬프트에서 지정하지 않는다. `cd '$WORK_DIR'`로 장군의 workspace에서 실행되면 `.claude/plugins.json`을 통해 자동 로드된다. 상세: [roles/general.md — CC Plugin 통합](general.md#cc-plugin-통합)
+
+### Session Resume (needs_human 흐름)
+
+`needs_human` 결과를 반환한 병사의 Claude 세션을 사람 응답 후 이어가는 메커니즘.
+
+```
+[1차 병사]
+  claude -p --output-format json < prompt
+  → {soldier}.json (session_id 포함)
+  → {task_id}-session-id 파일 저장
+  → needs_human 결과 반환
+
+[escalate_to_king]
+  checkpoint.json에 session_id 저장
+
+[왕 → 사절 → Slack → 사람 응답]
+
+[process_human_response]
+  resume task payload에 session_id 포함
+
+[장군 main_loop]
+  resume task 감지 → session_id 로드
+  → 간략 프롬프트 생성 (사람 응답만)
+  → spawn_soldier에 session_id 전달
+
+[spawn-soldier.sh]
+  claude -p --resume SESSION_ID < "사람 응답"
+  → 이전 컨텍스트 유지한 채 작업 속행
+```
+
+**Fallback**: session_id가 없거나 `--resume` 실패 시 기존 방식(새 세션 + 전체 프롬프트)으로 자동 동작한다. `spawn_soldier()`에서 session_id 파일이 없으면 4번째 인자가 빈 문자열이므로 새 세션으로 생성된다.
 
 ## 프롬프트 구조
 
@@ -147,7 +174,7 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 
 ## 결과 스키마
 
-병사는 `workspace/CLAUDE.md`의 지시에 따라 `.kingdom-task.json`에서 `task_id`와 `result_path`를 읽고, Write 도구로 `state/results/{task-id}-raw.json`에 직접 결과를 저장한다. stdout+stderr는 `logs/sessions/{soldier-id}.log`로 캡처되어 디버깅용으로 보존된다.
+병사는 `workspace/CLAUDE.md`의 지시에 따라 `.kingdom-task.json`에서 `task_id`와 `result_path`를 읽고, Write 도구로 `state/results/{task-id}-raw.json`에 직접 결과를 저장한다. stdout은 `logs/sessions/{soldier-id}.json`으로, stderr는 `logs/sessions/{soldier-id}.err`로 분리 캡처되어 디버깅용으로 보존된다. stdout JSON에서 `session_id`를 추출하여 `state/results/{task-id}-session-id`에 저장한다.
 
 `status` 필드에 따라 필수 필드가 다르다:
 

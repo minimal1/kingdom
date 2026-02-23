@@ -418,8 +418,9 @@ process_human_response() {
   local checkpoint=$(cat "$checkpoint_file")
   local original_general=$(echo "$checkpoint" | jq -r '.target_general')
   local repo=$(echo "$checkpoint" | jq -r '.repo // empty')
+  local session_id=$(echo "$checkpoint" | jq -r '.session_id // empty')
 
-  # 재개 작업 생성 (resume 플래그 포함)
+  # 재개 작업 생성 (resume 플래그 + session_id 포함)
   local task=$(jq -n \
     --arg id "$task_id" \
     --arg event_id "$event_id" \
@@ -428,6 +429,7 @@ process_human_response() {
     --arg response "$human_response" \
     --arg repo "$repo" \
     --arg checkpoint_path "$checkpoint_file" \
+    --arg session_id "$session_id" \
     '{
       id: $id,
       event_id: $event_id,
@@ -437,7 +439,8 @@ process_human_response() {
       payload: {
         original_task_id: $original_task,
         checkpoint_path: $checkpoint_path,
-        human_response: $response
+        human_response: $response,
+        session_id: $session_id
       },
       priority: "high",
       retry_count: 0,

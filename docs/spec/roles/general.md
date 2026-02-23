@@ -97,7 +97,22 @@ main_loop() {
 
     # ── 4. 프롬프트 조립 ──────────────────────────
     local prompt_file="$BASE_DIR/state/prompts/${task_id}.md"
-    build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+
+    # Resume task + session_id → 간략 프롬프트 (세션에 컨텍스트 유지)
+    local task_type=$(echo "$task" | jq -r '.type // ""')
+    local resume_session_id=""
+    if [ "$task_type" = "resume" ]; then
+      local orig_id=$(echo "$task" | jq -r '.payload.original_task_id // ""')
+      local sid_file="$BASE_DIR/state/results/${orig_id}-session-id"
+      [ -f "$sid_file" ] && resume_session_id=$(cat "$sid_file")
+    fi
+
+    if [ -n "$resume_session_id" ]; then
+      local human_response=$(echo "$task" | jq -r '.payload.human_response // ""')
+      printf '사람의 응답: %s\n\n이전 작업을 이어서 진행하라.\n' "$human_response" > "$prompt_file"
+    else
+      build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+    fi
 
     # ── 5. 실행 + 재시도 루프 (장군 전담) ──────────
     local attempt=0
@@ -245,8 +260,20 @@ spawn_soldier() {
     return 1
   fi
 
+  # ── Resume task면 원래 session_id 로드 ──
+  local resume_session_id=""
+  local task_file="$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
+  if [ -f "$task_file" ]; then
+    local task_type=$(jq -r '.type // ""' "$task_file" 2>/dev/null || true)
+    if [ "$task_type" = "resume" ]; then
+      local orig_task_id=$(jq -r '.payload.original_task_id // ""' "$task_file" 2>/dev/null || true)
+      local sid_file="$BASE_DIR/state/results/${orig_task_id}-session-id"
+      [ -f "$sid_file" ] && resume_session_id=$(cat "$sid_file")
+    fi
+  fi
+
   # ── 병사 생성 (스크립트 위임) ──
-  "$BASE_DIR/bin/spawn-soldier.sh" "$task_id" "$prompt_file" "$work_dir"
+  "$spawn_script" "$task_id" "$prompt_file" "$work_dir" "$resume_session_id"
   local exit_code=$?
 
   if [ $exit_code -ne 0 ]; then
@@ -306,7 +333,7 @@ wait_for_soldier() {
 
 > **구조화된 출력**: `spawn-soldier.sh`는 실행 전 `.kingdom-task.json` 컨텍스트 파일을 workspace에 생성한다. 병사는 `workspace/CLAUDE.md`(자동 로드)의 지시에 따라 `.kingdom-task.json`을 읽고, Write 도구로 `state/results/{task-id}-raw.json`에 결과를 직접 생성한다.
 >
-> 왕이 폴링하는 `{task-id}.json`과 분리하여, 장군의 재시도 루프 중 왕이 중간 결과를 발견하지 않게 한다. stdout+stderr는 `logs/sessions/{soldier-id}.log`로 캡처 (디버깅용).
+> 왕이 폴링하는 `{task-id}.json`과 분리하여, 장군의 재시도 루프 중 왕이 중간 결과를 발견하지 않게 한다. stdout은 `logs/sessions/{soldier-id}.json`, stderr는 `logs/sessions/{soldier-id}.err`로 분리 캡처. stdout JSON에서 `session_id`를 추출하여 `state/results/{task-id}-session-id`에 저장 (session resume용).
 >
 > **결과 스키마** (`config/workspace-claude.md` → `workspace/CLAUDE.md`에서 지시):
 > ```json
@@ -373,14 +400,20 @@ escalate_to_king() {
   local checkpoint_file="$BASE_DIR/state/results/${task_id}-checkpoint.json"
   local task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
 
+  # Session_id 로드 (session resume용)
+  local session_id=""
+  local session_id_file="$BASE_DIR/state/results/${task_id}-session-id"
+  [ -f "$session_id_file" ] && session_id=$(cat "$session_id_file")
+
   jq -n \
     --arg task_id "$task_id" \
     --arg general "$GENERAL_DOMAIN" \
     --argjson repo "$(echo "$task" | jq '.repo')" \
     --argjson payload "$(echo "$task" | jq '.payload')" \
+    --arg session_id "$session_id" \
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{task_id: $task_id, target_general: $general, repo: $repo,
-      payload: $payload, created_at: $ts}' \
+      payload: $payload, session_id: $session_id, created_at: $ts}' \
     > "$checkpoint_file"
 
   # 최종 결과에 checkpoint_path 포함하여 왕에게 보고

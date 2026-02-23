@@ -182,13 +182,16 @@ _define_king_functions() {
     original_general=$(echo "$checkpoint" | jq -r '.target_general')
     local repo
     repo=$(echo "$checkpoint" | jq -r '.repo // empty')
+    local session_id
+    session_id=$(echo "$checkpoint" | jq -r '.session_id // empty')
     local task
     task=$(jq -n \
       --arg id "$task_id" --arg general "$original_general" \
       --arg original_task "$original_task_id" --arg response "$human_response" \
       --arg repo "$repo" --arg cp "$checkpoint_file" \
+      --arg session_id "$session_id" \
       '{id: $id, target_general: $general, type: "resume", repo: $repo,
-        payload: {original_task_id: $original_task, checkpoint_path: $cp, human_response: $response},
+        payload: {original_task_id: $original_task, checkpoint_path: $cp, human_response: $response, session_id: $session_id},
         priority: "high", created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
     echo "$task" > "$BASE_DIR/queue/tasks/pending/${task_id}.json"
     create_thread_update_message "$original_task_id" "Human response received"
@@ -281,7 +284,7 @@ _define_king_functions() {
   check_task_results() {
     for result_file in "$BASE_DIR/state/results"/task-*.json; do
       [ -f "$result_file" ] || continue
-      echo "$result_file" | grep -qE '\-(checkpoint|raw|soldier-id)\.' && continue
+      echo "$result_file" | grep -qE '\-(checkpoint|raw|soldier-id|session-id)\.' && continue
       local result
       result=$(cat "$result_file")
       local task_id

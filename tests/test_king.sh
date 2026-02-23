@@ -280,6 +280,56 @@ EOF
   assert_output "high"
 }
 
+@test "king: process_human_response includes session_id from checkpoint" {
+  # Checkpoint with session_id
+  cat > "$BASE_DIR/state/results/task-20260210-011-checkpoint.json" << 'EOF'
+{"target_general":"gen-pr","repo":"chequer/qp","session_id":"sess-abc123","payload":{}}
+EOF
+
+  cat > "$BASE_DIR/queue/events/pending/evt-hr-sid.json" << 'EOF'
+{"id":"evt-hr-sid","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-20260210-011","human_response":"Go ahead"}}
+EOF
+
+  process_pending_events
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.payload.session_id' "$task_file"
+  assert_output "sess-abc123"
+}
+
+@test "king: process_human_response handles missing session_id gracefully" {
+  # Checkpoint without session_id (legacy)
+  cat > "$BASE_DIR/state/results/task-20260210-012-checkpoint.json" << 'EOF'
+{"target_general":"gen-pr","repo":"chequer/qp","payload":{}}
+EOF
+
+  cat > "$BASE_DIR/queue/events/pending/evt-hr-nosid.json" << 'EOF'
+{"id":"evt-hr-nosid","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-20260210-012","human_response":"Do it"}}
+EOF
+
+  process_pending_events
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  # session_id should be empty string (fallback to new session)
+  run jq -r '.payload.session_id' "$task_file"
+  assert_output ""
+}
+
+@test "king: check_task_results skips session-id files" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-020.json" << 'EOF'
+{"id":"task-20260210-020","event_id":"evt-020","status":"in_progress"}
+EOF
+
+  echo 'sess-xyz789' > "$BASE_DIR/state/results/task-20260210-020-session-id"
+
+  check_task_results
+
+  # Task should remain in_progress (session-id file is not a result)
+  assert [ -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-020.json" ]
+}
+
 @test "king: human_response with missing checkpoint moves to completed" {
   cat > "$BASE_DIR/queue/events/pending/evt-hr-002.json" << 'EOF'
 {"id":"evt-hr-002","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-nonexistent","human_response":"test"}}

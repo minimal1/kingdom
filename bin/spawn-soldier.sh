@@ -10,9 +10,11 @@ source "$BASE_DIR/bin/lib/common.sh"
 TASK_ID="$1"
 PROMPT_FILE="$2"
 WORK_DIR="$3"
+RESUME_SESSION_ID="${4:-}"  # Optional: session_id to resume (for needs_human flow)
 SOLDIER_ID="soldier-$(date +%s)-$$"
 
 RAW_FILE="$BASE_DIR/state/results/${TASK_ID}-raw.json"
+SESSION_ID_FILE="$BASE_DIR/state/results/${TASK_ID}-session-id"
 
 # Pre-flight checks
 if ! command -v claude &> /dev/null; then
@@ -27,14 +29,23 @@ jq -n \
   '{task_id: $task_id, result_path: $result_path}' \
   > "$WORK_DIR/.kingdom-task.json"
 
+# Build Claude CLI command (resume mode vs new session)
+CLAUDE_ARGS="--dangerously-skip-permissions --output-format json"
+if [ -n "$RESUME_SESSION_ID" ]; then
+  CLAUDE_ARGS="$CLAUDE_ARGS --resume '$RESUME_SESSION_ID'"
+  log "[SYSTEM] [soldier] Resuming session: $RESUME_SESSION_ID for task: $TASK_ID"
+fi
+
 # Session creation
-# stdout+stderr → session log (soldier writes result via Write tool, not stdout)
+# stdout → JSON (session_id extraction), stderr → separate log
+# Soldier writes result via Write tool to -raw.json, stdout JSON is for session_id capture
 if ! tmux new-session -d -s "$SOLDIER_ID" \
   "export KINGDOM_BASE_DIR='$BASE_DIR' && \
-   cd '$WORK_DIR' && claude -p \
-    --dangerously-skip-permissions \
+   cd '$WORK_DIR' && eval claude -p $CLAUDE_ARGS \
     < '$PROMPT_FILE' \
-    > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.log' 2>&1; \
+    > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' 2>'$BASE_DIR/logs/sessions/${SOLDIER_ID}.err'; \
+   jq -r '.session_id // empty' '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' \
+    > '$SESSION_ID_FILE' 2>/dev/null; \
    tmux wait-for -S ${SOLDIER_ID}-done"; then
   log "[ERROR] [soldier] Failed to create tmux session: $SOLDIER_ID"
   exit 1

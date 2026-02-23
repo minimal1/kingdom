@@ -83,10 +83,29 @@ teardown() {
   assert_failure
 }
 
-@test "spawn-soldier: stdout goes to session log" {
+@test "spawn-soldier: stdout goes to json, stderr to err" {
   run grep 'logs/sessions/' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
-  # stdout+stderr both go to log (2>&1)
-  run grep '2>&1' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  # stdout → .json (session_id extraction), stderr → .err
+  run grep '\.json' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+  run grep '\.err' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+}
+
+@test "spawn-soldier: uses --output-format json" {
+  run grep -- '--output-format json' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+}
+
+@test "spawn-soldier: extracts session_id from output" {
+  run grep 'session_id' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+}
+
+@test "spawn-soldier: accepts optional resume session_id" {
+  run grep 'RESUME_SESSION_ID' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  assert_success
+  run grep -- '--resume' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
 }
