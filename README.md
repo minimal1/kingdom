@@ -68,12 +68,11 @@ PR이 올라오면 리뷰하고, Jira 티켓이 할당되면 구현하고, 모�
 
 ### Soul System — 아이덴티티 계층
 
-병사는 "내가 누구인지" 알고 일한다. 3계층 Soul이 모든 세션에 자동 주입된다:
+병사는 "내가 누구인지" 알고 일한다. CLAUDE.md로 핵심 지시를 주입하여 context 압축에도 안전하다:
 
 ```
-config/soul.md            → 공통 원칙 (모든 병사)
-generals/gen-*/soul.md    → 장군별 성격 (해당 병사만, 선택적)
-config/user.md            → 팀/회사 맥락 (모든 병사)
+config/workspace-claude.md  → workspace/CLAUDE.md (공통 원칙 + 팀 맥락 + 결과 보고)
+generals/gen-*/general-claude.md → workspace/gen-*/CLAUDE.md (장군별 성격, 압축 안전)
 ```
 
 ### General Packages — 플러거블 도메인 전문가
@@ -84,7 +83,7 @@ config/user.md            → 팀/회사 맥락 (모든 병사)
 generals/gen-{name}/
 ├── manifest.yaml   # 이벤트 구독, 스케줄, 메타데이터
 ├── prompt.md       # 병사 프롬프트 템플릿
-├── soul.md         # 장군 고유 성격 (선택적)
+├── general-claude.md  # 장군 고유 성격 (선택적, 설치 시 CLAUDE.md로 변환)
 ├── install.sh      # 설치 스크립트
 └── README.md       # 문서
 ```
@@ -212,7 +211,7 @@ kingdom/
 │   ├── gen-test/            #   테스트 작성
 │   └── gen-briefing/        #   일일 브리핑
 ├── config/                  # 설정
-│   ├── soul.md / user.md    #   Soul 시스템
+│   ├── workspace-claude.md  #   병사 CLAUDE.md (Soul + 팀 맥락 + 결과 보고)
 │   ├── *.yaml               #   역할별 설정
 │   └── generals/            #   설치된 장군 매니페스트
 ├── schemas/                 # JSON Schema (SSOT)

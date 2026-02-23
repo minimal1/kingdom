@@ -81,6 +81,11 @@ if [ -f "$BASE_DIR/config/workspace-claude.md" ] && [ ! -f "$BASE_DIR/workspace/
   cp "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
 fi
 
+# 장군별 general-claude.md → workspace/gen-{name}/CLAUDE.md로 복사
+if [ -f "$PACKAGE_DIR/general-claude.md" ]; then
+  cp "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME/CLAUDE.md"
+fi
+
 echo "Installed general: $NAME"
 echo "  Manifest:  config/generals/${NAME}.yaml"
 echo "  Template:  config/generals/templates/${NAME}.md"

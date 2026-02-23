@@ -215,11 +215,9 @@ general:
         - "escalate_to_king()"
         - "main_loop()"
     - path: "bin/lib/general/prompt-builder.sh"
-      description: "3계층 Soul + 프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립"
+      description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md로 자동 로드)"
       functions:
         - "build_prompt()"
-        - "_emit_soul_layer()   — config/soul.md + generals/gen-*/soul.md"
-        - "_emit_user_layer()   — config/user.md"
         - "check_prompt_size()  — 200KB 가드"
     - path: "bin/spawn-soldier.sh"
       description: "tmux 세션 생성 → claude -p 실행 → 결과 대기"
@@ -303,7 +301,7 @@ general_packages:
       schedules: []
       cc_plugins: ["friday@qp-plugin"]
       timeout: 1800
-      has_soul: false
+      has_claude_md: false
     gen-jira:
       path: "generals/gen-jira/"
       description: "Jira 티켓 구현 장군"
@@ -311,7 +309,7 @@ general_packages:
       schedules: []
       cc_plugins: ["sunday@qp-plugin"]
       timeout: 5400
-      has_soul: false
+      has_claude_md: false
     gen-test:
       path: "generals/gen-test/"
       description: "테스트 코드 작성 장군 (스케줄 전용)"
@@ -319,7 +317,7 @@ general_packages:
       schedules: ["daily-test: 0 22 * * 1-5"]
       cc_plugins: ["saturday@qp-plugin"]
       timeout: 3600
-      has_soul: false
+      has_claude_md: false
     gen-briefing:
       path: "generals/gen-briefing/"
       description: "일일 브리핑 장군 (F.R.I.D.A.Y. 성격)"
@@ -327,23 +325,21 @@ general_packages:
       schedules: ["daily-briefing"]
       cc_plugins: []
       timeout: 600
-      has_soul: true  # generals/gen-briefing/soul.md
+      has_claude_md: true  # generals/gen-briefing/general-claude.md
 
 # ============================================================
 # SOUL SYSTEM — 아이덴티티 계층
 # ============================================================
 
 soul_system:
-  description: "병사에게 '나는 누구인가' + '이 팀은 어떤 맥락인가'를 주입하는 계층형 시스템"
+  description: "병사에게 아이덴티티 + 팀 맥락을 주입하는 시스템. CLAUDE.md로 압축 안전성 확보."
   key_files:
-    - path: "config/soul.md"
-      description: "공통 원칙 — 모든 병사에게 주입"
-    - path: "config/user.md"
-      description: "팀/회사 맥락 — 모든 병사에게 주입"
-    - path: "generals/gen-{name}/soul.md"
-      description: "장군별 성격 — 해당 장군 병사만 (선택적)"
-  injection_order: "soul.md → gen-*/soul.md → user.md → prompt.md + payload + memory"
-  implementation: "bin/lib/general/prompt-builder.sh (_emit_soul_layer, _emit_user_layer)"
+    - path: "config/workspace-claude.md"
+      description: "공통 원칙 + 팀 맥락 + 결과 보고 → workspace/CLAUDE.md (context 압축에 안전)"
+    - path: "generals/gen-{name}/general-claude.md"
+      description: "장군별 성격 — install-general.sh가 workspace/gen-{name}/CLAUDE.md로 설치 (압축 안전)"
+  injection_order: "workspace/CLAUDE.md(공통, 자동) → workspace/gen-{name}/CLAUDE.md(장군별, 자동) → prompt(작업 지시)"
+  implementation: "install-general.sh (CLAUDE.md 복사), prompt-builder.sh (작업 지시만)"
 
 # ============================================================
 # MESSAGE QUEUE — 파일 기반 MQ

@@ -77,19 +77,16 @@ Kingdom (6역할 고정 계층)              OpenClaw (Gateway + 동적 세션)
 
 | 레이어 | Kingdom (개선 후) | OpenClaw |
 |--------|------------------|----------|
-| 시스템 성격 | `config/soul.md` | `SOUL.md` |
-| 역할별 성격 | `generals/gen-{name}/soul.md` | `AGENTS.md` (에이전트별) |
-| 사용자 맥락 | `config/user.md` | `USER.md` |
+| 시스템 성격 + 팀 맥락 | `config/workspace-claude.md` → CLAUDE.md | `SOUL.md` + `USER.md` |
+| 역할별 성격 | `generals/gen-{name}/general-claude.md` → workspace CLAUDE.md | `AGENTS.md` (에이전트별) |
 | 작업 지시 | `prompt.md` + payload | Skill 실행 시 동적 생성 |
 
 ### 3.2 Kingdom의 계층형 Soul (신규 구현)
 
 ```
-[config/soul.md]               → 공통 원칙: 정확성, 최소 변경, 성장 규칙
+[workspace/CLAUDE.md]           → 공통 원칙 + QueryPie/ACP 맥락 (context 압축에 안전)
          ↓
-[generals/gen-briefing/soul.md] → F.R.I.D.A.Y. 톤, Boss 호칭
-         ↓
-[config/user.md]               → Chequer/QueryPie, 기술 스택, 컨벤션
+[generals/gen-briefing/general-claude.md] → F.R.I.D.A.Y. 톤, Boss 호칭 (→ CLAUDE.md, 압축 안전)
          ↓
 [prompt.md + payload + memory]  → 구체적 작업 지시
 ```
@@ -107,7 +104,7 @@ Kingdom (6역할 고정 계층)              OpenClaw (Gateway + 동적 세션)
 **평가**: OpenClaw에서 차용한 계층형 Soul이 Kingdom에 잘 적용되었다. 차이점은:
 - Kingdom은 **장군별** 성격 분리 (gen-briefing만 F.R.I.D.A.Y. 톤)
 - OpenClaw는 **에이전트별** 성격 분리 (AGENTS.md에 전부 정의)
-- Kingdom의 soul.md는 **선택적** — 없으면 스킵되어 기존 장군과 100% 호환
+- Kingdom의 장군별 CLAUDE.md는 **선택적** — 없으면 스킵되어 기존 장군과 100% 호환
 
 ---
 
@@ -127,7 +124,7 @@ Kingdom (6역할 고정 계층)              OpenClaw (Gateway + 동적 세션)
 | 항목 | Kingdom (개선 후) | OpenClaw |
 |------|------------------|----------|
 | **성장 트리거** | 병사 result의 `memory_updates[]` | 컴팩션 전 자동 플러시 |
-| **성장 규칙** | `config/soul.md`에 명시 ("배운 패턴을 기록하라") | SOUL.md에 내재 |
+| **성장 규칙** | `workspace-claude.md`(CLAUDE.md)에 명시 ("배운 패턴을 기록하라") | SOUL.md에 내재 |
 | **저장 위치** | `memory/generals/{domain}/learned-patterns.md` | `MEMORY.md` 파일 갱신 |
 | **성장 주기** | 매 작업 완료 시 | 30분 주기 (Heartbeat) |
 
@@ -139,9 +136,9 @@ Kingdom (6역할 고정 계층)              OpenClaw (Gateway + 동적 세션)
 | **Heartbeat 자기 점검** | 왕의 cron 스케줄이 동등 기능 수행 |
 | **Daily Log 자동 생성** | 내관의 daily report + events.log이 대체 |
 | **대화 요약 (chat summary)** | 병사가 단일 작업 → 대화 축적 없음 |
-| **사용자 선호도 학습** | 팀 컨텍스트는 `config/user.md`에 정적 정의 |
+| **사용자 선호도 학습** | 팀 컨텍스트는 `workspace-claude.md`(CLAUDE.md)에 정적 정의 |
 
-**평가**: Kingdom의 3계층 메모리는 설계가 더 체계적이나, 개선 전에는 성장 축이 비활성 상태였다. `soul.md`에 성장 규칙을 명시하고 `memory_updates[]`를 output contract에 포함시켜 해결했다. OpenClaw의 "잊히기 전 저장" 철학은 병사 일회성 패턴에서는 불필요하다.
+**평가**: Kingdom의 3계층 메모리는 설계가 더 체계적이나, 개선 전에는 성장 축이 비활성 상태였다. `workspace-claude.md`(CLAUDE.md)에 성장 규칙을 명시하고 `memory_updates[]`를 output contract에 포함시켜 해결했다. OpenClaw의 "잊히기 전 저장" 철학은 병사 일회성 패턴에서는 불필요하다.
 
 ---
 
@@ -166,7 +163,7 @@ Kingdom (6역할 고정 계층)              OpenClaw (Gateway + 동적 세션)
 generals/gen-{name}/
 ├── manifest.yaml   # 메타데이터, 이벤트 구독, 스케줄, 플러그인
 ├── prompt.md       # 병사 지시 프롬프트 템플릿
-├── soul.md         # 장군별 성격/톤 (선택적, 신규)
+├── CLAUDE.md       # 장군별 성격/톤 (선택적, 압축 안전)
 ├── install.sh      # CC Plugin 설치 + Kingdom 설치
 └── README.md       # 사용자 문서
 ```
@@ -291,8 +288,8 @@ skills/
 
 | # | 차용 포인트 | Kingdom 구현 | 효과 |
 |---|------------|-------------|------|
-| 1 | SOUL.md 계층형 아이덴티티 | `config/soul.md` + `generals/*/soul.md` + `config/user.md` | 병사에 일관된 성격 주입 |
-| 2 | 메모리 성장 규칙 명시 | soul.md에 Growth 섹션, output contract에 `memory_updates[]` | 3계층 메모리 실제 활성화 |
+| 1 | SOUL.md 계층형 아이덴티티 | `workspace-claude.md` + `generals/*/general-claude.md` → CLAUDE.md | 병사에 일관된 성격 주입 (전계층 압축 안전) |
+| 2 | 메모리 성장 규칙 명시 | CLAUDE.md에 Growth 섹션, output contract에 `memory_updates[]` | 3계층 메모리 실제 활성화 |
 | 3 | 컨텍스트 크기 가드 | `check_prompt_size()` (200KB 제한 + 자동 truncate) | 프롬프트 폭발 방지 |
 
 ### OpenClaw에서 차용하지 않은 것 (Kingdom 강점 유지)
@@ -329,7 +326,7 @@ skills/
 
 ### 장기 (아키텍처 레벨)
 
-1. **장군 패키지 진입장벽 낮추기**: `soul.md`처럼 선택적 파일 패턴 확대, manifest 자동 생성 도구
+1. **장군 패키지 진입장벽 낮추기**: `general-claude.md`처럼 선택적 파일 패턴 확대, manifest 자동 생성 도구
 2. **메모리 정기 정리**: learned-patterns.md가 무한 성장하지 않도록 주기적 요약/정리
 3. **멀티 인스턴스**: 여러 Kingdom이 협업하는 시나리오 (현재는 단일 서버 전제)
 

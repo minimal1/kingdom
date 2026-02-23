@@ -464,18 +464,18 @@ update_memory() {
 
 ### build_prompt
 
-계층형 Soul 시스템으로 프롬프트를 조립한다. soul → user → template → memory 순으로 레이어가 쌓인다.
+Soul 시스템으로 프롬프트를 조립한다. 공통 원칙과 팀 맥락은 CLAUDE.md에, 장군별 성격만 프롬프트에 주입한다.
 
 ```
-[config/soul.md]                  → Kingdom 공통 원칙 (모든 병사)
-[generals/gen-{name}/soul.md]     → 장군별 성격 (해당 장군의 병사만, 선택적)
-[config/user.md]                  → 팀/회사 맥락 (모든 병사)
-[template + payload + memory]     → 작업 지시 (기존과 동일)
+[config/workspace-claude.md]      → workspace/CLAUDE.md (공통 원칙 + 팀 맥락 + 결과 보고)
+                                     Claude Code가 시스템 프롬프트로 로드 → context 압축에 안전
+[generals/gen-{name}/general-claude.md] → workspace/gen-{name}/CLAUDE.md (장군별 성격, 선택적)
+[template + payload + memory]     → 작업 지시 (prompt-builder.sh)
 ```
 
-- `config/soul.md`: 공통 원칙, 출력 계약, 메모리 성장 규칙
-- `generals/gen-{name}/soul.md`: 장군별 성격 (예: gen-briefing의 F.R.I.D.A.Y. 톤). **없으면 스킵** → 기존 장군 호환
-- `config/user.md`: 팀/회사 컨텍스트 (기술 스택, 컨벤션)
+- `config/workspace-claude.md`: 공통 원칙, 팀 맥락, 출력 계약, 메모리 성장 규칙 → `workspace/CLAUDE.md`로 복사
+- `generals/gen-{name}/general-claude.md`: 장군별 성격 (예: gen-briefing의 F.R.I.D.A.Y. 톤) → `install-general.sh`가 `workspace/gen-{name}/CLAUDE.md`로 복사. **없으면 스킵** → 기존 장군 호환
+- 모든 Soul이 CLAUDE.md로 전달되어 context 압축에서 보호됨
 - 프롬프트 빌드 후 `check_prompt_size()`로 크기 가드 (200KB 초과 시 memory 섹션 truncate)
 
 ```bash
@@ -919,7 +919,7 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 
 ```
 generals/                                # 장군 패키지 (소스)
-├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md + soul.md(선택)
+├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md + general-claude.md(선택)
 ├── gen-jira/
 └── gen-test/
 

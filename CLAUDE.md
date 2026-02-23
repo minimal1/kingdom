@@ -63,7 +63,7 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 generals/gen-{name}/
 ├── manifest.yaml   # 메타데이터 + 이벤트/스케줄 설정
 ├── prompt.md       # 병사에게 전달할 프롬프트 템플릿
-├── soul.md         # 장군별 성격/톤 (선택적)
+├── general-claude.md  # 장군별 성격/톤 (선택적, 설치 시 CLAUDE.md로 변환)
 ├── install.sh      # 설치 스크립트
 └── README.md       # 사용자 문서
 ```
@@ -71,13 +71,13 @@ generals/gen-{name}/
 ### Soul 시스템 (프롬프트 조립 순서)
 
 ```
-config/soul.md              → Kingdom 공통 원칙 (모든 병사)
-generals/gen-{name}/soul.md → 장군별 성격 (선택적)
-config/user.md              → 팀/회사 맥락 (모든 병사)
-prompt.md + payload + memory → 작업 지시 (기존과 동일)
+config/workspace-claude.md     → workspace/CLAUDE.md로 복사 (압축에 안전)
+                                  공통 원칙 + 팀 맥락 + 결과 보고 형식
+generals/gen-{name}/general-claude.md → workspace/gen-{name}/CLAUDE.md (장군별 성격, 선택적)
+prompt.md + payload + memory   → 작업 지시
 ```
 
-`prompt-builder.sh`에서 soul → user → prompt 순으로 자동 조립. 200KB 크기 가드 포함.
+모든 Soul이 CLAUDE.md 스펙으로 전달되어 context 압축에서 보호됨. `prompt-builder.sh`는 작업 지시(template + payload + memory)만 조립. 200KB 크기 가드 포함.
 
 ## 변경 체크리스트
 

@@ -145,11 +145,12 @@ gh api /notifications --jq 'length'
 ### 3.3 Jira (파수꾼 — 티켓 폴링)
 
 ```bash
-export JIRA_API_TOKEN="..."   # Atlassian API Token
-export JIRA_URL="https://chequer.atlassian.net"
+export JIRA_USER_EMAIL="user@example.com"  # Atlassian 계정 이메일
+export JIRA_API_TOKEN="..."                # Atlassian API Token
+export JIRA_URL="https://your-domain.atlassian.net"
 
 # 검증
-curl -s -u "eddy@chequer.io:$JIRA_API_TOKEN" \
+curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
   "$JIRA_URL/rest/api/3/myself" | jq .displayName
 ```
 
@@ -294,14 +295,14 @@ cat ~/.claude/settings.json | jq '.enabledPlugins'
 # shell rc에 추가 (수동 실행 + tmux 세션에서 사용)
 cat >> ~/.bashrc << 'EOF'
 export JIRA_API_TOKEN="..."
-export JIRA_URL="https://chequer.atlassian.net"
+export JIRA_URL="https://your-domain.atlassian.net"
 export SLACK_BOT_TOKEN="xoxb-..."
 EOF
 
 # systemd용 .env 파일도 생성 (systemd 서비스에서 사용)
 cat > /opt/kingdom/.env << 'EOF'
 JIRA_API_TOKEN=...
-JIRA_URL=https://chequer.atlassian.net
+JIRA_URL=https://your-domain.atlassian.net
 SLACK_BOT_TOKEN=xoxb-...
 EOF
 chmod 600 /opt/kingdom/.env
@@ -317,7 +318,7 @@ chmod 600 /opt/kingdom/.env
 cat >> ~/.zshrc << 'EOF'
 export KINGDOM_BASE_DIR=/opt/kingdom  # 기본값이면 생략 가능
 export JIRA_API_TOKEN="..."
-export JIRA_URL="https://chequer.atlassian.net"
+export JIRA_URL="https://your-domain.atlassian.net"
 export SLACK_BOT_TOKEN="xoxb-..."
 EOF
 ```
