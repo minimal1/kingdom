@@ -34,7 +34,7 @@
 
 ### 개념
 
-`default_channel`에 User ID (`UXXXXXXXX`)를 설정하면 DM으로 동작하고, 채널 이름을 설정하면 채널에 게시한다. Slack API의 `chat.postMessage`는 channel 파라미터에 User ID를 넣으면 자동으로 DM을 생성하므로, 별도 분기 없이 동일한 코드로 동작한다.
+환경변수 `SLACK_DEFAULT_CHANNEL`(또는 config fallback `default_channel`)에 User ID (`UXXXXXXXX`)를 설정하면 DM으로 동작하고, 채널 이름을 설정하면 채널에 게시한다. Slack API의 `chat.postMessage`는 channel 파라미터에 User ID를 넣으면 자동으로 DM을 생성하므로, 별도 분기 없이 동일한 코드로 동작한다. 채널 설정은 `.env` 파일의 `SLACK_DEFAULT_CHANNEL`로 통합 관리하며, king과 envoy가 동일한 값을 공유한다.
 
 DM으로 메시지를 보내면 Slack API 응답의 `channel` 필드에 `D`-prefixed 채널 ID (예: `D08XXXXXXXX`)가 반환된다. 사절은 이 **응답의 actual channel ID**를 `thread-mappings.json`에 저장하여, 이후 스레드 답글이 올바른 DM 대화에 전달되도록 한다.
 
@@ -707,8 +707,7 @@ process_outbound_queue() {
 # config/envoy.yaml
 slack:
   bot_token_env: "SLACK_BOT_TOKEN"      # 환경변수 이름
-  default_channel: "dev-eddy"            # 채널 이름
-  default_channel_id: "C0XXXXXXXX"       # 채널 ID (API 호출용)
+  default_channel: "dev-eddy"            # fallback (환경변수 SLACK_DEFAULT_CHANNEL 우선)
 
 intervals:
   outbound_seconds: 5         # 메시지 큐 소비

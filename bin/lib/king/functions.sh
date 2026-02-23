@@ -60,7 +60,7 @@ create_thread_start_message() {
   local msg_id
   msg_id=$(next_msg_id)
   local channel
-  channel=$(get_config "king" "slack.default_channel")
+  channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
   local content
   content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
@@ -97,7 +97,7 @@ create_notification_message() {
   local msg_id
   msg_id=$(next_msg_id)
   local channel
-  channel=$(get_config "king" "slack.default_channel")
+  channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
   local message
   message=$(jq -n \

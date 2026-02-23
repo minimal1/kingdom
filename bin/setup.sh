@@ -49,6 +49,14 @@ ask_secret() {
   echo "$ans"
 }
 
+update_env() {
+  local key="$1" value="$2"
+  touch "$ENV_FILE"
+  grep -v "^${key}=" "$ENV_FILE" > "$ENV_FILE.tmp" || true
+  mv "$ENV_FILE.tmp" "$ENV_FILE"
+  echo "${key}=${value}" >> "$ENV_FILE"
+}
+
 # 소스 레포 루트 (이 스크립트가 있는 bin/ 의 상위)
 SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -306,10 +314,10 @@ else
   warn "레포 미입력 — 기존 설정 유지"
 fi
 
-# Slack 채널
-CHANNEL=$(ask "Slack 채널명" "kingdom")
-yq eval -i ".slack.default_channel = \"$CHANNEL\"" "$DEST/config/king.yaml"
-ok "king.yaml default_channel: $CHANNEL"
+# Slack 채널 (.env에 기록 — king/envoy가 공통으로 사용)
+CHANNEL=$(ask "Slack 채널 (채널명 또는 User ID로 DM)" "kingdom")
+update_env "SLACK_DEFAULT_CHANNEL" "$CHANNEL"
+ok ".env SLACK_DEFAULT_CHANNEL: $CHANNEL"
 
 # 동시 병사 수
 MAX_SOLDIERS=$(ask "동시 병사 수" "3")

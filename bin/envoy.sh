@@ -17,6 +17,8 @@ LAST_THREAD_CHECK=0
 OUTBOUND_INTERVAL=$(get_config "envoy" "intervals.outbound_seconds" "5")
 THREAD_CHECK_INTERVAL=$(get_config "envoy" "intervals.thread_check_seconds" "30")
 
+DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-$DEFAULT_CHANNEL}"
+
 log "[SYSTEM] [envoy] Started."
 
 # --- Message Processors ---
@@ -25,7 +27,7 @@ process_thread_start() {
   local msg="$1"
   local task_id channel content
   task_id=$(echo "$msg" | jq -r '.task_id')
-  channel=$(echo "$msg" | jq -r '.channel // "'"$(get_config "envoy" "slack.default_channel")"'"')
+  channel=$(echo "$msg" | jq -r '.channel // "'"$DEFAULT_CHANNEL"'"')
   content=$(echo "$msg" | jq -r '.content')
 
   local response
@@ -104,13 +106,13 @@ process_notification() {
       fi
     else
       local channel
-      channel=$(echo "$msg" | jq -r '.channel // "'"$(get_config "envoy" "slack.default_channel")"'"')
+      channel=$(echo "$msg" | jq -r '.channel // "'"$DEFAULT_CHANNEL"'"')
       send_message "$channel" "$content" || return 1
       log "[WARN] [envoy] No thread mapping for task: $task_id, sent to channel"
     fi
   else
     local channel
-    channel=$(echo "$msg" | jq -r '.channel // "'"$(get_config "envoy" "slack.default_channel")"'"')
+    channel=$(echo "$msg" | jq -r '.channel // "'"$DEFAULT_CHANNEL"'"')
     send_message "$channel" "$content" || return 1
   fi
 }
@@ -118,7 +120,7 @@ process_notification() {
 process_report() {
   local msg="$1"
   local channel content
-  channel=$(echo "$msg" | jq -r '.channel // "'"$(get_config "envoy" "slack.default_channel")"'"')
+  channel=$(echo "$msg" | jq -r '.channel // "'"$DEFAULT_CHANNEL"'"')
   content=$(echo "$msg" | jq -r '.content')
   send_message "$channel" "$content" || return 1
   log "[EVENT] [envoy] Report sent"

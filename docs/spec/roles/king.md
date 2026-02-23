@@ -912,7 +912,7 @@ create_thread_start_message() {
   local event_type=$(echo "$event" | jq -r '.type')
   local repo=$(echo "$event" | jq -r '.repo // ""')
   local msg_id=$(next_msg_id)
-  local channel=$(get_config "king" "slack.default_channel")
+  local channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
   local content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
   [ -n "$repo" ] && content=$(printf '📋 %s | %s\n%s | %s' "$general" "$task_id" "$event_type" "$repo")
@@ -949,7 +949,7 @@ create_notification_message() {
   local task_id="$1"
   local content="$2"
   local msg_id=$(next_msg_id)
-  local channel=$(get_config "king" "slack.default_channel")
+  local channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
   local message=$(jq -n \
     --arg id "$msg_id" --arg task "$task_id" \
@@ -972,7 +972,7 @@ create_notification_message() {
 # config/king.yaml
 
 slack:
-  default_channel: "dev-eddy"
+  default_channel: "dev-eddy"    # fallback (환경변수 SLACK_DEFAULT_CHANNEL 우선)
 
 retry:
   max_attempts: 2
