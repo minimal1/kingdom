@@ -132,7 +132,7 @@ update_resources_json() {
   if jq empty "$BASE_DIR/state/resources.json.tmp" 2>/dev/null; then
     mv "$BASE_DIR/state/resources.json.tmp" "$BASE_DIR/state/resources.json"
 
-    # Emit internal event and Slack notification if token status changed
+    # Emit internal event if token status changed
     if [[ "$prev_token_status" != "$TOKEN_STATUS" ]] && [[ "$TOKEN_STATUS" != "unknown" ]]; then
       handle_token_status_change "$prev_token_status" "$TOKEN_STATUS"
     fi
@@ -149,7 +149,7 @@ handle_token_status_change() {
 
   log "[INFO] [chamberlain] Token status changed: $from -> $to (cost: \$$ESTIMATED_DAILY_COST)"
 
-  # Emit internal event
+  # Emit internal event (audit log only — notification is generals' responsibility)
   local event_data
   event_data=$(jq -n \
     --arg from "$from" \
@@ -158,56 +158,4 @@ handle_token_status_change() {
     '{from: $from, to: $to, daily_cost_usd: $cost}')
 
   emit_internal_event "system.token_status_changed" "chamberlain" "$event_data"
-
-  # Prepare Slack notification message
-  local message icon
-  case "$to" in
-    warning)
-      icon="⚠️"
-      message="*Token Budget Alert*
-Daily spend: \$$ESTIMATED_DAILY_COST / \$$(get_config "chamberlain" "token_limits.daily_budget_usd" 300) ($(get_config "chamberlain" "token_limits.warning_pct" 70)% threshold)
-Action: Throttling low-priority tasks"
-      ;;
-    critical)
-      icon="🚨"
-      message="*Token Budget Critical*
-Daily spend: \$$ESTIMATED_DAILY_COST / \$$(get_config "chamberlain" "token_limits.daily_budget_usd" 300) ($(get_config "chamberlain" "token_limits.critical_pct" 90)% threshold)
-PAUSED: normal/low priority tasks
-ACTIVE: high priority only"
-      ;;
-    ok)
-      icon="✅"
-      message="*Token Budget Recovered*
-Resuming normal operations
-Daily spend: \$$ESTIMATED_DAILY_COST / \$$(get_config "chamberlain" "token_limits.daily_budget_usd" 300)"
-      ;;
-    *)
-      return 0
-      ;;
-  esac
-
-  # Queue Slack notification
-  queue_slack_message "$icon $message"
-}
-
-# --- Queue Slack Message ---
-
-queue_slack_message() {
-  local text="$1"
-  local msg_id
-  msg_id="msg-token-$(date +%s)-$$"
-
-  jq -n \
-    --arg id "$msg_id" \
-    --arg type "token_alert" \
-    --arg text "$text" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{
-      id: $id,
-      type: $type,
-      text: $text,
-      timestamp: $ts
-    }' > "$BASE_DIR/queue/messages/pending/${msg_id}.json"
-
-  log "[DEBUG] [chamberlain] Queued Slack message: $msg_id"
 }
