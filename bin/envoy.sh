@@ -17,7 +17,7 @@ LAST_THREAD_CHECK=0
 OUTBOUND_INTERVAL=$(get_config "envoy" "intervals.outbound_seconds" "5")
 THREAD_CHECK_INTERVAL=$(get_config "envoy" "intervals.thread_check_seconds" "30")
 
-DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-$DEFAULT_CHANNEL}"
+DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-$(get_config "envoy" "slack.default_channel")}"
 
 log "[SYSTEM] [envoy] Started."
 
