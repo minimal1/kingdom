@@ -47,10 +47,24 @@ echo "in_progress_tasks: $(ls /opt/kingdom/queue/tasks/in_progress/*.json 2>/dev
 cat /opt/kingdom/state/sessions.json 2>/dev/null | jq 'length' || echo 0
 ```
 
-### 리소스 상태
+### 리소스 상태 (resources.json)
+
+내관이 수집한 시스템 리소스와 토큰 사용량을 파싱한다.
 
 ```bash
-cat /opt/kingdom/state/resources.json 2>/dev/null || echo '{}'
+RES="/opt/kingdom/state/resources.json"
+if [ -f "$RES" ]; then
+  echo "=== System ==="
+  jq -r '"cpu: \(.system.cpu_percent)% | mem: \(.system.memory_percent)% | disk: \(.system.disk_percent)%"' "$RES"
+  jq -r '"load: \(.system.load_average | map(tostring) | join(", "))"' "$RES"
+  echo "=== Tokens ==="
+  jq -r '"status: \(.tokens.status) | daily_cost: $\(.tokens.daily_cost_usd)"' "$RES"
+  jq -r '"input: \(.tokens.daily_input_tokens) | output: \(.tokens.daily_output_tokens)"' "$RES"
+  echo "=== Health ==="
+  jq -r '.health' "$RES"
+else
+  echo "(resources.json not found)"
+fi
 ```
 
 ### 최근 완료 작업 (최대 3건)
@@ -78,8 +92,12 @@ tail -20 /opt/kingdom/logs/system.log 2>/dev/null || echo "(no log)"
   king · sentinel · envoy: ✅
   chamberlain: ⚠️ no heartbeat — 확인이 필요합니다, Boss.
 
+▸ Resources
+  CPU 12.3% · Memory 67.1% · Disk 42% · Health 🟢
+  Token: $12.50 spent today (status: ok)
+
 ▸ Queue
-  대기 이벤트 0 · 대기 작업 1 · 진행 중 0 · 병사 0
+  대기 이벤트 0 · 대기 작업 1 · 진행 중 0 · 병사 0/3
 
 ▸ Recent Activity
   task-20260212-001 | briefing | gen-briefing
@@ -91,7 +109,12 @@ tail -20 /opt/kingdom/logs/system.log 2>/dev/null || echo "(no log)"
 — F.R.I.D.A.Y. · Kingdom Autonomous Dev Agent
 ```
 
-**Heads Up 기준**: heartbeat DOWN, health가 green이 아닌 경우, 에러 로그가 있는 경우 등을 간결하게 기재한다. 없으면 "All clear, Boss."
+**Resources 표시 규칙**:
+- Health: green=🟢, yellow=🟡, orange=🟠, red=🔴
+- Token status가 warning이면 ⚠️, critical이면 🚨 아이콘 추가
+- resources.json이 없으면 "데이터 수집 대기 중" 표시
+
+**Heads Up 기준**: heartbeat DOWN, health가 green이 아닌 경우, 토큰 status가 ok가 아닌 경우, 에러 로그가 있는 경우 등을 간결하게 기재한다. 없으면 "All clear, Boss."
 
 ## 3단계: Slack 전송
 
