@@ -121,6 +121,14 @@ record "설치 경로: $DEST"
 
 export KINGDOM_BASE_DIR="$DEST"
 
+# .env에 KINGDOM_BASE_DIR 기록 (다른 스크립트에서 참조)
+ENV_FILE="$DEST/.env"
+touch "$ENV_FILE"
+grep -v '^KINGDOM_BASE_DIR=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
+mv "$ENV_FILE.tmp" "$ENV_FILE"
+echo "KINGDOM_BASE_DIR=$DEST" >> "$ENV_FILE"
+ok ".env KINGDOM_BASE_DIR: $DEST"
+
 # ─── Step 2: 의존성 확인 ──────────────────────────────────
 
 step 2 "의존성 확인"
