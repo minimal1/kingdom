@@ -25,7 +25,7 @@ ask() {
   local prompt="$1"
   local default="$2"
   local ans
-  printf "  %s [%s]: " "$prompt" "$default"
+  printf "  %s [%s]: " "$prompt" "$default" >&2
   read -r ans
   echo "${ans:-$default}"
 }
@@ -34,7 +34,7 @@ ask_yn() {
   local prompt="$1"
   local default="${2:-Y}"
   local ans
-  printf "  %s [%s]: " "$prompt" "$default"
+  printf "  %s [%s]: " "$prompt" "$default" >&2
   read -r ans
   ans="${ans:-$default}"
   [[ "$ans" =~ ^[Yy] ]]
@@ -43,9 +43,9 @@ ask_yn() {
 ask_secret() {
   local prompt="$1"
   local ans
-  printf "  %s: " "$prompt"
+  printf "  %s: " "$prompt" >&2
   read -rs ans
-  echo ""
+  echo "" >&2
   echo "$ans"
 }
 
@@ -211,8 +211,10 @@ step 3 "인증 설정"
 ENV_FILE="$DEST/.env"
 # 기존 .env 로드 (있으면)
 if [[ -f "$ENV_FILE" ]]; then
+  set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
+  set +a
   info "기존 .env 파일 로드됨"
 fi
 
