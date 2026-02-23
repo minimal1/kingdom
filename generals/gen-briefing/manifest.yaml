@@ -8,8 +8,8 @@ cc_plugins: []
 subscribes: []
 
 schedules:
-  - name: briefing-1min
-    cron: "*/1 * * * *"
+  - name: briefing-hourly
+    cron: "0 * * * *"
     task_type: "briefing"
     payload:
       default_channel: "#team-eddy"
