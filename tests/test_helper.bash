@@ -23,7 +23,7 @@ setup_kingdom_env() {
   mkdir -p "$BASE_DIR"/memory/shared
 
   # 장군 디렉토리 (테스트 공통)
-  local generals=("gen-pr" "gen-jira" "gen-test")
+  local generals=("gen-pr" "gen-briefing")
   for g in "${generals[@]}"; do
     mkdir -p "$BASE_DIR/memory/generals/$g"
     mkdir -p "$BASE_DIR/workspace/$g"

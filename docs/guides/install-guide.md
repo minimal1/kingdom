@@ -260,7 +260,7 @@ $DEST/bin/install-general.sh /path/to/gen-docs
 │   └── resources.json    # 시스템 헬스
 ├── memory/               # 장군별 학습 메모리
 │   ├── shared/
-│   └── generals/{gen-pr,gen-jira,gen-test}/
+│   └── generals/{gen-pr,gen-briefing}/
 ├── logs/                 # system.log, events.log
 │   └── sessions/         # 병사별 로그
 └── workspace/            # 장군별 작업 디렉토리
@@ -419,7 +419,7 @@ thresholds:
 /opt/kingdom/bin/stop.sh
 ```
 
-시작 순서: chamberlain → sentinel → envoy → king → gen-pr → gen-jira → gen-test
+시작 순서: chamberlain → sentinel → envoy → king → gen-pr → gen-briefing
 종료 순서: 역순 (장군 → king → envoy → sentinel → chamberlain)
 
 ### 6.2 systemd 서비스 (Linux 전용)

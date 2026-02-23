@@ -118,7 +118,7 @@ EOF
 
 @test "session: kill_soldiers_of_dead_general ignores other generals" {
   cat > "$BASE_DIR/queue/tasks/in_progress/task-002.json" << 'EOF'
-{"id":"task-002","target_general":"gen-jira"}
+{"id":"task-002","target_general":"gen-briefing"}
 EOF
   echo "soldier-other-456" > "$BASE_DIR/state/results/task-002-soldier-id"
   export MOCK_TMUX_SESSIONS="soldier-other-456"

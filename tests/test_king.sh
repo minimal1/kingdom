@@ -8,8 +8,7 @@ setup() {
   # Copy configs
   cp "${BATS_TEST_DIRNAME}/../config/king.yaml" "$BASE_DIR/config/"
   install_test_general "gen-pr"
-  install_test_general "gen-jira"
-  install_test_general "gen-test"
+  install_test_general "gen-briefing"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/router.sh"
@@ -103,7 +102,7 @@ EOF
 
 @test "king: process_pending_events creates thread_start message" {
   cat > "$BASE_DIR/queue/events/pending/evt-002.json" << 'EOF'
-{"id":"evt-002","type":"jira.ticket.assigned","source":"jira","priority":"normal","repo":"chequer/qp","payload":{}}
+{"id":"evt-002","type":"github.pr.review_requested","source":"github","priority":"normal","repo":"chequer/qp","payload":{}}
 EOF
 
   process_pending_events
@@ -194,7 +193,7 @@ EOF
 
 @test "king: handle_failure completes task with error notification" {
   cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-002.json" << 'EOF'
-{"id":"task-20260210-002","event_id":"evt-011","target_general":"gen-jira","type":"jira.ticket.assigned","status":"in_progress"}
+{"id":"task-20260210-002","event_id":"evt-011","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
 EOF
   echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-011.json"
 
@@ -210,7 +209,7 @@ EOF
   local msg_file
   msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
   run jq -r '.content' "$msg_file"
-  assert_output --partial "❌ gen-jira"
+  assert_output --partial "❌ gen-pr"
 }
 
 @test "king: handle_needs_human creates human_input_request message" {
@@ -408,7 +407,7 @@ EOF
 
 @test "king: check_general_schedules dispatches task and message" {
   # Write a schedule that always matches (every minute)
-  echo 'gen-test|{"name":"test-every-min","cron":"* * * * *","task_type":"test-sched","payload":{}}' > "$SCHEDULES_FILE"
+  echo 'gen-briefing|{"name":"test-every-min","cron":"* * * * *","task_type":"test-sched","payload":{}}' > "$SCHEDULES_FILE"
 
   check_general_schedules
 
@@ -421,7 +420,7 @@ EOF
   local task_file
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
   run jq -r '.target_general' "$task_file"
-  assert_output "gen-test"
+  assert_output "gen-briefing"
   run jq -r '.type' "$task_file"
   assert_output "test-sched"
   run jq -r '.event_id' "$task_file"
@@ -437,7 +436,7 @@ EOF
   run jq -r '.type' "$msg_file"
   assert_output "thread_start"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "gen-test"
+  assert_output --partial "gen-briefing"
 
   # Dedup: second call should NOT create another task
   check_general_schedules
@@ -448,7 +447,7 @@ EOF
 
 @test "king: check_general_schedules skips non-matching cron" {
   # Schedule that never matches (Feb 30 doesn't exist)
-  echo 'gen-test|{"name":"test-never","cron":"0 0 30 2 *","task_type":"never","payload":{}}' > "$SCHEDULES_FILE"
+  echo 'gen-briefing|{"name":"test-never","cron":"0 0 30 2 *","task_type":"never","payload":{}}' > "$SCHEDULES_FILE"
 
   check_general_schedules
 

@@ -9,8 +9,7 @@
 │
 ├── generals/                         # 장군 패키지 (소스)
 │   ├── gen-pr/                       #   manifest.yaml + prompt.md + install.sh + README.md
-│   ├── gen-jira/
-│   └── gen-test/
+│   └── gen-briefing/
 │
 ├── bin/                              # 실행 스크립트
 │   ├── start.sh                      # 전체 시스템 시작 + 필수 세션 watchdog (60초)
@@ -27,8 +26,7 @@
 │   │
 │   ├── generals/                     # 장군별 스크립트 (install-general.sh가 자동 생성)
 │   │   ├── gen-pr.sh
-│   │   ├── gen-test.sh
-│   │   └── gen-jira.sh
+│   │   └── gen-briefing.sh
 │   │
 │   └── lib/                          # 공통 라이브러리
 │       ├── common.sh                 # 공통 함수 (log, get_config, update_heartbeat, start_heartbeat_daemon, stop_heartbeat_daemon, emit_event, emit_internal_event)
@@ -59,12 +57,10 @@
 │   ├── king.yaml                     # 왕 설정 (재시도, 동시성, 인터벌)
 │   ├── generals/                     # 장군 매니페스트 (install-general.sh가 설치)
 │   │   ├── gen-pr.yaml               # PR 리뷰 장군 (subscribes, schedules)
-│   │   ├── gen-jira.yaml             # Jira 구현 장군
-│   │   ├── gen-test.yaml             # 테스트 작성 장군
+│   │   └── gen-briefing.yaml         # 브리핑 장군
 │   │   └── templates/                # 프롬프트 템플릿 (install-general.sh가 복사)
 │   │       ├── gen-pr.md             # PR 리뷰 프롬프트 템플릿
-│   │       ├── gen-jira.md           # Jira 구현 프롬프트 템플릿
-│   │       ├── gen-test.md           # 테스트 작성 프롬프트 템플릿
+│   │       ├── gen-briefing.md       # 브리핑 프롬프트 템플릿
 │   │       └── default.md            # 기본 프롬프트 템플릿 (시스템 파일)
 │   ├── envoy.yaml                    # 사절 설정 (Slack 채널)
 │   ├── chamberlain.yaml              # 내관 설정 (임계값)
@@ -117,8 +113,7 @@
 │   │   └── decisions.md
 │   └── generals/
 │       ├── gen-pr/
-│       ├── gen-test/
-│       └── gen-jira/
+│       └── gen-briefing/
 │
 ├── logs/                             # 로그
 │   ├── system.log                    # 텍스트 로그 (log 함수)
@@ -137,9 +132,7 @@
     │   ├── .kingdom-task.json        # spawn-soldier.sh가 생성 (task_id, result_path)
     │   ├── querypie-frontend/        # 자동 클론
     │   └── querypie-backend/
-    ├── gen-jira/
-    │   └── ...
-    └── gen-test/
+    └── gen-briefing/
         └── ...
 ```
 

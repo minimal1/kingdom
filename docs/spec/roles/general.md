@@ -43,7 +43,7 @@
 
 ## 장군의 핵심 루프
 
-모든 장군은 동일한 루프 구조를 공유하며, **도메인별 차이는 프롬프트 템플릿과 메모리**에 있다. 장군별 스크립트(`gen-pr.sh`, `gen-jira.sh` 등)는 `GENERAL_DOMAIN` 환경변수만 설정하고 공통 루프를 호출한다.
+모든 장군은 동일한 루프 구조를 공유하며, **도메인별 차이는 프롬프트 템플릿과 메모리**에 있다. 장군별 스크립트(`gen-pr.sh` 등)는 `GENERAL_DOMAIN` 환경변수만 설정하고 공통 루프를 호출한다.
 
 ```bash
 #!/bin/bash
@@ -619,7 +619,7 @@ ensure_workspace() {
 
 ## CC Plugin 통합
 
-병사의 도구는 CC Plugin(friday, sunday 등)이다. 플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)로 관리한다.
+병사의 도구는 CC Plugin(friday 등)이다. 플러그인은 **전역 설치** (`~/.claude/settings.json`의 `enabledPlugins`)로 관리한다.
 
 ### 전역 플러그인 설정
 
@@ -635,8 +635,7 @@ claude plugin install friday@qp-plugin
 // ~/.claude/settings.json
 {
   "enabledPlugins": {
-    "friday@qp-plugin": true,
-    "sunday@qp-plugin": true
+    "friday@qp-plugin": true
   }
 }
 ```
@@ -707,8 +706,6 @@ claude plugin install friday@qp-plugin
 | 장군 | CC Plugin | 역할 |
 |------|-----------|------|
 | gen-pr | friday@qp-plugin | PR 리뷰 |
-| gen-jira | sunday@qp-plugin | Jira 티켓 구현 |
-| gen-test | saturday@qp-plugin | 테스트 코드 작성 |
 
 ### gen-pr: PR Review 장군
 
@@ -741,70 +738,6 @@ task.json 수신 (github.pr.review_requested)
 patterns.md         — 공통 리뷰 패턴 (자주 발견되는 이슈)
 repo-frontend.md    — querypie/frontend 전용 컨텍스트
 repo-backend.md     — querypie/backend 전용 컨텍스트
-```
-
----
-
-### gen-test: Test Code 장군
-
-> 스케줄 기반 장군의 예시.
-
-| 항목 | 값 |
-|------|-----|
-| tmux 세션 | `gen-test` |
-| CC Plugin | saturday@qp-plugin |
-| 구독 이벤트 | 없음 (스케줄 전용) |
-| 스케줄 | 평일 22:00 (cron: `0 22 * * 1-5`) |
-| 전문 메모리 | 테스트 프레임워크 설정, 레포별 테스트 패턴 |
-| 병사 수 | 1 |
-
-**워크플로우**:
-```
-task.json 수신 (스케줄 기반)
-  → 대상 파일/모듈 분석
-  → 테스트 전략 수립 (단위 테스트? 통합 테스트?)
-  → 병사 실행: CC Plugin이 테스트 코드 작성 → 실행 → 자체 품질 루프
-  → 장군은 status 확인
-  → success: PR 생성 → 왕에게 보고
-  → failed: 재시도 or 에스컬레이션
-```
-
-**전문 메모리 예시** (`memory/generals/gen-test/`):
-```
-frameworks.md       — 프로젝트별 테스트 프레임워크 (Jest, Vitest 등)
-patterns.md         — 효과적인 테스트 패턴
-coverage-rules.md   — 커버리지 기준
-```
-
----
-
-### gen-jira: Jira Ticket 장군
-
-| 항목 | 값 |
-|------|-----|
-| tmux 세션 | `gen-jira` |
-| CC Plugin | sunday@qp-plugin |
-| 구독 이벤트 | `jira.ticket.assigned`, `jira.ticket.updated` |
-| 전문 메모리 | 코드베이스 구조, 이전 티켓 처리 패턴 |
-| 병사 수 | 1 |
-
-**워크플로우**:
-```
-task.json 수신
-  → Jira 티켓 상세 읽기
-  → 코드베이스 메모리로 영향 범위 파악
-  → 프롬프트 조립 (CC Plugin은 workspace가 자동 제공)
-  → 병사 실행: sunday 플러그인이 분석 → 구현 → 코드 리뷰 → 스펙 리뷰 (자체 품질 루프)
-  → 장군은 status 확인
-  → success: PR 생성 + Jira 코멘트 → 왕에게 보고
-  → failed: 재시도 or 에스컬레이션
-```
-
-**전문 메모리 예시** (`memory/generals/gen-jira/`):
-```
-codebase-map.md     — 레포지토리 구조, 주요 모듈
-past-tickets.md     — 이전 처리한 티켓 패턴
-conventions.md      — 브랜치 네이밍, 커밋 컨벤션
 ```
 
 ---
@@ -864,7 +797,7 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 > `install-general.sh`가 매니페스트 복사, 프롬프트 템플릿 복사, 엔트리 스크립트 자동 생성, 런타임 디렉토리 생성을 모두 처리한다.
 > 왕/센티널 코드 수정 불필요 — 매니페스트만 추가하면 왕이 자동 인식.
 >
-> **시나리오 참고**: [docs/examples/](../examples/)에 이벤트 기반(gen-pr)과 스케줄 기반(gen-test) 장군의 전체 동작 시나리오가 있다
+> **시나리오 참고**: [docs/examples/](../examples/)에 이벤트 기반(gen-pr) 장군의 전체 동작 시나리오가 있다
 
 ### workspace 제약
 
@@ -891,8 +824,6 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 | 장군 | CC Plugin | 내부 품질 기준 |
 |------|-----------|---------------|
 | gen-pr | friday | 리뷰의 구체성, 오탐 비율 (ralph-loop) |
-| gen-test | (신규) | 테스트 통과율, 커버리지 |
-| gen-jira | sunday | 코드 품질 + 스펙 충족도 (code-reviewer + spec-reviewer) |
 
 ---
 
@@ -920,13 +851,10 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 ```
 generals/                                # 장군 패키지 (소스)
 ├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md + general-claude.md(선택)
-├── gen-jira/
-└── gen-test/
+└── gen-briefing/
 
 bin/generals/                            # 엔트리 스크립트 (install-general.sh가 자동 생성)
-├── gen-pr.sh                            # GENERAL_DOMAIN="gen-pr" + main_loop
-├── gen-test.sh
-└── gen-jira.sh
+└── gen-pr.sh                            # GENERAL_DOMAIN="gen-pr" + main_loop
 
 bin/lib/general/
 ├── common.sh                            # main_loop, pick_next_task, spawn_soldier,
@@ -940,9 +868,9 @@ bin/install-general.sh                   # 패키지 → 런타임 설치
 bin/uninstall-general.sh                 # 장군 정의 제거
 
 config/generals/                         # 런타임 매니페스트 (install-general.sh가 복사)
-├── gen-pr.yaml / gen-jira.yaml / gen-test.yaml
+├── gen-pr.yaml
 └── templates/                           # 프롬프트 템플릿
-    ├── gen-pr.md / gen-jira.md / gen-test.md
+    ├── gen-pr.md
     └── default.md                       # fallback 템플릿
 ```
 
@@ -955,4 +883,3 @@ config/generals/                         # 런타임 매니페스트 (install-ge
 - [systems/filesystem.md](../systems/filesystem.md) — workspace 디렉토리 구조
 - [systems/message-passing.md](../systems/message-passing.md) — 이벤트/작업 큐 구조
 - [examples/scenario-gen-pr.md](../examples/scenario-gen-pr.md) — 이벤트 기반 장군 동작 시나리오 (6건)
-- [examples/scenario-gen-test.md](../examples/scenario-gen-test.md) — 스케줄 기반 장군 동작 시나리오 (5건)

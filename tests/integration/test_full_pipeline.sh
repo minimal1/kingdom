@@ -104,16 +104,16 @@ teardown() {
   assert_output --partial "PR reviewed and approved"
 }
 
-@test "full pipeline: jira event → task → soldier → failure → notification" {
+@test "full pipeline: github PR event → task → soldier → failure → notification" {
   local today
   today=$(date +%Y%m%d)
 
   jq -n '{
-    id: "evt-jira-QP-200", type: "jira.ticket.assigned",
-    source: "jira", priority: "high",
+    id: "evt-github-QP-200", type: "github.pr.review_requested",
+    source: "github", priority: "high",
     repo: "chequer/qp",
-    payload: {ticket_key: "QP-200", summary: "Fix login bug"}
-  }' > "$BASE_DIR/queue/events/pending/evt-jira-QP-200.json"
+    payload: {pr_number: 200, title: "Fix login bug"}
+  }' > "$BASE_DIR/queue/events/pending/evt-github-QP-200.json"
 
   # King processes event
   process_pending_events
@@ -124,7 +124,7 @@ teardown() {
   task_id=$(jq -r '.id' "$task_file")
 
   # General picks + processes task
-  GENERAL_DOMAIN="gen-jira"
+  GENERAL_DOMAIN="gen-pr"
   mv "$task_file" "$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
 
   # General reports failure

@@ -88,7 +88,7 @@ generals/gen-{name}/
 └── README.md       # 문서
 ```
 
-**빌트인 장군**: `gen-pr` (PR 리뷰) · `gen-jira` (Jira 구현) · `gen-test` (테스트 작성) · `gen-briefing` (일일 브리핑)
+**빌트인 장군**: `gen-pr` (PR 리뷰) · `gen-briefing` (일일 브리핑)
 
 ### 3-Layer Memory — 경험으로 성장
 
@@ -207,8 +207,6 @@ kingdom/
 │       └── ...
 ├── generals/                # 장군 패키지 (소스)
 │   ├── gen-pr/              #   PR 리뷰
-│   ├── gen-jira/            #   Jira 구현
-│   ├── gen-test/            #   테스트 작성
 │   └── gen-briefing/        #   일일 브리핑
 ├── config/                  # 설정
 │   ├── workspace-claude.md  #   병사 CLAUDE.md (Soul + 팀 맥락 + 결과 보고)

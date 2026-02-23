@@ -48,8 +48,6 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 | 장군 | manifest | prompt | install | spec 참조 |
 |------|----------|--------|---------|-----------|
 | gen-pr | `generals/gen-pr/manifest.yaml` | `generals/gen-pr/prompt.md` | `generals/gen-pr/install.sh` | `architecture.md`, `event-types.md` |
-| gen-jira | `generals/gen-jira/manifest.yaml` | `generals/gen-jira/prompt.md` | `generals/gen-jira/install.sh` | `architecture.md`, `event-types.md` |
-| gen-test | `generals/gen-test/manifest.yaml` | `generals/gen-test/prompt.md` | `generals/gen-test/install.sh` | `architecture.md` |
 | gen-briefing | `generals/gen-briefing/manifest.yaml` | `generals/gen-briefing/prompt.md` | `generals/gen-briefing/install.sh` | `architecture.md` |
 
 공통 schema: `schemas/general-manifest.schema.json`

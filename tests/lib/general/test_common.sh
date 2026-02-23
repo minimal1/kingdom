@@ -11,7 +11,7 @@ setup() {
 
   # Copy configs
   install_test_general "gen-pr"
-  install_test_general "gen-jira"
+  install_test_general "gen-briefing"
 
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/common.sh"
 
@@ -55,7 +55,7 @@ EOF
 
 @test "general: pick_next_task ignores other generals" {
   cat > "$BASE_DIR/queue/tasks/pending/task-001.json" << 'EOF'
-{"id":"task-001","target_general":"gen-jira","priority":"normal","status":"pending"}
+{"id":"task-001","target_general":"gen-briefing","priority":"normal","status":"pending"}
 EOF
 
   local result

@@ -48,7 +48,7 @@ teardown() {
   assert_output "thread_start"
 }
 
-@test "integration: jira event routes to gen-jira" {
+@test "integration: unsubscribed jira event is discarded" {
   jq -n '{
     id: "evt-jira-QP-100", type: "jira.ticket.assigned",
     source: "jira", priority: "normal", repo: "chequer/qp",
@@ -57,13 +57,17 @@ teardown() {
 
   process_pending_events
 
-  local task_file
-  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
-  run jq -r '.target_general' "$task_file"
-  assert_output "gen-jira"
+  # No matching general → event moved to completed (discarded)
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-jira-QP-100.json" ]
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-jira-QP-100.json" ]
+
+  # No task created
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -eq 0 ]
 }
 
-@test "integration: multiple events processed correctly" {
+@test "integration: multiple events — subscribed dispatched, unsubscribed discarded" {
   jq -n '{id: "evt-1", type: "github.pr.review_requested", source: "github", priority: "low", repo: "chequer/qp", payload: {}}' \
     > "$BASE_DIR/queue/events/pending/evt-1.json"
   jq -n '{id: "evt-2", type: "jira.ticket.assigned", source: "jira", priority: "high", repo: "chequer/qp", payload: {}}' \
@@ -71,12 +75,13 @@ teardown() {
 
   process_pending_events
 
-  # Both dispatched
+  # PR event dispatched (gen-pr subscribes)
   assert [ -f "$BASE_DIR/queue/events/dispatched/evt-1.json" ]
-  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-2.json" ]
+  # Jira event discarded (no subscriber)
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-2.json" ]
 
-  # 2 tasks created
+  # Only 1 task created (for PR event)
   local task_count
   task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
-  [ "$task_count" -eq 2 ]
+  [ "$task_count" -eq 1 ]
 }

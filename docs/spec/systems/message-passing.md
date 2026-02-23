@@ -91,7 +91,7 @@ pending → in_progress → completed
 {
   "id": "task-{YYYYMMDD}-{seq}",
   "event_id": "evt-{source}-{source_specific_id} | schedule-{name}",
-  "target_general": "gen-pr | gen-test | gen-jira",
+  "target_general": "gen-pr | gen-briefing",
   "type": "{event_type} | resume | {schedule.task_type}",
   "payload": { },
   "priority": "normal | high | low",

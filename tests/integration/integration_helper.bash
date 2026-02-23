@@ -7,8 +7,7 @@ setup_integration_env() {
   cp "$src_dir/config/king.yaml" "$BASE_DIR/config/"
   cp "$src_dir/config/chamberlain.yaml" "$BASE_DIR/config/"
   install_test_general "gen-pr"
-  install_test_general "gen-jira"
-  install_test_general "gen-test"
+  install_test_general "gen-briefing"
 
   # Source common + king modules
   source "$src_dir/bin/lib/common.sh"

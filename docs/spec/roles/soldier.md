@@ -237,8 +237,6 @@ log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
 - **동시 실행 상한**: 3 (config에서 조정 가능)
 - **실행 시간 상한**: 장군 매니페스트의 `timeout_seconds` (기본 1800초)
   - gen-pr: 1800초 (30분) — 리뷰는 읽기 위주
-  - gen-jira: 5400초 (90분) — 코드 구현 + lint + test
-  - gen-test: 3600초 (60분) — 코드 분석 + 테스트 작성 + 실행
   - 장군의 `wait_for_soldier`가 감시
 - **허용 도구**: 제한 없음 (`--dangerously-skip-permissions`)
   - CC Plugin이 제공하는 도구(Skill, Task 등)도 자유롭게 사용 가능

@@ -129,10 +129,9 @@
 ## 작업 우선순위
 
 1. **PR Review** (`gen-pr`) — friday 플러그인 활용
-2. **Unit Test 작성** (`gen-test`) — 새로운 워크플로우 구성
-3. **Jira Ticket 대응** (`gen-jira`) — sunday 플러그인 활용
-4. **Briefing** (`gen-briefing`) — 정기 시스템 상태 브리핑 (cron 스케줄)
-5. ~~Code Refactoring~~ — 리스크 높아 후순위
+2. **Briefing** (`gen-briefing`) — 정기 시스템 상태 브리핑 (cron 스케줄)
+
+> Jira 구현(`gen-jira`), 테스트 작성(`gen-test`)은 장군 패키지 시스템으로 추가 가능하나 builtin에서는 제외됨.
 
 ## 참고 문서
 

@@ -11,7 +11,7 @@
       "type": "string",
       "description": "장군 이름 (gen-{domain} 형식)",
       "pattern": "^gen-[a-z][a-z0-9-]*$",
-      "examples": ["gen-pr", "gen-jira", "gen-test", "gen-briefing"]
+      "examples": ["gen-pr", "gen-briefing"]
     },
     "description": {
       "type": "string",

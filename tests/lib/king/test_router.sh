@@ -7,8 +7,7 @@ setup() {
 
   # Copy general manifests
   install_test_general "gen-pr"
-  install_test_general "gen-jira"
-  install_test_general "gen-test"
+  install_test_general "gen-briefing"
 
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../../../bin/lib/king/router.sh"
@@ -30,30 +29,25 @@ teardown() {
   assert_output "gen-pr"
 }
 
-@test "router: routing table contains jira events" {
+@test "router: unsubscribed event returns failure" {
   load_general_manifests
   run find_general "jira.ticket.assigned"
-  assert_success
-  assert_output "gen-jira"
-
-  run find_general "jira.ticket.updated"
-  assert_success
-  assert_output "gen-jira"
+  assert_failure
 }
 
 @test "router: routing table counts all event types" {
   load_general_manifests
-  # gen-pr: 1 (review_requested), gen-jira: 2 (assigned, updated) = 3
+  # gen-pr: 1 (review_requested) = 1
   run get_routing_table_count
-  assert_output "3"
+  assert_output "1"
 }
 
-@test "router: schedules loaded from gen-test" {
+@test "router: schedules loaded from gen-briefing" {
   load_general_manifests
   local schedules
   schedules=$(get_schedules)
   [ -n "$schedules" ]
-  [[ "$schedules" == gen-test\|* ]]
+  [[ "$schedules" == gen-briefing\|* ]]
 }
 
 @test "router: schedule entries are single-line compact JSON" {
@@ -97,11 +91,10 @@ EOF
   assert_output "gen-pr"
 }
 
-@test "router: find_general jira match" {
+@test "router: find_general jira no match" {
   load_general_manifests
   run find_general "jira.ticket.assigned"
-  assert_success
-  assert_output "gen-jira"
+  assert_failure
 }
 
 @test "router: find_general no match returns failure" {

@@ -167,7 +167,7 @@ cc_plugins:
 $KINGDOM_BASE_DIR/bin/start.sh
 ```
 
-시작 순서: chamberlain → sentinel → envoy → king → gen-pr → gen-jira → gen-test
+시작 순서: chamberlain → sentinel → envoy → king → gen-pr → gen-briefing
 
 ### 4.2 상태 확인
 
@@ -188,8 +188,7 @@ Core Sessions:
 
 Generals:
   [OK]   gen-pr           heartbeat: 8s
-  [OK]   gen-jira         heartbeat: 7s
-  [OK]   gen-test         heartbeat: 6s
+  [OK]   gen-briefing     heartbeat: 7s
 
 Soldiers:
   Active: 0

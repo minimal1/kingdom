@@ -97,7 +97,7 @@ emit_internal_event() {
 ```json
 {"ts": "...", "type": "task.created", "actor": "king", "data": {"task_id": "task-20260207-001", "event_type": "github.pr.review_requested", "target_general": "gen-pr", "priority": "normal"}}
 {"ts": "...", "type": "task.completed", "actor": "gen-pr", "data": {"task_id": "task-20260207-001", "status": "success", "duration_seconds": 180}}
-{"ts": "...", "type": "task.failed", "actor": "gen-jira", "data": {"task_id": "task-20260207-002", "error": "Permission denied", "retry_count": 2}}
+{"ts": "...", "type": "task.failed", "actor": "gen-pr", "data": {"task_id": "task-20260207-002", "error": "Permission denied", "retry_count": 2}}
 ```
 
 ### 3. soldier — 병사 생명주기
@@ -113,7 +113,7 @@ emit_internal_event() {
 
 ```json
 {"ts": "...", "type": "soldier.spawned", "actor": "gen-pr", "data": {"task_id": "task-20260207-001", "soldier_id": "soldier-1707300000-1234"}}
-{"ts": "...", "type": "soldier.timeout", "actor": "gen-jira", "data": {"task_id": "task-20260207-002", "soldier_id": "soldier-1707300180-5678", "timeout_seconds": 5400}}
+{"ts": "...", "type": "soldier.timeout", "actor": "gen-pr", "data": {"task_id": "task-20260207-002", "soldier_id": "soldier-1707300180-5678", "timeout_seconds": 1800}}
 {"ts": "...", "type": "soldier.killed", "actor": "chamberlain", "data": {"soldier_id": "soldier-1707300180-5678", "reason": "orphaned"}}
 ```
 
@@ -250,7 +250,7 @@ grep "task.completed" logs/events.log | jq '{actor, duration: .data.duration_sec
   },
   "avg_duration_seconds": {
     "gen-pr": 420,
-    "gen-jira": 2100
+    "gen-briefing": 60
   }
 }
 ```

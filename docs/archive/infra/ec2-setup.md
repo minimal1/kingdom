@@ -120,9 +120,9 @@ mkdir -p $BASE_DIR/state/sentinel/seen            # 중복 방지 인덱스
 mkdir -p $BASE_DIR/state/envoy                     # 사절 상태 (thread-mappings, awaiting)
 mkdir -p $BASE_DIR/state/prompts                   # 임시 프롬프트
 mkdir -p $BASE_DIR/state/chamberlain               # 내관 상태
-mkdir -p $BASE_DIR/state/{gen-pr,gen-test,gen-jira} # 장군 heartbeat
+mkdir -p $BASE_DIR/state/{gen-pr,gen-briefing}      # 장군 heartbeat
 mkdir -p $BASE_DIR/config/generals/templates       # 프롬프트 템플릿
-mkdir -p $BASE_DIR/memory/{shared,generals/{gen-pr,gen-test,gen-jira}}
+mkdir -p $BASE_DIR/memory/{shared,generals/{gen-pr,gen-briefing}}
 mkdir -p $BASE_DIR/logs/{sessions,analysis}
 
 # 초기 상태 파일 생성

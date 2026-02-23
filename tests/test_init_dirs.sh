@@ -51,15 +51,13 @@ teardown() {
   # 매니페스트 설치 (init-dirs.sh가 동적 스캔)
   mkdir -p "$BASE_DIR/config/generals"
   install_test_general "gen-pr"
-  install_test_general "gen-jira"
-  install_test_general "gen-test"
+  install_test_general "gen-briefing"
 
   run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
   assert_success
   assert [ -d "$BASE_DIR/memory/shared" ]
   assert [ -d "$BASE_DIR/memory/generals/gen-pr" ]
-  assert [ -d "$BASE_DIR/memory/generals/gen-jira" ]
-  assert [ -d "$BASE_DIR/memory/generals/gen-test" ]
+  assert [ -d "$BASE_DIR/memory/generals/gen-briefing" ]
   assert [ -d "$BASE_DIR/state/gen-pr" ]
   assert [ -d "$BASE_DIR/workspace/gen-pr" ]
 }

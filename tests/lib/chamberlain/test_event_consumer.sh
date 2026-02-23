@@ -82,7 +82,7 @@ teardown() {
   consume_internal_events
 
   # Add 1 more event
-  echo '{"ts":"2026-02-07T10:02:00Z","type":"task.failed","actor":"gen-jira","data":{}}' >> "$BASE_DIR/logs/events.log"
+  echo '{"ts":"2026-02-07T10:02:00Z","type":"task.failed","actor":"gen-pr","data":{}}' >> "$BASE_DIR/logs/events.log"
 
   consume_internal_events
 
@@ -99,7 +99,7 @@ teardown() {
   local events
   events='{"ts":"2026-02-07T10:00:00Z","type":"task.completed","actor":"gen-pr","data":{}}
 {"ts":"2026-02-07T10:01:00Z","type":"task.completed","actor":"gen-pr","data":{}}
-{"ts":"2026-02-07T10:02:00Z","type":"task.failed","actor":"gen-jira","data":{}}'
+{"ts":"2026-02-07T10:02:00Z","type":"task.failed","actor":"gen-pr","data":{}}'
 
   aggregate_metrics "$events"
 

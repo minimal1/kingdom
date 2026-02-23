@@ -302,22 +302,6 @@ general_packages:
       cc_plugins: ["friday@qp-plugin"]
       timeout: 1800
       has_claude_md: false
-    gen-jira:
-      path: "generals/gen-jira/"
-      description: "Jira 티켓 구현 장군"
-      subscribes: ["jira.ticket.assigned", "jira.ticket.updated"]
-      schedules: []
-      cc_plugins: ["sunday@qp-plugin"]
-      timeout: 5400
-      has_claude_md: false
-    gen-test:
-      path: "generals/gen-test/"
-      description: "테스트 코드 작성 장군 (스케줄 전용)"
-      subscribes: []
-      schedules: ["daily-test: 0 22 * * 1-5"]
-      cc_plugins: ["saturday@qp-plugin"]
-      timeout: 3600
-      has_claude_md: false
     gen-briefing:
       path: "generals/gen-briefing/"
       description: "일일 브리핑 장군 (F.R.I.D.A.Y. 성격)"
@@ -410,7 +394,6 @@ documentation:
       - "docs/spec/systems/internal-events.md   — 내부 이벤트"
     examples:
       - "docs/spec/examples/scenario-gen-pr.md"
-      - "docs/spec/examples/scenario-gen-test.md"
   guides:
     - "docs/guides/install-guide.md"
     - "docs/guides/local-install-guide.md"

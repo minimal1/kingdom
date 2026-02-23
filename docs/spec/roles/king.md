@@ -62,38 +62,18 @@ schedules: []
 ```
 
 ```yaml
-# generals/gen-jira/manifest.yaml
-name: gen-jira
-description: "Jira 티켓 구현 장군"
-timeout_seconds: 5400       # 90분 — 코드 구현 + lint + test
-
-cc_plugins:
-  - sunday@qp-plugin
-
-subscribes:
-  - jira.ticket.assigned
-  - jira.ticket.updated
-
-schedules: []
-```
-
-```yaml
-# generals/gen-test/manifest.yaml
-name: gen-test
-description: "테스트 코드 작성 장군"
-timeout_seconds: 3600       # 60분 — 코드 분석 + 테스트 작성 + 실행
-
-cc_plugins:
-  - saturday@qp-plugin
-
+# (예시) 스케줄 기반 장군 매니페스트
+name: gen-example
+description: "스케줄 기반 장군 예시"
+timeout_seconds: 3600
+cc_plugins: []
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
-
 schedules:
-  - name: daily-test
+  - name: daily-task
     cron: "0 22 * * 1-5"
-    task_type: "daily-test-generation"
+    task_type: "daily-task"
     payload:
-      description: "Weekday 22:00 test generation"
+      description: "Weekday 22:00 scheduled task"
 ```
 
 > `cc_plugins` 필드는 장군의 `ensure_workspace()`가 소비한다. 왕의 라우팅 로직(`load_general_manifests`)은 subscribes/schedules만 읽으므로 변경 불필요.
@@ -170,7 +150,7 @@ find_general() {
 | 축 | 플러그인 단위 | 누가 정의 | 추가 시 영향 |
 |---|-------------|----------|-------------|
 | 외부 소스 | Watcher (github, jira, ...) | 센티널 | 새 watcher 작성 |
-| 처리 능력 | General (gen-pr, gen-jira, ...) | 장군 매니페스트 | 매니페스트 추가만 (왕/센티널 수정 불필요) |
+| 처리 능력 | General (gen-pr, gen-briefing, ...) | 장군 매니페스트 | 매니페스트 추가만 (왕/센티널 수정 불필요) |
 
 > 아무 장군도 구독하지 않는 이벤트 타입이 센티널에서 생산되면, 왕은 `find_general()`에서 매칭 실패 → 로그 경고 후 이벤트를 completed로 이동 (폐기).
 
@@ -1062,8 +1042,7 @@ config/
 ├── king.yaml                            # 왕 설정 (재시도, 동시성, 인터벌)
 └── generals/                            # 장군 매니페스트 (플러거블)
     ├── gen-pr.yaml
-    ├── gen-jira.yaml
-    └── gen-test.yaml
+    └── gen-briefing.yaml
 ```
 
 ---

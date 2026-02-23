@@ -6,7 +6,7 @@ Schema-First 개발 워크플로우를 안내한다.
 
 ## 워크플로우 분기
 
-`$ARGUMENTS`가 역할명(king, envoy, sentinel, chamberlain)인지, builtin 장군명(gen-pr, gen-jira, gen-test, gen-briefing 등)인지 판단하여 해당 워크플로우를 따른다.
+`$ARGUMENTS`가 역할명(king, envoy, sentinel, chamberlain)인지, builtin 장군명(gen-pr, gen-briefing 등)인지 판단하여 해당 워크플로우를 따른다.
 
 ---
 
@@ -58,7 +58,7 @@ Bash 규칙 준수:
 
 ## B. Builtin 장군 변경 워크플로우
 
-대상이 gen-pr, gen-jira, gen-test, gen-briefing 등 `gen-` 접두사일 때.
+대상이 gen-pr, gen-briefing 등 `gen-` 접두사일 때.
 
 ### Step 1: Manifest Schema 확인
 

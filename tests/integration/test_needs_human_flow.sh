@@ -79,7 +79,7 @@ EOF
   jq -n \
     --arg tid "$original_task_id" \
     '{task_id: $tid, target_general: "gen-pr", repo: "chequer/qp",
-      payload: {pr_number: 77}, created_at: "2026-02-10T10:00:00Z"}' \
+      payload: {pr_number: 77}, type: "github.pr.review_requested", created_at: "2026-02-10T10:00:00Z"}' \
     > "$BASE_DIR/state/results/${original_task_id}-checkpoint.json"
 
   # Envoy detects human reply → emits slack.human_response event
@@ -126,11 +126,11 @@ EOF
 
   # Setup: task in progress
   cat > "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" << EOF
-{"id":"${task_id}","event_id":"evt-070","target_general":"gen-jira","type":"jira.ticket.assigned","repo":"chequer/qp","payload":{"ticket_key":"QP-300"},"status":"in_progress"}
+{"id":"${task_id}","event_id":"evt-070","target_general":"gen-pr","type":"github.pr.review_requested","repo":"chequer/qp","payload":{"pr_number":300},"status":"in_progress"}
 EOF
   echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-070.json"
 
-  GENERAL_DOMAIN="gen-jira"
+  GENERAL_DOMAIN="gen-pr"
 
   # Step 1: General escalates
   local raw_result

@@ -266,19 +266,6 @@ $KINGDOM_BASE_DIR/bin/uninstall-general.sh gen-{name}
 - **프롬프트**: `/friday:review-pr {{payload.pr_number}}` (1줄 호출형)
 - **timeout**: 1800초
 
-### gen-jira (이벤트 + CC Plugin)
-- **구독**: `jira.ticket.assigned`, `jira.ticket.updated`
-- **플러그인**: `sunday`
-- **프롬프트**: 구조화 지시형 (Ticket 정보 + 지시사항 + Memory + Output)
-- **timeout**: 5400초
-
-### gen-test (스케줄 + CC Plugin)
-- **구독**: 없음
-- **스케줄**: `0 22 * * 1-5` (평일 22시)
-- **플러그인**: `saturday`
-- **프롬프트**: 구조화 지시형 (커버리지 분석 지시)
-- **timeout**: 3600초
-
 ### gen-briefing (스케줄 + 플러그인 없음)
 - **구독**: 없음
 - **스케줄**: `*/1 * * * *` (매 1분)

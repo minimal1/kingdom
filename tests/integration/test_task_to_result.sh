@@ -102,11 +102,11 @@ EOF
   local task_id="task-${today}-020"
 
   cat > "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" << EOF
-{"id":"${task_id}","event_id":"evt-020","target_general":"gen-jira","type":"jira.ticket.assigned","status":"in_progress"}
+{"id":"${task_id}","event_id":"evt-020","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
 EOF
   echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-020.json"
 
-  GENERAL_DOMAIN="gen-jira"
+  GENERAL_DOMAIN="gen-pr"
   local raw_result="{\"task_id\":\"${task_id}\",\"status\":\"failed\",\"error\":\"build failed\"}"
   report_to_king "$task_id" "failed" "" "$raw_result"
 
