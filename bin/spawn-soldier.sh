@@ -30,7 +30,8 @@ jq -n \
 # Session creation
 # stdout+stderr → session log (soldier writes result via Write tool, not stdout)
 if ! tmux new-session -d -s "$SOLDIER_ID" \
-  "cd '$WORK_DIR' && claude -p \
+  "export KINGDOM_BASE_DIR='$BASE_DIR' && \
+   cd '$WORK_DIR' && claude -p \
     --dangerously-skip-permissions \
     < '$PROMPT_FILE' \
     > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.log' 2>&1; \

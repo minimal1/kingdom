@@ -10,7 +10,7 @@ Bash 도구로 아래 정보를 수집한다. 각 명령이 실패해도 계속 
 
 ```bash
 for role in king sentinel envoy chamberlain; do
-  hb="/opt/kingdom/state/${role}/heartbeat"
+  hb="$KINGDOM_BASE_DIR/state/${role}/heartbeat"
   if [ -f "$hb" ]; then
     mtime=$(stat -f %m "$hb" 2>/dev/null || stat -c %Y "$hb" 2>/dev/null || echo 0)
     age=$(( $(date +%s) - mtime ))
@@ -24,7 +24,7 @@ done
 ### 장군별 heartbeat
 
 ```bash
-for hb in /opt/kingdom/state/gen-*/heartbeat; do
+for hb in $KINGDOM_BASE_DIR/state/gen-*/heartbeat; do
   [ -f "$hb" ] || continue
   gen=$(basename "$(dirname "$hb")")
   mtime=$(stat -f %m "$hb" 2>/dev/null || stat -c %Y "$hb" 2>/dev/null || echo 0)
@@ -36,15 +36,15 @@ done
 ### 큐 현황
 
 ```bash
-echo "pending_events: $(ls /opt/kingdom/queue/events/pending/*.json 2>/dev/null | wc -l | tr -d ' ')"
-echo "pending_tasks: $(ls /opt/kingdom/queue/tasks/pending/*.json 2>/dev/null | wc -l | tr -d ' ')"
-echo "in_progress_tasks: $(ls /opt/kingdom/queue/tasks/in_progress/*.json 2>/dev/null | wc -l | tr -d ' ')"
+echo "pending_events: $(ls $KINGDOM_BASE_DIR/queue/events/pending/*.json 2>/dev/null | wc -l | tr -d ' ')"
+echo "pending_tasks: $(ls $KINGDOM_BASE_DIR/queue/tasks/pending/*.json 2>/dev/null | wc -l | tr -d ' ')"
+echo "in_progress_tasks: $(ls $KINGDOM_BASE_DIR/queue/tasks/in_progress/*.json 2>/dev/null | wc -l | tr -d ' ')"
 ```
 
 ### 활성 병사 수
 
 ```bash
-cat /opt/kingdom/state/sessions.json 2>/dev/null | jq 'length' || echo 0
+cat $KINGDOM_BASE_DIR/state/sessions.json 2>/dev/null | jq 'length' || echo 0
 ```
 
 ### 리소스 상태 (resources.json)
@@ -52,7 +52,7 @@ cat /opt/kingdom/state/sessions.json 2>/dev/null | jq 'length' || echo 0
 내관이 수집한 시스템 리소스와 토큰 사용량을 파싱한다.
 
 ```bash
-RES="/opt/kingdom/state/resources.json"
+RES="$KINGDOM_BASE_DIR/state/resources.json"
 if [ -f "$RES" ]; then
   echo "=== System ==="
   jq -r '"cpu: \(.system.cpu_percent)% | mem: \(.system.memory_percent)% | disk: \(.system.disk_percent)%"' "$RES"
@@ -70,7 +70,7 @@ fi
 ### 최근 완료 작업 (최대 3건)
 
 ```bash
-for f in $(ls -t /opt/kingdom/queue/tasks/completed/*.json 2>/dev/null | head -3); do
+for f in $(ls -t $KINGDOM_BASE_DIR/queue/tasks/completed/*.json 2>/dev/null | head -3); do
   jq -r '[.id, .type, .target_general] | join(" | ")' "$f"
 done
 ```
@@ -78,7 +78,7 @@ done
 ### 최근 시스템 로그 (20줄)
 
 ```bash
-tail -20 /opt/kingdom/logs/system.log 2>/dev/null || echo "(no log)"
+tail -20 $KINGDOM_BASE_DIR/logs/system.log 2>/dev/null || echo "(no log)"
 ```
 
 ## 2단계: 브리핑 작성
@@ -139,7 +139,7 @@ curl -s -X POST https://slack.com/api/chat.postMessage \
 ```bash
 TASK_FILE=".kingdom-task.json"
 TASK_ID=$(jq -r '.id' "$TASK_FILE")
-RESULT_DIR="/opt/kingdom/state/results"
+RESULT_DIR="$KINGDOM_BASE_DIR/state/results"
 
 # Slack 전송 성공 시
 jq -n --arg tid "$TASK_ID" '{
