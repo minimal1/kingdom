@@ -28,6 +28,7 @@ color: green
 
 - `manifest.yaml` (필수)
 - `prompt.md` (필수)
+- `general-claude.md` (선택 — 장군 고유 성격/톤)
 - `install.sh` (권장)
 - `README.md` (권장)
 
@@ -64,7 +65,13 @@ color: green
 - manifest.yaml의 `cc_plugins`가 비어있으면:
   - install.sh에 플러그인 설치 로직이 없어야 함 (단순 형태)
 
-### 6. prompt.md 검증
+### 6. general-claude.md 검증 (파일 존재 시)
+
+- 파일이 비어있지 않은지 확인
+- 장군의 성격/톤/작업 원칙이 기술되어 있는지 확인
+- 설치 시 `workspace/gen-{name}/CLAUDE.md`로 복사됨 (install-general.sh가 처리)
+
+### 7. prompt.md 검증
 
 - 파일이 비어있지 않은지 확인
 - `{{payload.` 패턴 사용 시, manifest의 subscribes 또는 schedules.payload와 매칭 가능한지 확인

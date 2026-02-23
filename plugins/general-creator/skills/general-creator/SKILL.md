@@ -12,15 +12,18 @@ Kingdom의 "장군(General)"은 특정 도메인의 작업을 전담하는 자�
 
 ## 1. 패키지 구조
 
-모든 장군 패키지는 정확히 4개 파일로 구성된다:
+모든 장군 패키지는 4~5개 파일로 구성된다:
 
 ```
 generals/gen-{name}/
-├── manifest.yaml   # 장군 메타데이터 + 이벤트/스케줄 설정
-├── prompt.md       # Claude Code에 전달할 프롬프트 템플릿
-├── install.sh      # 설치 스크립트 (CC Plugin + install-general.sh)
-└── README.md       # 사용자 문서
+├── manifest.yaml      # 장군 메타데이터 + 이벤트/스케줄 설정
+├── prompt.md          # Claude Code에 전달할 프롬프트 템플릿
+├── general-claude.md  # (선택) 장군 고유 성격/톤 — 설치 시 workspace/gen-{name}/CLAUDE.md로 복사
+├── install.sh         # 설치 스크립트 (CC Plugin + install-general.sh)
+└── README.md          # 사용자 문서
 ```
+
+`general-claude.md`는 병사의 CLAUDE.md로 설치되어 context 압축에도 유실되지 않는다. 장군 고유의 성격, 톤, 작업 원칙을 정의할 때 사용한다.
 
 ---
 
@@ -279,7 +282,7 @@ $KINGDOM_BASE_DIR/bin/uninstall-general.sh gen-{name}
 | 항목 | 규칙 |
 |------|------|
 | 이름 | `^gen-[a-z0-9]([a-z0-9-]*[a-z0-9])?$` |
-| 필수 파일 | manifest.yaml, prompt.md (install.sh, README.md 권장) |
+| 필수 파일 | manifest.yaml, prompt.md (install.sh, README.md 권장, general-claude.md 선택) |
 | 이벤트 충돌 | 동일 이벤트를 구독하는 다른 장군이 없어야 함 |
 | CC Plugin | `{plugin}@{marketplace}` 형식, install.sh에서 설치 로직 일치 |
 | cron 표현식 | 5필드 표준 cron (분 시 일 월 요일) |
@@ -297,6 +300,7 @@ $KINGDOM_BASE_DIR/bin/uninstall-general.sh gen-{name}
 4. **CC Plugin 확인**: 필요한 플러그인과 마켓플레이스 지정
 5. **timeout 설정**: 작업 복잡도에 따라 결정
 6. **prompt.md 설계**: 3가지 패턴 중 선택하여 핵심 로직 작성
-7. **파일 생성**: manifest.yaml → prompt.md → install.sh → README.md
-8. **검증**: 이벤트 충돌 확인, manifest↔install.sh 일관성 체크
-9. **안내**: `./install.sh` 또는 `install-general.sh` 실행 방법 안내
+7. **general-claude.md 결정**: 장군 고유 성격/톤이 필요하면 작성 (선택)
+8. **파일 생성**: manifest.yaml → prompt.md → (general-claude.md) → install.sh → README.md
+9. **검증**: 이벤트 충돌 확인, manifest↔install.sh 일관성 체크
+10. **안내**: `./install.sh` 또는 `install-general.sh` 실행 방법 안내

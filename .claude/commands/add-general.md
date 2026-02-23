@@ -1,6 +1,6 @@
 새 builtin 장군을 소스 레포에 추가한다.
 
-장군 패키지는 `generals/gen-{name}/` 디렉토리에 4개 파일(manifest.yaml, prompt.md, install.sh, README.md)로 구성되는 자기완결적 단위다.
+장군 패키지는 `generals/gen-{name}/` 디렉토리에 4~5개 파일(manifest.yaml, prompt.md, install.sh, README.md + 선택적 general-claude.md)로 구성되는 자기완결적 단위다.
 
 ---
 
@@ -31,7 +31,7 @@ for f in generals/gen-*/manifest.yaml; do echo "=== $f ==="; cat "$f"; done
 
 ## Step 3: 패키지 파일 생성
 
-`generals/gen-{name}/` 디렉토리를 만들고 4개 파일을 생성한다.
+`generals/gen-{name}/` 디렉토리를 만들고 파일을 생성한다.
 
 ### manifest.yaml
 
@@ -63,6 +63,16 @@ schedules:                    # 또는 빈 배열 []
 - **패턴 3 — Bash 다단계형**: 플러그인 없이 Bash + Claude Code로 수행
 
 템플릿 변수: `{{TASK_ID}}`, `{{TASK_TYPE}}`, `{{REPO}}`, `{{payload.KEY}}`, `{{DOMAIN_MEMORY}}`
+
+### general-claude.md (선택)
+
+장군 고유의 성격, 톤, 작업 원칙이 필요하면 작성한다. `install-general.sh`가 이 파일을 `workspace/gen-{name}/CLAUDE.md`로 복사하여, 병사의 context 압축에도 유실되지 않게 한다.
+
+예시 (gen-briefing):
+```markdown
+# F.R.I.D.A.Y. — Kingdom Briefing Officer
+시스템 상태를 간결하게 요약하여 전달하는 브리핑 전문가.
+```
 
 ### install.sh
 
