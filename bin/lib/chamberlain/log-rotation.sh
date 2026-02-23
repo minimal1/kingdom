@@ -111,8 +111,8 @@ cleanup_expired_files() {
   count=$(find "$BASE_DIR/logs/" -maxdepth 1 -name "events-*.log" -mtime +"$log_days" -delete -print 2>/dev/null | wc -l | tr -d ' ')
   total=$((total + count))
 
-  # Soldier session logs
-  count=$(find "$BASE_DIR/logs/sessions/" -name "*.log" -mtime +"$session_log_days" -delete -print 2>/dev/null | wc -l | tr -d ' ')
+  # Soldier session logs (.json stdout, .err stderr, legacy .log)
+  count=$(find "$BASE_DIR/logs/sessions/" \( -name "*.json" -o -name "*.err" -o -name "*.log" \) -mtime +"$session_log_days" -delete -print 2>/dev/null | wc -l | tr -d ' ')
   total=$((total + count))
 
   # Result files
