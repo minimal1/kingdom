@@ -63,7 +63,8 @@ pending → dispatched → completed
 이벤트 ID는 소스별 자연 키를 사용하여 자동 중복 방지:
 - GitHub: `evt-github-{notification_id}` (예: `evt-github-12345678`) — 파수꾼 생성
 - Jira: `evt-jira-{ticket_key}-{updated_timestamp}` (예: `evt-jira-QP-123-20260207100000`) — 파수꾼 생성
-- Slack (human_response): `evt-slack-response-{task_id}-{unix_timestamp}` (예: `evt-slack-response-task-20260207-001-1707300000`) — 사절 생성
+- Slack (DM): `evt-slack-msg-{ts_sanitized}` (예: `evt-slack-msg-1234-5678`) — 사절 생성
+- Slack (reply): `evt-slack-reply-{thread_ts_sanitized}-{unix_ts}` (예: `evt-slack-reply-1234-5678-1707300000`) — 사절 생성
 
 > 이벤트 타입 전체 카탈로그: [systems/event-types.md](event-types.md)
 > 상세: [roles/sentinel.md](../roles/sentinel.md#이벤트-스키마-공통), [roles/envoy.md](../roles/envoy.md#이벤트-타입-정의)
@@ -81,9 +82,9 @@ queue/tasks/
 ### 상태 전이
 ```
 pending → in_progress → completed
-                     ↘ failed
-                     ↘ needs_human
-                     ↘ skipped (재시도 없이 즉시 완료)
+                     ↘ failed → completed
+                     ↘ needs_human → completed (왕이 즉시 complete_task, reply_context로 재개)
+                     ↘ skipped → completed (재시도 없이 즉시 완료)
 ```
 
 ### 작업 스키마

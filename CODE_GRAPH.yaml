@@ -20,7 +20,7 @@ king:
         - "write_to_queue()"
         - "process_pending_events()"
         - "dispatch_new_task()"
-        - "process_human_response()"
+        - "process_thread_reply()"
         - "check_task_results()"
         - "handle_success(), handle_failure(), handle_needs_human(), handle_skipped()"
         - "complete_task()"
@@ -107,24 +107,32 @@ envoy:
         - "slack_api()"
         - "send_message()"
         - "send_thread_reply()"
+        - "read_channel_messages()"
         - "read_thread_replies()"
     - path: "bin/lib/envoy/thread-manager.sh"
       description: "task_id ↔ thread_ts 매핑 + awaiting 응답 관리"
       functions:
         - "save_thread_mapping(), get_thread_mapping(), remove_thread_mapping()"
         - "add_awaiting_response(), remove_awaiting_response()"
+        - "save_conversation_thread(), get_conversation_thread(), update_conversation_thread(), remove_conversation_thread()"
   dependencies:
     - common
   data_flow: "queue/messages/pending/ → Slack API → sent/ | failed/"
   message_types:
     - "thread_start    — 작업 시작 (스레드 생성)"
     - "thread_update   — 진행 상황 (스레드 답글)"
-    - "human_input_request — 사람 질문 (awaiting 등록)"
+    - "thread_reply    — 스레드 답글 + 대화 추적 등록"
+    - "human_input_request — 사람 질문 (awaiting 등록, reply_context 포함)"
     - "notification    — 완료/실패 알림"
     - "report          — 일일 리포트"
+  inbound_events:
+    - "slack.channel.message — DM 새 메시지"
+    - "slack.thread.reply    — 스레드 응답 (needs_human + 대화 통합)"
   state_files:
     - "state/envoy/thread-mappings.json"
     - "state/envoy/awaiting-responses.json"
+    - "state/envoy/conversation-threads.json"
+    - "state/envoy/last-channel-check-ts"
     - "state/envoy/heartbeat"
   config: "config/envoy.yaml"
   schema: "schemas/envoy.schema.json"
@@ -304,11 +312,11 @@ general_packages:
       has_claude_md: false
     gen-briefing:
       path: "generals/gen-briefing/"
-      description: "일일 브리핑 장군 (F.R.I.D.A.Y. 성격)"
+      description: "시간별 브리핑 장군 (F.R.I.D.A.Y. 성격)"
       subscribes: []
-      schedules: ["daily-briefing"]
+      schedules: ["briefing-hourly"]
       cc_plugins: []
-      timeout: 600
+      timeout: 120
       has_claude_md: true  # generals/gen-briefing/general-claude.md
 
 # ============================================================

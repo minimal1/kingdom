@@ -212,19 +212,33 @@ EOF
   assert_output --partial "❌ gen-pr"
 }
 
-@test "king: handle_needs_human creates human_input_request message" {
+@test "king: handle_needs_human completes task and includes reply_context" {
   cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-003.json" << 'EOF'
 {"id":"task-20260210-003","event_id":"evt-012","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
 EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-012.json"
+
+  # checkpoint 파일 생성 (handle_needs_human이 읽음)
+  cat > "$BASE_DIR/state/results/task-20260210-003-checkpoint.json" << 'EOF'
+{"target_general":"gen-pr","session_id":"sess-abc","repo":"chequer/qp"}
+EOF
 
   cat > "$BASE_DIR/state/results/task-20260210-003.json" << 'EOF'
-{"task_id":"task-20260210-003","status":"needs_human","question":"Should I approve this PR?","checkpoint_path":"/tmp/cp.json"}
+{"task_id":"task-20260210-003","status":"needs_human","question":"Should I approve this PR?","checkpoint_path":"PLACEHOLDER"}
 EOF
+  # checkpoint_path를 실제 경로로 치환
+  local cp_path="$BASE_DIR/state/results/task-20260210-003-checkpoint.json"
+  jq --arg cp "$cp_path" '.checkpoint_path = $cp' "$BASE_DIR/state/results/task-20260210-003.json" > "$BASE_DIR/state/results/task-20260210-003.json.tmp"
+  mv "$BASE_DIR/state/results/task-20260210-003.json.tmp" "$BASE_DIR/state/results/task-20260210-003.json"
 
   check_task_results
 
-  # Task stays in in_progress
-  assert [ -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-003.json" ]
+  # Task moved to completed (not staying in in_progress)
+  assert [ ! -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-003.json" ]
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-003.json" ]
+
+  # Result file removed
+  assert [ ! -f "$BASE_DIR/state/results/task-20260210-003.json" ]
 
   local msg_file
   msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
@@ -232,6 +246,11 @@ EOF
   assert_output "human_input_request"
   run jq -r '.content' "$msg_file"
   assert_output --partial "[question]"
+  # reply_context 포함 확인
+  run jq -r '.reply_context.general' "$msg_file"
+  assert_output "gen-pr"
+  run jq -r '.reply_context.session_id' "$msg_file"
+  assert_output "sess-abc"
 }
 
 @test "king: skips checkpoint/raw/soldier-id result files" {
@@ -250,69 +269,58 @@ EOF
   assert [ -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-004.json" ]
 }
 
-# --- Human Response ---
+# --- Thread Reply (통합 핸들러) ---
 
-@test "king: process_human_response creates resume task" {
-  # Checkpoint for original task
-  cat > "$BASE_DIR/state/results/task-20260210-010-checkpoint.json" << 'EOF'
-{"target_general":"gen-pr","repo":"chequer/qp","context":"some context"}
-EOF
-
-  # Human response event
-  cat > "$BASE_DIR/queue/events/pending/evt-hr-001.json" << 'EOF'
-{"id":"evt-hr-001","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-20260210-010","human_response":"Yes, approve it"}}
+@test "king: process_thread_reply creates resume task from reply_context" {
+  cat > "$BASE_DIR/queue/events/pending/evt-reply-001.json" << 'EOF'
+{"id":"evt-reply-001","type":"slack.thread.reply","source":"slack","priority":"high","payload":{"text":"Yes, approve it","channel":"D08XXX","thread_ts":"1234.5678","reply_context":{"general":"gen-pr","session_id":"sess-abc123","repo":"chequer/qp"}}}
 EOF
 
   process_pending_events
 
   # Event moved to dispatched
-  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-hr-001.json" ]
-  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-hr-001.json" ]
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-reply-001.json" ]
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-reply-001.json" ]
 
   # Resume task created
   local task_file
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
   run jq -r '.type' "$task_file"
   assert_output "resume"
+  run jq -r '.target_general' "$task_file"
+  assert_output "gen-pr"
   run jq -r '.payload.human_response' "$task_file"
   assert_output "Yes, approve it"
+  run jq -r '.payload.session_id' "$task_file"
+  assert_output "sess-abc123"
   run jq -r '.priority' "$task_file"
   assert_output "high"
 }
 
-@test "king: process_human_response includes session_id from checkpoint" {
-  # Checkpoint with session_id
-  cat > "$BASE_DIR/state/results/task-20260210-011-checkpoint.json" << 'EOF'
-{"target_general":"gen-pr","repo":"chequer/qp","session_id":"sess-abc123","payload":{}}
-EOF
-
-  cat > "$BASE_DIR/queue/events/pending/evt-hr-sid.json" << 'EOF'
-{"id":"evt-hr-sid","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-20260210-011","human_response":"Go ahead"}}
+@test "king: process_thread_reply without general discards event" {
+  cat > "$BASE_DIR/queue/events/pending/evt-reply-no-gen.json" << 'EOF'
+{"id":"evt-reply-no-gen","type":"slack.thread.reply","source":"slack","priority":"high","payload":{"text":"Hello","channel":"D08XXX","thread_ts":"1234.5678","reply_context":{}}}
 EOF
 
   process_pending_events
 
-  local task_file
-  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
-  run jq -r '.payload.session_id' "$task_file"
-  assert_output "sess-abc123"
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-reply-no-gen.json" ]
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-reply-no-gen.json" ]
+  # No task should be created
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -eq 0 ]
 }
 
-@test "king: process_human_response handles missing session_id gracefully" {
-  # Checkpoint without session_id (legacy)
-  cat > "$BASE_DIR/state/results/task-20260210-012-checkpoint.json" << 'EOF'
-{"target_general":"gen-pr","repo":"chequer/qp","payload":{}}
-EOF
-
-  cat > "$BASE_DIR/queue/events/pending/evt-hr-nosid.json" << 'EOF'
-{"id":"evt-hr-nosid","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-20260210-012","human_response":"Do it"}}
+@test "king: process_thread_reply handles empty session_id gracefully" {
+  cat > "$BASE_DIR/queue/events/pending/evt-reply-nosid.json" << 'EOF'
+{"id":"evt-reply-nosid","type":"slack.thread.reply","source":"slack","priority":"high","payload":{"text":"Do it","channel":"D08XXX","thread_ts":"1234.5678","reply_context":{"general":"gen-pr","session_id":"","repo":""}}}
 EOF
 
   process_pending_events
 
   local task_file
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
-  # session_id should be empty string (fallback to new session)
   run jq -r '.payload.session_id' "$task_file"
   assert_output ""
 }
@@ -330,15 +338,55 @@ EOF
   assert [ -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-020.json" ]
 }
 
-@test "king: human_response with missing checkpoint moves to completed" {
-  cat > "$BASE_DIR/queue/events/pending/evt-hr-002.json" << 'EOF'
-{"id":"evt-hr-002","type":"slack.human_response","source":"slack","priority":"high","payload":{"task_id":"task-nonexistent","human_response":"test"}}
+# --- DM 메시지 이벤트: thread_start 건너뛰기 ---
+
+@test "king: dispatch_new_task skips thread_start when message_ts present" {
+  cat > "$BASE_DIR/queue/events/pending/evt-dm-001.json" << 'EOF'
+{"id":"evt-dm-001","type":"slack.channel.message","source":"slack","priority":"normal","repo":null,"payload":{"text":"hello","channel":"D08XXX","message_ts":"1234.5678"}}
 EOF
+
+  # 라우팅 테이블에 slack.channel.message → gen-pr 수동 추가
+  local updated
+  updated=$(jq '. + {"slack.channel.message": "gen-pr"}' "$ROUTING_TABLE_FILE")
+  echo "$updated" > "$ROUTING_TABLE_FILE"
 
   process_pending_events
 
-  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-hr-002.json" ]
-  assert [ -f "$BASE_DIR/queue/events/completed/evt-hr-002.json" ]
+  # 이벤트 dispatched
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-dm-001.json" ]
+
+  # thread_start 메시지가 생성되지 않아야 함
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -eq 0 ]
+}
+
+# --- handle_success reply_to ---
+
+@test "king: handle_success creates thread_reply when channel/thread_ts present" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-030.json" << 'EOF'
+{"id":"task-20260210-030","event_id":"evt-030","target_general":"gen-pr","type":"slack.channel.message","payload":{"channel":"D08XXX","message_ts":"1234.5678"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-030.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-030.json" << 'EOF'
+{"task_id":"task-20260210-030","status":"success","summary":"Done!"}
+EOF
+
+  check_task_results
+
+  # Task completed
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-030.json" ]
+
+  # thread_reply 메시지 생성 확인
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_reply"
+  run jq -r '.channel' "$msg_file"
+  assert_output "D08XXX"
+  run jq -r '.thread_ts' "$msg_file"
+  assert_output "1234.5678"
 }
 
 # --- Cron Matching ---

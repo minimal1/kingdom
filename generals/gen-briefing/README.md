@@ -1,6 +1,6 @@
 # gen-briefing — Kingdom Briefing Cat General
 
-Kingdom 시스템 상태를 10분마다 Slack에 브리핑하는 장군.
+Kingdom 시스템 상태를 매시 정각에 Slack에 브리핑하는 장군.
 고양이 말투(~냥)로 가독성 높은 포맷을 사용한다.
 
 ## 사전 요구사항
@@ -20,7 +20,7 @@ CC 플러그인 없이 `install-general.sh`만 호출한다.
 
 | 이름 | cron | 설명 |
 |------|------|------|
-| briefing-10min | `*/10 * * * *` | 10분마다 시스템 브리핑 |
+| briefing-hourly | `0 * * * *` | 매시 정각 시스템 브리핑 |
 
 ## Slack 채널
 

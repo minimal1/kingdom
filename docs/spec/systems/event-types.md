@@ -34,12 +34,15 @@
 
 ### 사절 (Envoy) → 왕
 
-Slack에서 감지한 사람의 응답. 왕이 **기존 작업을 재개**하여 처리.
+Slack에서 감지한 사람의 메시지/응답. 왕이 **새 작업 생성** 또는 **기존 작업 재개**.
 
 | Type | 소스 | 발생 조건 | Priority | ID 패턴 |
 |------|------|----------|----------|---------|
-| `slack.human_response` | Slack | needs_human 스레드에 사람이 답변 | high | `evt-slack-response-{task_id}-{unix_ts}` |
+| `slack.channel.message` | Slack | DM 새 top-level 메시지 | normal | `evt-slack-msg-{ts_sanitized}` |
+| `slack.thread.reply` | Slack | 스레드 사람 응답 (needs_human + 대화 통합) | high | `evt-slack-reply-{thread_ts_sanitized}-{unix_ts}` |
+| ~~`slack.human_response`~~ | ~~Slack~~ | ~~needs_human 스레드에 사람이 답변~~ | ~~high~~ | **폐기** → `slack.thread.reply`로 대체 |
 
+> `slack.thread.reply`는 needs_human 응답과 대화 스레드 응답을 통합. payload.reply_context에서 general, session_id, repo를 전달.
 > 상세: [roles/envoy.md](../roles/envoy.md#인바운드-slack--시스템)
 
 ---
@@ -58,9 +61,13 @@ queue/events/pending/
      │   → 새 작업 생성 (라우팅: 어떤 장군에게?)
      │   → queue/tasks/pending/ 에 작업 파일 생성
      │
-     └─ source: slack (type: slack.human_response)
-         → 기존 작업 재개 (체크포인트 + 사람 응답 결합)
-         → queue/tasks/pending/ 에 작업 파일 생성 (재개 플래그 포함)
+     ├─ type: slack.channel.message
+     │   → 새 작업 생성 (DM 대화 시작)
+     │   → queue/tasks/pending/ 에 작업 파일 생성
+     │
+     └─ type: slack.thread.reply
+         → 기존 작업 재개 (reply_context에서 general/session_id 복원)
+         → queue/tasks/pending/ 에 작업 파일 생성 (resume 플래그 포함)
 ```
 
 ### 새 작업 생성 경로
@@ -78,10 +85,10 @@ queue/events/pending/
 ### 기존 작업 재개 경로
 
 ```
-slack.human_response
-  → payload.task_id로 원래 작업 조회
-  → 체크포인트 파일 확인 (state/results/{task_id}-checkpoint.json)
-  → 원래 장군에게 재배정 (체크포인트 + 사람 응답 포함)
+slack.thread.reply
+  → payload.reply_context에서 general, session_id, repo 추출
+  → resume 태스크 생성 (checkpoint 조회 불필요)
+  → 원래 장군에게 재배정 (session_id 기반 세션 재개)
 ```
 
 ---
@@ -111,13 +118,14 @@ slack.human_response
 |------|------|--------|----------|
 | GitHub | `evt-github-{notification_id}` | 파수꾼 | ETag + seen/ 인덱스 |
 | Jira | `evt-jira-{ticket_key}-{updated_ts}` | 파수꾼 | timestamp 기반 + seen/ 인덱스 |
-| Slack | `evt-slack-response-{task_id}-{unix_ts}` | 사절 | task_id + timestamp 자연적 유일성 |
+| Slack (DM) | `evt-slack-msg-{ts_sanitized}` | 사절 | ts 자연적 유일성 |
+| Slack (reply) | `evt-slack-reply-{thread_ts_sanitized}-{unix_ts}` | 사절 | thread_ts + timestamp |
 
 ### Priority 기준
 
 | Priority | 기준 | 예시 |
 |----------|------|------|
-| `high` | 즉시 처리 필요, 사람이 기다리는 중 | `slack.human_response` |
+| `high` | 즉시 처리 필요, 사람이 기다리는 중 | `slack.thread.reply` |
 | `normal` | 일반 작업 흐름 | PR 리뷰 요청, 티켓 할당 |
 | `low` | 급하지 않은 알림 | Issue 멘션, 코멘트 |
 

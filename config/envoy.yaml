@@ -7,3 +7,6 @@ intervals:
   outbound_seconds: 5
   thread_check_seconds: 30
   loop_tick_seconds: 5
+  channel_check_seconds: 30
+  conversation_check_seconds: 15
+  conversation_ttl_seconds: 3600

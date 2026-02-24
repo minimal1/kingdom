@@ -63,6 +63,8 @@ fi
 # Envoy state
 [[ -f "$BASE_DIR/state/envoy/thread-mappings.json" ]] || echo '{}' > "$BASE_DIR/state/envoy/thread-mappings.json"
 [[ -f "$BASE_DIR/state/envoy/awaiting-responses.json" ]] || echo '[]' > "$BASE_DIR/state/envoy/awaiting-responses.json"
+[[ -f "$BASE_DIR/state/envoy/conversation-threads.json" ]] || echo '{}' > "$BASE_DIR/state/envoy/conversation-threads.json"
+[[ -f "$BASE_DIR/state/envoy/last-channel-check-ts" ]] || echo "0" > "$BASE_DIR/state/envoy/last-channel-check-ts"
 
 # Chamberlain state
 [[ -f "$BASE_DIR/state/chamberlain/events-offset" ]] || echo "0" > "$BASE_DIR/state/chamberlain/events-offset"

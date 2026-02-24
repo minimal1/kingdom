@@ -58,6 +58,12 @@ send_thread_reply() {
       '{channel: $c, thread_ts: $ts, text: $t}')"
 }
 
+read_channel_messages() {
+  local channel="$1" oldest="$2"
+  slack_api "conversations.history" \
+    "$(jq -n --arg c "$channel" --arg o "$oldest" '{channel: $c, oldest: $o, limit: 20}')"
+}
+
 read_thread_replies() {
   local channel="$1"
   local thread_ts="$2"

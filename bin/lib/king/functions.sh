@@ -129,9 +129,9 @@ process_pending_events() {
     local priority
     priority=$(echo "$event" | jq -r '.priority')
 
-    # slack.human_response → resume path
-    if [ "$event_type" = "slack.human_response" ]; then
-      process_human_response "$event" "$event_file" || true
+    # slack.thread.reply → unified resume path
+    if [ "$event_type" = "slack.thread.reply" ]; then
+      process_thread_reply "$event" "$event_file" || true
       continue
     fi
 
@@ -209,77 +209,62 @@ dispatch_new_task() {
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
 
-  create_thread_start_message "$task_id" "$general" "$event"
+  # DM 메시지 이벤트는 이미 스레드가 있으므로 thread_start 건너뜀
+  local reply_to_ts
+  reply_to_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
+  if [[ -z "$reply_to_ts" ]]; then
+    create_thread_start_message "$task_id" "$general" "$event"
+  fi
   mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
 
   log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"
 }
 
-process_human_response() {
+process_thread_reply() {
   local event="$1"
   local event_file="$2"
 
   local event_id
   event_id=$(echo "$event" | jq -r '.id')
-  local original_task_id
-  original_task_id=$(echo "$event" | jq -r '.payload.task_id')
-  local human_response
-  human_response=$(echo "$event" | jq -r '.payload.human_response')
-  local task_id
-  task_id=$(next_task_id)
+  local text
+  text=$(echo "$event" | jq -r '.payload.text')
+  local channel
+  channel=$(echo "$event" | jq -r '.payload.channel')
+  local thread_ts
+  thread_ts=$(echo "$event" | jq -r '.payload.thread_ts')
 
-  local checkpoint_file="$BASE_DIR/state/results/${original_task_id}-checkpoint.json"
-  if [ ! -f "$checkpoint_file" ]; then
-    log "[ERROR] [king] Checkpoint not found for task: $original_task_id"
+  # reply_context에서 resume 정보 추출
+  local general
+  general=$(echo "$event" | jq -r '.payload.reply_context.general // empty')
+  local session_id
+  session_id=$(echo "$event" | jq -r '.payload.reply_context.session_id // empty')
+  local repo
+  repo=$(echo "$event" | jq -r '.payload.reply_context.repo // empty')
+
+  if [[ -z "$general" ]]; then
+    log "[WARN] [king] No general in reply_context, discarding: $event_id"
     mv "$event_file" "$BASE_DIR/queue/events/completed/"
-    return 1
+    return 0
   fi
 
-  local checkpoint
-  checkpoint=$(cat "$checkpoint_file")
-  local original_general
-  original_general=$(echo "$checkpoint" | jq -r '.target_general')
-  local repo
-  repo=$(echo "$checkpoint" | jq -r '.repo // empty')
-  local session_id
-  session_id=$(echo "$checkpoint" | jq -r '.session_id // empty')
-
+  local task_id
+  task_id=$(next_task_id)
   local task
   task=$(jq -n \
-    --arg id "$task_id" \
-    --arg event_id "$event_id" \
-    --arg general "$original_general" \
-    --arg original_task "$original_task_id" \
-    --arg response "$human_response" \
-    --arg repo "$repo" \
-    --arg checkpoint_path "$checkpoint_file" \
-    --arg session_id "$session_id" \
-    '{
-      id: $id,
-      event_id: $event_id,
-      target_general: $general,
-      type: "resume",
-      repo: $repo,
-      payload: {
-        original_task_id: $original_task,
-        checkpoint_path: $checkpoint_path,
-        human_response: $response,
-        session_id: $session_id
-      },
-      priority: "high",
-      retry_count: 0,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
-      status: "pending"
-    }')
+    --arg id "$task_id" --arg event_id "$event_id" \
+    --arg general "$general" --arg text "$text" \
+    --arg session_id "$session_id" --arg repo "$repo" \
+    --arg channel "$channel" --arg thread_ts "$thread_ts" \
+    '{ id: $id, event_id: $event_id, target_general: $general,
+       type: "resume", repo: (if $repo == "" then null else $repo end),
+       payload: { human_response: $text, session_id: $session_id,
+                  channel: $channel, thread_ts: $thread_ts },
+       priority: "high",
+       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
-
-  create_thread_update_message "$original_task_id" \
-    "Human response received — resuming task"
-
   mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
-
-  log "[EVENT] [king] Resumed task: $original_task_id -> $original_general (new: $task_id)"
+  log "[EVENT] [king] Thread reply -> $general (task: $task_id)"
 }
 
 # --- Result Processing ---
@@ -336,7 +321,45 @@ handle_success() {
   general=$(echo "$task" | jq -r '.target_general')
 
   complete_task "$task_id"
-  create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
+
+  # reply_to 분기: 기존 스레드에 답글 or 새 알림
+  local reply_ch
+  reply_ch=$(echo "$task" | jq -r '.payload.channel // empty')
+  local reply_ts
+  reply_ts=$(echo "$task" | jq -r '.payload.thread_ts // .payload.message_ts // empty')
+
+  if [[ -n "$reply_ch" && -n "$reply_ts" ]]; then
+    local session_id=""
+    local session_id_file="$BASE_DIR/state/results/${task_id}-session-id"
+    if [ -f "$session_id_file" ]; then
+      session_id=$(cat "$session_id_file")
+    fi
+    local repo
+    repo=$(echo "$task" | jq -r '.repo // empty')
+    local msg_id
+    msg_id=$(next_msg_id)
+
+    local track_json="null"
+    if [[ -n "$session_id" ]]; then
+      local reply_ctx
+      reply_ctx=$(jq -n --arg s "$session_id" --arg g "$general" --arg r "$repo" \
+        '{session_id: $s, general: $g, repo: $r}')
+      track_json=$(jq -n --argjson rc "$reply_ctx" '{reply_context: $rc}')
+    fi
+
+    local message
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$task_id" \
+      --arg ch "$reply_ch" --arg ts "$reply_ts" --arg ct "$summary" \
+      --argjson tc "$track_json" \
+      '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
+         thread_ts: $ts, content: $ct, track_conversation: $tc,
+         created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+    write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+  else
+    create_notification_message "$task_id" \
+      "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
+  fi
 
   log "[EVENT] [king] Task completed: $task_id"
 }
@@ -366,6 +389,25 @@ handle_needs_human() {
   local checkpoint_path
   checkpoint_path=$(echo "$result" | jq -r '.checkpoint_path')
 
+  # checkpoint에서 reply_context 구성
+  local checkpoint
+  checkpoint=$(cat "$checkpoint_path" 2>/dev/null || echo '{}')
+  local general
+  general=$(echo "$checkpoint" | jq -r '.target_general // empty')
+  local session_id
+  session_id=$(echo "$checkpoint" | jq -r '.session_id // empty')
+  local repo
+  repo=$(echo "$checkpoint" | jq -r '.repo // empty')
+
+  local reply_ctx
+  reply_ctx=$(jq -n \
+    --arg g "$general" --arg s "$session_id" --arg r "$repo" \
+    '{general: $g, session_id: $s, repo: $r}')
+
+  # 태스크 완료 (checkpoint에 모든 정보 보존됨)
+  complete_task "$task_id"
+  rm -f "$BASE_DIR/state/results/${task_id}.json"
+
   local msg_id
   msg_id=$(next_msg_id)
   local message
@@ -373,21 +415,19 @@ handle_needs_human() {
     --arg id "$msg_id" \
     --arg task_id "$task_id" \
     --arg content "[question] $question" \
-    --arg checkpoint "$checkpoint_path" \
+    --argjson reply_ctx "$reply_ctx" \
     '{
       id: $id,
       type: "human_input_request",
       task_id: $task_id,
       content: $content,
-      context: { checkpoint_path: $checkpoint },
+      reply_context: $reply_ctx,
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
       status: "pending"
     }')
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
-
-  # Task stays in_progress (waiting for human response)
-  log "[EVENT] [king] Needs human input for task: $task_id"
+  log "[EVENT] [king] Needs human input: $task_id (completed, reply_context included)"
 }
 
 handle_skipped() {

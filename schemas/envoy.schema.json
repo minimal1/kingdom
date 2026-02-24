@@ -48,6 +48,24 @@
           "description": "메인 루프 sleep 틱",
           "minimum": 1,
           "default": 5
+        },
+        "channel_check_seconds": {
+          "type": "integer",
+          "description": "DM 채널 새 메시지 감지 주기",
+          "minimum": 10,
+          "default": 30
+        },
+        "conversation_check_seconds": {
+          "type": "integer",
+          "description": "대화 스레드 후속 응답 확인 주기",
+          "minimum": 10,
+          "default": 15
+        },
+        "conversation_ttl_seconds": {
+          "type": "integer",
+          "description": "대화 스레드 추적 만료 시간 (초)",
+          "minimum": 60,
+          "default": 3600
         }
       }
     }

@@ -184,21 +184,16 @@ spawn_soldier() {
     return 1
   fi
 
-  # Check if this is a resume task → load original session_id
+  # Check if this is a resume task → payload.session_id 직접 사용
   local resume_session_id=""
   local task_file="$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
   if [ -f "$task_file" ]; then
     local task_type
     task_type=$(jq -r '.type // ""' "$task_file" 2>/dev/null || true)
     if [ "$task_type" = "resume" ]; then
-      local orig_task_id
-      orig_task_id=$(jq -r '.payload.original_task_id // ""' "$task_file" 2>/dev/null || true)
-      if [ -n "$orig_task_id" ]; then
-        local sid_file="$BASE_DIR/state/results/${orig_task_id}-session-id"
-        if [ -f "$sid_file" ]; then
-          resume_session_id=$(cat "$sid_file")
-          log "[SYSTEM] [$GENERAL_DOMAIN] Resume session_id loaded: $resume_session_id"
-        fi
+      resume_session_id=$(jq -r '.payload.session_id // ""' "$task_file" 2>/dev/null || true)
+      if [ -n "$resume_session_id" ]; then
+        log "[SYSTEM] [$GENERAL_DOMAIN] Resume session_id from payload: $resume_session_id"
       fi
     fi
   fi
@@ -384,14 +379,7 @@ main_loop() {
     task_type=$(echo "$task" | jq -r '.type // ""')
     local resume_session_id=""
     if [ "$task_type" = "resume" ]; then
-      local orig_id
-      orig_id=$(echo "$task" | jq -r '.payload.original_task_id // ""')
-      if [ -n "$orig_id" ]; then
-        local sid_file="$BASE_DIR/state/results/${orig_id}-session-id"
-        if [ -f "$sid_file" ]; then
-          resume_session_id=$(cat "$sid_file")
-        fi
-      fi
+      resume_session_id=$(echo "$task" | jq -r '.payload.session_id // ""')
     fi
 
     if [ -n "$resume_session_id" ]; then

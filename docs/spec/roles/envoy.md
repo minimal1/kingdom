@@ -16,17 +16,18 @@
 ## 책임
 
 - **Slack 소통 독점** — 시스템에서 Slack에 접근하는 유일한 역할
-- **아웃바운드 (주 역할)**: 시스템 내부 이벤트를 사람이 이해할 수 있는 형태로 Slack에 전달
+- **아웃바운드**: 시스템 내부 이벤트를 사람이 이해할 수 있는 형태로 Slack에 전달
+- **인바운드**: DM 새 메시지 감지, needs_human 응답 감지, 대화 스레드 후속 응답 감지
 - 작업별 스레드 생명주기 관리 (생성 → 업데이트 → 종료)
-- `needs_human` 작업의 스레드 응답 감지 및 이벤트 생성 (드문 경우)
+- reply_context 추적: 왕이 포함한 메타데이터를 저장하고 이벤트에 그대로 반환
 - 정기 리포트 발송
 
 ## 하지 않는 것
 
 - 작업 판단이나 실행 (왕/장군의 책임)
 - GitHub/Jira 이벤트 감지 (파수꾼의 책임)
-- **Slack 채널에서 새 작업 명령 수신** — 작업은 GitHub/Jira 이벤트로만 유입 (파수꾼 경유)
-- 메시지 내용에 기반한 작업 수행
+- 메시지 내용 해석 또는 작업 판단 (사절은 메시지 파이프라인)
+- reply_context 해석 — 그대로 전달만 할 뿐 의미를 모름
 
 ---
 
@@ -173,6 +174,7 @@ read_thread_replies() {
 ├─ notification    │──→ 채널 메시지 또는 스레드 답글
 ├─ thread_start    │──→ 채널 메시지 생성 → thread_ts 기록
 ├─ thread_update   │──→ 기존 스레드에 답글
+├─ thread_reply    │──→ 스레드 답글 + 대화 추적 등록
 ├─ human_input_req │──→ 스레드에 질문 게시 + awaiting 등록
 ├─ report          │──→ 채널 메시지 (스레드 없이)
 └──────────────────┘
@@ -258,8 +260,9 @@ process_human_input_request() {
   # 스레드에 질문 게시
   send_thread_reply "$channel" "$thread_ts" "$content"
 
-  # awaiting_response 목록에 등록
-  add_awaiting_response "$task_id" "$thread_ts" "$channel"
+  # awaiting_response 목록에 등록 (reply_context 포함)
+  local reply_ctx=$(echo "$msg" | jq -c '.reply_context // {}')
+  add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
 
   log "[EVENT] [envoy] Human input requested for task: $task_id"
 }
@@ -325,104 +328,97 @@ process_notification() {
 
 ## 인바운드: Slack → 시스템
 
-### 설계 결정: 채널 명령 수신 없음
+사절은 세 가지 인바운드 경로를 감지한다. 모든 스레드 응답은 `slack.thread.reply` 단일 이벤트로 통합.
 
-작업은 **GitHub/Jira 이벤트로만 유입**된다 (파수꾼 경유). Slack 채널에서 "리뷰해줘" 같은 명령을 받아 처리하는 경로는 두지 않는다.
+### 1. DM 새 메시지 → `slack.channel.message`
 
-이유:
-- GitHub에서 review request 하는 것이 Slack에 타이핑하는 것보다 자연스러움
-- LLM 분류 의존성 (API 비용, 오분류 위험)이 제거됨
-- 사절의 역할이 단순해짐 — 거의 순수 아웃바운드
+```
+사용자 DM: "안녕" (ts: 1234.5678)
+     ▼
+사절: check_channel_messages() (30초 간격)
+     → conversations.history로 새 top-level 메시지 감지
+     → 봇 메시지, 스레드 답글 필터
+     → slack.channel.message 이벤트 생성
+     ▼
+왕: 장군 라우팅 → 작업 배정
+```
 
-따라서 인바운드는 **needs_human 스레드 응답 감지**만 존재한다.
+상태 파일: `state/envoy/last-channel-check-ts` (마지막 확인 ts)
 
-### 스레드 응답 → needs_human 처리
+### 2. Awaiting 응답 (needs_human) → `slack.thread.reply`
 
 ```
 사람 (Slack 스레드)
-     │
-     │ "포함해줘" (needs_human 질문에 대한 답변)
+     │ "포함해줘"
      ▼
-┌──────────────────────────┐
-│ 사절 루프                 │
-│ awaiting_response 스레드  │ (30초 간격)
-│ 새 답글 감지              │
-└──────┬───────────────────┘
-       ▼
-┌──────────────────┐
-│ 이벤트 생성      │──→ queue/events/pending/
-│                  │    type: "slack.human_response"
-└──────────────────┘
-       ▼
-  왕이 소비 → 체크포인트 + 응답으로 작업 재배정
+사절: check_awaiting_responses() (30초 간격)
+     → reply_context 포함한 slack.thread.reply 이벤트 생성
+     → awaiting-responses.json에서 제거
+     ▼
+왕: process_thread_reply() → resume 태스크 (reply_context에서 general/session_id 복원)
 ```
 
-```bash
-check_awaiting_responses() {
-  local awaiting_file="state/envoy/awaiting-responses.json"
-  [ -f "$awaiting_file" ] || return 0
+### 3. 대화 스레드 (멀티턴) → `slack.thread.reply`
 
-  # 각 awaiting 스레드를 확인
-  jq -c '.[]' "$awaiting_file" | while read -r entry; do
-    local task_id=$(echo "$entry" | jq -r '.task_id')
-    local thread_ts=$(echo "$entry" | jq -r '.thread_ts')
-    local channel=$(echo "$entry" | jq -r '.channel')
-    local asked_at=$(echo "$entry" | jq -r '.asked_at')
+```
+사용자 스레드 답글
+     ▼
+사절: check_conversation_threads() (15초 간격)
+     → TTL 만료 체크 → 만료 시 추적 제거
+     → 새 답글 감지 → reply_context 포함한 slack.thread.reply 이벤트 생성
+     → last_reply_ts 갱신
+     ▼
+왕: process_thread_reply() → resume 태스크 (동일한 핸들러)
+```
 
-    # 스레드의 새 답글 읽기 (질문 이후)
-    local replies=$(read_thread_replies "$channel" "$thread_ts" "$asked_at")
+상태 파일: `state/envoy/conversation-threads.json` (thread_ts → {channel, last_reply_ts, expires_at, reply_context})
 
-    # 봇이 아닌 사람의 답글 필터링
-    # 의도: 첫 번째 응답만 취한다. 사람이 여러 메시지로 답변한 경우 첫 메시지만 전달.
-    # 이유: 체크포인트 재개 시 단일 응답이 명확. 복잡한 지시는 스레드에 한 메시지로 작성 유도.
-    local human_reply=$(echo "$replies" | jq -r '
-      .messages[]? | select(.bot_id == null and .ts != "'"$thread_ts"'") | .text' | head -1)
+### reply_context 흐름
 
-    if [ -n "$human_reply" ]; then
-      # 이벤트 생성
-      # ID 패턴: evt-slack-response-{task_id}-{unix_timestamp}
-      # (message-passing.md의 evt-slack-{channel}-{message_ts}와 다름 — 응답 이벤트는 task 기반)
-      local event_id="evt-slack-response-${task_id}-$(date +%s)"
-      local event=$(jq -n \
-        --arg id "$event_id" \
-        --arg task_id "$task_id" \
-        --arg response "$human_reply" \
-        '{
-          id: $id,
-          type: "slack.human_response",
-          source: "slack",
-          repo: null,
-          payload: {
-            task_id: $task_id,
-            human_response: $response
-          },
-          priority: "high",
-          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
-          status: "pending"
-        }')
+사절은 메시지 의미를 해석하지 않는다. 왕이 아웃바운드 메시지에 포함한 `reply_context`를 추적 파일에 저장하고, 사람 응답 시 이벤트 payload에 그대로 반환한다.
 
-      emit_event "$event"
-      remove_awaiting_response "$task_id"
+```
+왕 → human_input_request { reply_context: {general, session_id, repo} }
+  → 사절: awaiting-responses.json에 reply_context 저장
+  → 사람 응답 → 사절: slack.thread.reply 이벤트 { payload.reply_context }
 
-      log "[EVENT] [envoy] Human responded for task: $task_id"
-    else
-      # 24시간 무응답 → 리마인더 발송
-      local asked_epoch=$(date -d "$asked_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$asked_at" +%s)
-      local now_epoch=$(date +%s)
-      local hours_elapsed=$(( (now_epoch - asked_epoch) / 3600 ))
+왕 → thread_reply { track_conversation: {reply_context, ttl_seconds} }
+  → 사절: conversation-threads.json에 저장
+  → 사람 답글 → 사절: slack.thread.reply 이벤트 { payload.reply_context }
+```
 
-      if (( hours_elapsed >= 24 )); then
-        # 매 24시간마다 리마인더 (asked_at 기준이므로 반복 방지는 별도 필요 없음 — 응답이 오면 제거됨)
-        if (( hours_elapsed % 24 == 0 )) || (( hours_elapsed == 24 )); then
-          send_thread_reply "$channel" "$thread_ts" \
-            "[리마인더] 응답 대기 중입니다 (${hours_elapsed}시간 경과). 위 질문에 답변해 주세요."
-          log "[WARN] [envoy] Reminder sent for task: $task_id (${hours_elapsed}h)"
-        fi
-      fi
-    fi
-  done
+### 통합 이벤트 스키마: `slack.thread.reply`
+
+```json
+{
+  "id": "evt-slack-reply-{thread_ts_sanitized}-{unix_ts}",
+  "type": "slack.thread.reply",
+  "source": "slack",
+  "payload": {
+    "text": "사람 응답 텍스트",
+    "channel": "D08XXX",
+    "thread_ts": "1234.5678",
+    "reply_context": {
+      "general": "gen-pr",
+      "session_id": "session-abc",
+      "repo": "querypie/frontend"
+    }
+  },
+  "priority": "high",
+  "created_at": "...",
+  "status": "pending"
 }
 ```
+
+### needs_human vs 대화 — 추적 파일 분리, 이벤트 통합
+
+| | needs_human | 대화 스레드 |
+|---|---|---|
+| 시작자 | 시스템 (thread_start) | 유저 (DM) |
+| 추적 파일 | `awaiting-responses.json` | `conversation-threads.json` |
+| 추적 모드 | 일회성 (응답 후 제거) | 멀티턴 (TTL 기반) |
+| **이벤트** | **`slack.thread.reply`** | **`slack.thread.reply`** |
+| **왕 핸들러** | **`process_thread_reply()`** | **`process_thread_reply()`** |
 
 ---
 
@@ -456,7 +452,9 @@ check_awaiting_responses() {
 state/envoy/
 ├── heartbeat                    # 생존 확인
 ├── thread-mappings.json         # { "task-001": { "thread_ts": "...", "channel": "..." } }
-└── awaiting-responses.json      # [ { "task_id": "...", "thread_ts": "...", "asked_at": "..." } ]
+├── awaiting-responses.json      # [ { "task_id": "...", "thread_ts": "...", "reply_context": {...}, "asked_at": "..." } ]
+├── conversation-threads.json    # { "1234.5678": { "task_id": "...", "channel": "...", "last_reply_ts": "...", "expires_at": "...", "reply_context": {...} } }
+└── last-channel-check-ts        # DM 채널 마지막 확인 ts (숫자)
 ```
 
 ### 스레드 관리 함수 (`thread-manager.sh`)
@@ -488,9 +486,11 @@ remove_thread_mapping() {
 # ── awaiting 관리 ──────────────────────────────────
 
 add_awaiting_response() {
-  local task_id="$1" thread_ts="$2" channel="$3"
+  local task_id="$1" thread_ts="$2" channel="$3" reply_context_json="${4:-"{}"}"
+  local asked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local tmp=$(jq --arg tid "$task_id" --arg ts "$thread_ts" --arg ch "$channel" \
-    '. + [{task_id: $tid, thread_ts: $ts, channel: $ch, asked_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ"))}]' \
+    --arg aa "$asked_at" --argjson rc "$reply_context_json" \
+    '. + [{task_id: $tid, thread_ts: $ts, channel: $ch, asked_at: $aa, reply_context: $rc}]' \
     "$AWAITING_FILE")
   echo "$tmp" > "$AWAITING_FILE"
 }
@@ -540,9 +540,14 @@ trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [envoy] Shutting down.
 # ── 타이머 ───────────────────────────────────────
 LAST_OUTBOUND=0      # 아웃바운드: 메시지 큐 소비
 LAST_THREAD_CHECK=0  # 스레드: awaiting 응답 확인
+LAST_CHANNEL_CHECK=0 # DM: 새 메시지 감지
+LAST_CONV_CHECK=0    # 대화: 스레드 후속 응답 감지
 
-OUTBOUND_INTERVAL=5       # 5초  — 내부 메시지는 빠르게 전달
-THREAD_CHECK_INTERVAL=30  # 30초 — awaiting 스레드 확인 (needs_human 시에만 활성)
+OUTBOUND_INTERVAL=$(get_config "envoy" "intervals.outbound_seconds" "5")
+THREAD_CHECK_INTERVAL=$(get_config "envoy" "intervals.thread_check_seconds" "30")
+CHANNEL_CHECK_INTERVAL=$(get_config "envoy" "intervals.channel_check_seconds" "30")
+CONV_CHECK_INTERVAL=$(get_config "envoy" "intervals.conversation_check_seconds" "15")
+CONV_TTL=$(get_config "envoy" "intervals.conversation_ttl_seconds" "3600")
 
 log "[SYSTEM] [envoy] Started."
 
@@ -563,7 +568,19 @@ while $RUNNING; do
     LAST_THREAD_CHECK=$now
   fi
 
-  sleep 5  # 메인 루프 틱
+  # ── 3. DM 채널 메시지 확인 (30초) ──────────────
+  if (( now - LAST_CHANNEL_CHECK >= CHANNEL_CHECK_INTERVAL )); then
+    check_channel_messages
+    LAST_CHANNEL_CHECK=$now
+  fi
+
+  # ── 4. 대화 스레드 후속 응답 확인 (15초) ────────
+  if (( now - LAST_CONV_CHECK >= CONV_CHECK_INTERVAL )); then
+    check_conversation_threads
+    LAST_CONV_CHECK=$now
+  fi
+
+  sleep "$LOOP_TICK"
 done
 ```
 
@@ -626,9 +643,8 @@ process_outbound_queue() {
 
 | Type | 발생 조건 | Priority |
 |------|----------|----------|
-| `slack.human_response` | needs_human 스레드에 사람이 답변 | high |
-
-> 채널 메시지를 통한 작업 명령 수신은 지원하지 않는다. 작업은 GitHub/Jira 이벤트로만 유입.
+| `slack.channel.message` | DM 새 top-level 메시지 | normal |
+| `slack.thread.reply` | 스레드 사람 응답 (needs_human + 대화 통합) | high |
 
 ### 아웃바운드 메시지 타입 (시스템 → Slack)
 
@@ -636,41 +652,45 @@ process_outbound_queue() {
 |------|--------|-----------|
 | `thread_start` | 왕 | 채널 메시지 생성 (스레드 부모) |
 | `thread_update` | 장군/병사 경유 | 스레드 답글 |
-| `human_input_request` | 왕 (needs_human 감지 시) | 스레드 답글 + awaiting 등록 |
+| `thread_reply` | 왕 (성공 시 reply_to) | 스레드 답글 + 대화 추적 등록 (선택) |
+| `human_input_request` | 왕 (needs_human 감지 시) | 스레드 답글 + awaiting 등록 (reply_context 포함) |
 | `notification` | 왕/장군/내관 | 스레드 답글 또는 채널 메시지 |
 | `report` | 내관 (generate_daily_report) | 채널 메시지 |
 
 ---
 
-## needs_human 전체 흐름
+## needs_human 전체 흐름 (정리됨)
 
 ```
 1. 병사: 작업 중 판단 필요 → result에 needs_human + checkpoint 저장 → 종료
 
-2. 장군/왕: needs_human 결과 감지
-   → 사절에게 human_input_request 메시지 생성
+2. 장군: escalate_to_king() → checkpoint 저장
+
+3. 왕: handle_needs_human()
+   → complete_task() — 태스크 즉시 완료 (in_progress 잔류 없음)
+   → reply_context 구성 (checkpoint에서 general/session_id/repo 추출)
+   → human_input_request 메시지 생성 (reply_context 포함)
    {
      type: "human_input_request",
      task_id: "task-001",
      content: "[question] 보안 이슈 2건, 리뷰에 포함할까요?",
-     context: { checkpoint_path: "state/results/task-001-checkpoint.json" }
+     reply_context: { general: "gen-pr", session_id: "session-abc", repo: "querypie/frontend" }
    }
 
-3. 사절: 스레드에 질문 게시 + awaiting_responses에 등록
+4. 사절: 스레드에 질문 게시 + awaiting_responses에 등록 (reply_context 포함)
 
-4. 사람: 스레드에서 "포함해줘" 답변
+5. 사람: 스레드에서 "포함해줘" 답변
 
-5. 사절: 스레드 폴링에서 답변 감지
+6. 사절: 스레드 폴링에서 답변 감지
    → queue/events/pending/ 에 이벤트 생성
    {
-     type: "slack.human_response",
-     payload: { task_id: "task-001", human_response: "포함해줘" }
+     type: "slack.thread.reply",
+     payload: { text: "포함해줘", reply_context: { general: "gen-pr", session_id: "session-abc" } }
    }
 
-6. 왕: 이벤트 소비 → 체크포인트 + 사람 응답 포함하여 작업 재배정
+7. 왕: process_thread_reply() → reply_context에서 resume 태스크 생성 (checkpoint 조회 불필요)
 
-7. 새 병사: 체크포인트에서 재개
-   프롬프트: "이전 체크포인트를 이어서 진행. 사람 응답: '포함해줘'"
+8. 장군: --resume SESSION_ID → 세션 재개
 ```
 
 ---
@@ -710,8 +730,11 @@ slack:
   default_channel: "dev-eddy"            # fallback (환경변수 SLACK_DEFAULT_CHANNEL 우선)
 
 intervals:
-  outbound_seconds: 5         # 메시지 큐 소비
-  thread_check_seconds: 30    # awaiting 스레드 확인
+  outbound_seconds: 5                   # 메시지 큐 소비
+  thread_check_seconds: 30              # awaiting 스레드 확인
+  channel_check_seconds: 30             # DM 새 메시지 감지
+  conversation_check_seconds: 15        # 대화 스레드 후속 응답 확인
+  conversation_ttl_seconds: 3600        # 대화 스레드 추적 만료 (1시간)
 ```
 
 ## 장애 대응
@@ -745,7 +768,8 @@ intervals:
 | `chat:write` | 채널/스레드에 메시지 전송 | `chat.postMessage` |
 | `channels:history` | 공개 채널의 스레드 답글 읽기 (needs_human 응답 감지) | `conversations.replies` |
 | `channels:read` | 채널 ID 조회 | `conversations.list` (초기 설정 시) |
-| `im:history` | DM 스레드의 답글 읽기 (DM 모드에서 needs_human 응답 감지) | `conversations.replies` |
+| `im:history` | DM 메시지 읽기 (DM 모드에서 인바운드 메시지 + 응답 감지) | `conversations.history`, `conversations.replies` |
+| `im:write` | DM으로 메시지 전송 | `chat.postMessage` (DM 모드) |
 
 > `channels:history`/`im:history`는 메시지 전체를 읽을 수 있는 권한이지만, 사절은 awaiting 스레드의 답글만 읽는다.
 
