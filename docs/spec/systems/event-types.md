@@ -62,8 +62,9 @@ queue/events/pending/
      │   → queue/tasks/pending/ 에 작업 파일 생성
      │
      ├─ type: slack.channel.message
-     │   → 새 작업 생성 (DM 대화 시작)
-     │   → queue/tasks/pending/ 에 작업 파일 생성
+     │   → petition 비동기 분류 (LLM haiku)
+     │   → pending/ → petitioning/ 이동 + tmux 세션 스폰
+     │   → 결과: general 매칭 → dispatch / direct_response → DM 답글 / 정적 매핑 폴백 / 처리 불가 응답
      │
      └─ type: slack.thread.reply
          → 기존 작업 재개 (reply_context에서 general/session_id 복원)
@@ -80,6 +81,10 @@ queue/events/pending/
     jira.ticket.*         → (현재 구독 장군 없음 — 장군 패키지 추가로 확장 가능)
     github.issue.*        → (현재 구독 장군 없음 — 파수꾼은 생성 가능)
   매칭 실패 시 → 경고 로그, 이벤트를 completed로 이동 (폐기)
+
+DM 메시지 petition 경로 (slack.channel.message):
+  pending/ → petitioning/ (petition 스폰) → dispatched/ 또는 completed/ (결과에 따라)
+  petition 결과: state/king/petition-results/{event_id}.json
 ```
 
 ### 기존 작업 재개 경로

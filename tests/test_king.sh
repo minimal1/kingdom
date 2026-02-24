@@ -31,6 +31,7 @@ setup() {
 
   # Source extracted king functions (no main loop!)
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/functions.sh"
+  source "${BATS_TEST_DIRNAME}/../bin/lib/king/petition.sh"
 }
 
 teardown() {
@@ -340,7 +341,26 @@ EOF
 
 # --- DM 메시지 이벤트: thread_start 건너뛰기 ---
 
-@test "king: dispatch_new_task skips thread_start when message_ts present" {
+@test "king: DM with petition disabled uses static routing, skips thread_start" {
+  # petition 비활성화: YAML boolean false는 yq // 연산자에서 falsy 취급되므로 문자열 사용
+  cat > "$BASE_DIR/config/king.yaml" << 'EOF'
+slack:
+  default_channel: "dev-eddy"
+retry:
+  max_attempts: 2
+  backoff_seconds: 60
+concurrency:
+  max_soldiers: 3
+petition:
+  enabled: "false"
+intervals:
+  event_check_seconds: 10
+  result_check_seconds: 10
+  schedule_check_seconds: 60
+  petition_check_seconds: 5
+  loop_tick_seconds: 5
+EOF
+
   cat > "$BASE_DIR/queue/events/pending/evt-dm-001.json" << 'EOF'
 {"id":"evt-dm-001","type":"slack.channel.message","source":"slack","priority":"normal","repo":null,"payload":{"text":"hello","channel":"D08XXX","message_ts":"1234.5678"}}
 EOF
@@ -355,7 +375,7 @@ EOF
   # 이벤트 dispatched
   assert [ -f "$BASE_DIR/queue/events/dispatched/evt-dm-001.json" ]
 
-  # thread_start 메시지가 생성되지 않아야 함
+  # thread_start 메시지가 생성되지 않아야 함 (message_ts 있으므로)
   local msg_count
   msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
   [ "$msg_count" -eq 0 ]
@@ -565,4 +585,157 @@ EOF
 
   run jq -r '.id' "$test_dir/test-atomic.json"
   assert_output "test-atomic"
+}
+
+# --- DM Petition ---
+
+@test "king: DM with petition enabled moves event to petitioning" {
+  cat > "$BASE_DIR/queue/events/pending/evt-petition-001.json" << 'EOF'
+{"id":"evt-petition-001","type":"slack.channel.message","source":"slack","priority":"normal","repo":null,"payload":{"text":"PR #123 리뷰해줘","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  process_pending_events
+
+  # 이벤트가 petitioning으로 이동
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-petition-001.json" ]
+  assert [ -f "$BASE_DIR/queue/events/petitioning/evt-petition-001.json" ]
+
+  # tmux mock이 호출되었는지 확인 (pending에 남지 않음)
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -eq 0 ]
+}
+
+@test "king: process_petition_results dispatches when general matched" {
+  # petitioning에 이벤트 배치
+  cat > "$BASE_DIR/queue/events/petitioning/evt-petition-002.json" << 'EOF'
+{"id":"evt-petition-002","type":"slack.channel.message","source":"slack","priority":"normal","repo":null,"payload":{"text":"PR #123 리뷰해줘","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  # petition 결과 배치 (gen-pr 매칭)
+  echo '{"general":"gen-pr","repo":"chequer/qp"}' > "$BASE_DIR/state/king/petition-results/evt-petition-002.json"
+
+  process_petition_results
+
+  # 이벤트가 dispatched로 이동
+  assert [ ! -f "$BASE_DIR/queue/events/petitioning/evt-petition-002.json" ]
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-petition-002.json" ]
+
+  # 태스크 생성 확인
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -ge 1 ]
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.target_general' "$task_file"
+  assert_output "gen-pr"
+  # repo가 petition 결과에서 병합되었는지
+  run jq -r '.repo' "$task_file"
+  assert_output "chequer/qp"
+
+  # 결과 파일 정리됨
+  assert [ ! -f "$BASE_DIR/state/king/petition-results/evt-petition-002.json" ]
+}
+
+@test "king: process_petition_results handles direct_response" {
+  cat > "$BASE_DIR/queue/events/petitioning/evt-petition-003.json" << 'EOF'
+{"id":"evt-petition-003","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"장군 목록 알려줘","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  echo '{"general":null,"direct_response":"현재 활성 장군: gen-pr, gen-briefing"}' \
+    > "$BASE_DIR/state/king/petition-results/evt-petition-003.json"
+
+  process_petition_results
+
+  # 이벤트가 completed로 이동
+  assert [ ! -f "$BASE_DIR/queue/events/petitioning/evt-petition-003.json" ]
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-petition-003.json" ]
+
+  # thread_reply 메시지 생성 확인
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_reply"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "활성 장군"
+  run jq -r '.channel' "$msg_file"
+  assert_output "D08XXX"
+  run jq -r '.thread_ts' "$msg_file"
+  assert_output "1234.5678"
+}
+
+@test "king: process_petition_results falls back to static routing" {
+  # 라우팅 테이블에 slack.channel.message → gen-pr 추가
+  local updated
+  updated=$(jq '. + {"slack.channel.message": "gen-pr"}' "$ROUTING_TABLE_FILE")
+  echo "$updated" > "$ROUTING_TABLE_FILE"
+
+  cat > "$BASE_DIR/queue/events/petitioning/evt-petition-004.json" << 'EOF'
+{"id":"evt-petition-004","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"something","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  # petition 결과: 매칭 불가 (general: null, direct_response 없음)
+  echo '{"general":null}' > "$BASE_DIR/state/king/petition-results/evt-petition-004.json"
+
+  process_petition_results
+
+  # 정적 매핑으로 dispatched
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-petition-004.json" ]
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.target_general' "$task_file"
+  assert_output "gen-pr"
+}
+
+@test "king: process_petition_results handles unroutable DM" {
+  cat > "$BASE_DIR/queue/events/petitioning/evt-petition-005.json" << 'EOF'
+{"id":"evt-petition-005","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"뭔가 알 수 없는 요청","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  # petition도 실패, 정적 매핑도 없음
+  echo '{"general":null}' > "$BASE_DIR/state/king/petition-results/evt-petition-005.json"
+
+  process_petition_results
+
+  # completed로 이동
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-petition-005.json" ]
+
+  # 안내 메시지 생성
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_reply"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "처리할 수 있는 전문가가 없습니다"
+}
+
+@test "king: process_petition_results cleans orphan results" {
+  # 결과만 있고 이벤트 파일이 없는 경우
+  echo '{"general":"gen-pr"}' > "$BASE_DIR/state/king/petition-results/evt-orphan.json"
+
+  process_petition_results
+
+  # orphan 결과가 정리됨
+  assert [ ! -f "$BASE_DIR/state/king/petition-results/evt-orphan.json" ]
+}
+
+@test "king: handle_unroutable_dm sends guidance and completes event" {
+  cat > "$BASE_DIR/queue/events/pending/evt-unroutable.json" << 'EOF'
+{"id":"evt-unroutable","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"hello","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  handle_unroutable_dm \
+    '{"id":"evt-unroutable","payload":{"channel":"D08XXX","message_ts":"1234.5678"}}' \
+    "$BASE_DIR/queue/events/pending/evt-unroutable.json"
+
+  # 이벤트 completed
+  assert [ -f "$BASE_DIR/queue/events/completed/evt-unroutable.json" ]
+
+  # 안내 메시지 생성
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "전문가가 없습니다"
 }

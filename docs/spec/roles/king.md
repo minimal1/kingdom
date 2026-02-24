@@ -10,7 +10,7 @@
 | tmux 세션 | `king` |
 | 실행 형태 | Bash 스크립트 (polling loop) |
 | 수명 | 상주 (Always-on) |
-| 리소스 | 경량 (판단은 규칙 기반, LLM 미사용) |
+| 리소스 | 경량 (판단은 규칙 기반, petition만 LLM 사용) |
 
 ## 책임 — "무엇을, 누구에게"
 
@@ -21,6 +21,7 @@
 - **스케줄 실행**: 장군 매니페스트에 선언된 정기 작업을 시간에 맞춰 트리거
 - **결과 처리**: 완료/실패/needs_human 결과에 따른 후속 조치
 - **작업 재개**: `slack.thread.reply` 이벤트 수신 시 reply_context 기반 작업 재배정 (needs_human + 대화 통합)
+- **상소 심의 (petition)**: `slack.channel.message` — 백성(사용자)의 DM 상소를 LLM(haiku)으로 분류하여 적절한 장군에게 하명 (비동기 tmux 실행)
 
 ## 하지 않는 것
 
@@ -197,8 +198,10 @@ next_task_id() {
 LAST_EVENT_CHECK=0
 LAST_RESULT_CHECK=0
 LAST_SCHEDULE_CHECK=0
+LAST_PETITION_CHECK=0
 
 EVENT_CHECK_INTERVAL=10    # 10초 — 이벤트 큐 소비
+PETITION_CHECK_INTERVAL=5  # 5초  — 상소 심의 결과 수거
 RESULT_CHECK_INTERVAL=10   # 10초 — 작업 결과 확인
 SCHEDULE_CHECK_INTERVAL=60 # 60초 — 장군 스케줄 확인
 
@@ -213,6 +216,12 @@ while $RUNNING; do
   if (( now - LAST_EVENT_CHECK >= EVENT_CHECK_INTERVAL )); then
     process_pending_events
     LAST_EVENT_CHECK=$now
+  fi
+
+  # ── 1.5 상소 심의 결과 수거 (5초) ─────────────
+  if (( now - LAST_PETITION_CHECK >= PETITION_CHECK_INTERVAL )); then
+    process_petition_results
+    LAST_PETITION_CHECK=$now
   fi
 
   # ── 2. 결과 확인 (10초) ────────────────────────
@@ -457,6 +466,62 @@ process_thread_reply() {
 
   log "[EVENT] [king] Thread reply → $general (task: $task_id)"
 }
+```
+
+---
+
+## 상소 심의 (Petition — 비동기 DM 분류)
+
+DM(`slack.channel.message`)은 백성이 왕에게 직접 올리는 **상소**다. 메시지 **내용** 분석이 필요하므로, 왕은 LLM 기반 분류를 tmux 세션으로 비동기 실행하여 적합한 장군에게 하명한다.
+
+### 2단계 처리
+
+```
+[Phase 1: 이벤트 접수 — process_pending_events]
+DM 이벤트 도착 → petition enabled? → pending/ → petitioning/ 이동 + tmux 세션 스폰
+(왕의 메인 루프 계속 — 블로킹 없음)
+
+[Phase 2: 결과 수거 — process_petition_results]
+tmux 세션 완료 → state/king/petition-results/{event_id}.json 생성
+왕: 결과 읽기 → 4단계 분기:
+  1. petition → general 있음 → dispatch to general
+  2. petition → direct_response 있음 → 사절에게 DM 답글 전달
+  3. find_general (정적 매핑) → 구독 장군에게 dispatch
+  4. 모두 실패 → "처리 불가" 응답
+```
+
+### petition 결과 스키마
+
+```json
+// Case 1: 장군 매칭
+{"general": "gen-pr", "repo": "chequer-io/querypie-frontend"}
+
+// Case 2: 직접 답변 (시스템 메타 질문)
+{"general": null, "direct_response": "현재 활성 장군: ..."}
+
+// Case 3: 매칭 불가
+{"general": null}
+```
+
+### 스크립트
+
+```
+bin/petition-runner.sh          — tmux 세션에서 실행. 장군 카탈로그 수집 → LLM 호출 → 결과 기록
+bin/lib/king/petition.sh        — spawn_petition() + process_petition_results()
+bin/lib/king/functions.sh     — handle_direct_response() + handle_unroutable_dm()
+```
+
+### 설정
+
+```yaml
+# config/king.yaml
+petition:
+  enabled: true
+  model: haiku
+  timeout_seconds: 15
+
+intervals:
+  petition_check_seconds: 5
 ```
 
 ---
@@ -1016,10 +1081,16 @@ retry:
 concurrency:
   max_soldiers: 3         # 최대 동시 병사 수
 
+petition:
+  enabled: true           # DM LLM 분류 활성화
+  model: haiku            # 분류에 사용할 모델
+  timeout_seconds: 15     # LLM 호출 타임아웃
+
 intervals:
   event_check_seconds: 10
   result_check_seconds: 10
   schedule_check_seconds: 60
+  petition_check_seconds: 5
 ```
 
 > 라우팅 규칙은 king.yaml에 없다 — `config/generals/*.yaml` 매니페스트에서 동적으로 구성됨.
@@ -1050,7 +1121,8 @@ state/king/
 ├── heartbeat              # 생존 확인 (내관이 mtime 체크)
 ├── task-seq               # Task ID 시퀀스 (date:seq, 재시작 안전)
 ├── msg-seq                # Message ID 시퀀스 (date:seq, 재시작 안전)
-└── schedule-sent.json     # 스케줄 트리거 기록 (중복 실행 방지)
+├── schedule-sent.json     # 스케줄 트리거 기록 (중복 실행 방지)
+└── petition-results/        # petition 완료 결과 (event_id.json, 수거 후 삭제)
 ```
 
 ---
@@ -1066,8 +1138,10 @@ state/king/
 ```
 bin/
 ├── king.sh                              # 메인 polling loop (thin wrapper)
+├── petition-runner.sh                     # tmux 세션에서 LLM 분류 실행
 └── lib/king/
     ├── functions.sh                     # 왕 핵심 함수 (이벤트/결과/스케줄 처리)
+    ├── petition.sh                        # DM petition (spawn + 결과 수거)
     ├── router.sh                        # 매니페스트 로딩, 라우팅 테이블, find_general
     └── resource-check.sh                # 리소스 + 토큰 상태 확인, can_accept_task
 ```

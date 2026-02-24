@@ -27,7 +27,15 @@ king:
         - "cron_matches(), _cron_field_matches()"
         - "already_triggered(), mark_triggered()"
         - "check_general_schedules(), dispatch_scheduled_task()"
+        - "handle_direct_response(), handle_unroutable_dm()"
         - "create_thread_start_message(), create_thread_update_message(), create_notification_message()"
+    - path: "bin/lib/king/petition.sh"
+      description: "DM 비동기 petition — tmux spawn + 결과 수거"
+      functions:
+        - "spawn_petition()"
+        - "process_petition_results()"
+    - path: "bin/petition-runner.sh"
+      description: "tmux 세션에서 실행 — 장군 카탈로그 수집 → LLM 호출 → 결과 기록"
     - path: "bin/lib/king/router.sh"
       description: "매니페스트 로딩 → 이벤트→장군 라우팅 테이블"
       functions:
@@ -50,6 +58,7 @@ king:
     - "state/king/task-seq"
     - "state/king/msg-seq"
     - "state/king/schedule-sent.json"
+    - "state/king/petition-results/"
   config: "config/king.yaml"
   schema: "schemas/king.schema.json"
   spec: "docs/spec/roles/king.md"
@@ -342,7 +351,7 @@ message_queue:
   queues:
     events:
       path: "queue/events/"
-      flow: "pending/ → dispatched/ → completed/"
+      flow: "pending/ → dispatched/ → completed/ (DM: pending/ → petitioning/ → dispatched/completed/)"
       producer: sentinel
       consumer: king
     tasks:

@@ -16,10 +16,10 @@ setup_kingdom_env() {
   # 기본 디렉토리 생성
   mkdir -p "$BASE_DIR"/{bin/lib,config/generals/templates,logs/sessions,logs/analysis}
   mkdir -p "$BASE_DIR"/queue/{events,tasks,messages}/{pending,completed}
-  mkdir -p "$BASE_DIR"/queue/events/dispatched
+  mkdir -p "$BASE_DIR"/queue/events/{dispatched,petitioning}
   mkdir -p "$BASE_DIR"/queue/tasks/in_progress
   mkdir -p "$BASE_DIR"/queue/messages/sent
-  mkdir -p "$BASE_DIR"/state/{king,sentinel/seen,envoy,chamberlain,results,prompts}
+  mkdir -p "$BASE_DIR"/state/{king,king/petition-results,sentinel/seen,envoy,chamberlain,results,prompts}
   mkdir -p "$BASE_DIR"/memory/shared
 
   # 장군 디렉토리 (테스트 공통)

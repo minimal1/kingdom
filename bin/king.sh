@@ -7,6 +7,7 @@ source "$BASE_DIR/bin/lib/common.sh"
 source "$BASE_DIR/bin/lib/king/router.sh"
 source "$BASE_DIR/bin/lib/king/resource-check.sh"
 source "$BASE_DIR/bin/lib/king/functions.sh"
+source "$BASE_DIR/bin/lib/king/petition.sh"
 
 # --- Main Guard: only run main loop when executed directly ---
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -27,11 +28,13 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   EVENT_CHECK_INTERVAL=$(get_config "king" "intervals.event_check_seconds" "10")
   RESULT_CHECK_INTERVAL=$(get_config "king" "intervals.result_check_seconds" "10")
   SCHEDULE_CHECK_INTERVAL=$(get_config "king" "intervals.schedule_check_seconds" "60")
+  PETITION_CHECK_INTERVAL=$(get_config "king" "intervals.petition_check_seconds" "5")
   LOOP_TICK=$(get_config "king" "intervals.loop_tick_seconds" "5")
 
   LAST_EVENT_CHECK=0
   LAST_RESULT_CHECK=0
   LAST_SCHEDULE_CHECK=0
+  LAST_PETITION_CHECK=0
 
   log "[SYSTEM] [king] Started. $(get_routing_table_count) event types registered."
 
@@ -44,6 +47,12 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     if (( now - LAST_EVENT_CHECK >= EVENT_CHECK_INTERVAL )); then
       process_pending_events
       LAST_EVENT_CHECK=$now
+    fi
+
+    # 1.5 Petition result processing (상소 심의)
+    if (( now - LAST_PETITION_CHECK >= PETITION_CHECK_INTERVAL )); then
+      process_petition_results
+      LAST_PETITION_CHECK=$now
     fi
 
     # 2. Result check

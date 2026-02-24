@@ -9,8 +9,14 @@ retry:
 concurrency:
   max_soldiers: 3
 
+petition:
+  enabled: true
+  model: haiku
+  timeout_seconds: 15
+
 intervals:
   event_check_seconds: 10
   result_check_seconds: 10
   schedule_check_seconds: 60
+  petition_check_seconds: 5
   loop_tick_seconds: 5

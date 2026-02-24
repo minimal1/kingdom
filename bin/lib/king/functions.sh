@@ -156,12 +156,35 @@ process_pending_events() {
     fi
 
     # 3. General matching
-    local general
-    general=$(find_general "$event_type" 2>/dev/null || true)
-    if [ -z "$general" ]; then
-      log "[WARN] [king] No general for event type: $event_type, discarding: $event_id"
-      mv "$event_file" "$BASE_DIR/queue/events/completed/"
-      continue
+    local general=""
+
+    if [ "$event_type" = "slack.channel.message" ]; then
+      # DM 메시지 -> 상소 심의 (petition) 비동기 처리로 위임
+      local petition_enabled
+      petition_enabled=$(get_config "king" "petition.enabled" "true")
+      local message_text
+      message_text=$(echo "$event" | jq -r '.payload.text // empty')
+
+      if [[ "$petition_enabled" = "true" && -n "$message_text" ]]; then
+        mv "$event_file" "$PETITIONING_DIR/"
+        spawn_petition "$event_id" "$message_text"
+        continue
+      fi
+
+      # petition 비활성화 시 정적 매핑 직행
+      general=$(find_general "$event_type" 2>/dev/null || true)
+      if [ -z "$general" ]; then
+        handle_unroutable_dm "$event" "$event_file"
+        continue
+      fi
+    else
+      # 일반 이벤트 -> 기존 정적 매핑
+      general=$(find_general "$event_type" 2>/dev/null || true)
+      if [ -z "$general" ]; then
+        log "[WARN] [king] No general for event type: $event_type, discarding: $event_id"
+        mv "$event_file" "$BASE_DIR/queue/events/completed/"
+        continue
+      fi
     fi
 
     # 4. Dispatch task
@@ -464,6 +487,62 @@ complete_task() {
       mv "$event_file" "$BASE_DIR/queue/events/completed/"
     fi
   fi
+}
+
+# --- DM Petition Helpers (상소 심의) ---
+
+handle_direct_response() {
+  local event="$1" event_file="$2" response="$3"
+  local channel
+  channel=$(echo "$event" | jq -r '.payload.channel // empty')
+  local message_ts
+  message_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
+  local event_id
+  event_id=$(echo "$event" | jq -r '.id')
+
+  if [[ -n "$channel" && -n "$message_ts" ]]; then
+    local msg_id
+    msg_id=$(next_msg_id)
+    local message
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$event_id" \
+      --arg ch "$channel" --arg ts "$message_ts" --arg ct "$response" \
+      '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
+         thread_ts: $ts, content: $ct, track_conversation: null,
+         created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+    write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+  fi
+
+  mv "$event_file" "$BASE_DIR/queue/events/completed/"
+  log "[EVENT] [king] Petition direct response for: $event_id"
+}
+
+handle_unroutable_dm() {
+  local event="$1" event_file="$2"
+  local channel
+  channel=$(echo "$event" | jq -r '.payload.channel // empty')
+  local message_ts
+  message_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
+  local event_id
+  event_id=$(echo "$event" | jq -r '.id')
+
+  local msg_id
+  msg_id=$(next_msg_id)
+  local content="현재 이 요청을 처리할 수 있는 전문가가 없습니다. GitHub PR이나 Jira 티켓 관련 요청이라면 해당 시스템에서 직접 이벤트가 생성됩니다."
+
+  if [[ -n "$channel" && -n "$message_ts" ]]; then
+    local message
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$event_id" \
+      --arg ch "$channel" --arg ts "$message_ts" --arg ct "$content" \
+      '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
+         thread_ts: $ts, content: $ct, track_conversation: null,
+         created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+    write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+  fi
+
+  mv "$event_file" "$BASE_DIR/queue/events/completed/"
+  log "[EVENT] [king] Unroutable DM, replied with guidance: $event_id"
 }
 
 # --- Schedule Processing ---

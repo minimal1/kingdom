@@ -12,11 +12,11 @@ mkdir -p "$BASE_DIR"/bin/lib/{sentinel,king,general,soldier,envoy,chamberlain}
 mkdir -p "$BASE_DIR"/bin/generals
 mkdir -p "$BASE_DIR"/config/generals/templates
 
-mkdir -p "$BASE_DIR"/queue/events/{pending,dispatched,completed}
+mkdir -p "$BASE_DIR"/queue/events/{pending,dispatched,petitioning,completed}
 mkdir -p "$BASE_DIR"/queue/tasks/{pending,in_progress,completed}
 mkdir -p "$BASE_DIR"/queue/messages/{pending,sent}
 
-mkdir -p "$BASE_DIR"/state/{king,sentinel/seen,envoy,chamberlain,results,prompts}
+mkdir -p "$BASE_DIR"/state/{king,king/petition-results,sentinel/seen,envoy,chamberlain,results,prompts}
 mkdir -p "$BASE_DIR"/logs/{sessions,analysis}
 
 mkdir -p "$BASE_DIR"/memory/shared

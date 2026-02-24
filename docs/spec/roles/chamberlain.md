@@ -60,7 +60,13 @@ while $RUNNING; do
   # ── 1. 시스템 리소스 수집 ──
   collect_metrics
 
-  # ── 2. Health 판단 + resources.json 갱신 ──
+  # ── 2. 토큰 비용 수집 ──
+  collect_token_metrics
+
+  # ── 3. 날짜 변경 감지 + 일일 예산 리셋 ──
+  detect_date_change  # 날짜 변경 시 budget reset 이벤트 발행
+
+  # ── 4. Health 판단 + resources.json 갱신 ──
   local prev_health=$(get_current_health)
   local curr_health=$(evaluate_health)
   update_resources_json "$curr_health"
@@ -70,22 +76,19 @@ while $RUNNING; do
       "$(jq -n --arg from "$prev_health" --arg to "$curr_health" '{from: $from, to: $to}')"
   fi
 
-  # ── 3. Heartbeat 감시 ──
+  # ── 5. Heartbeat 감시 ──
   check_heartbeats
 
-  # ── 4. 세션 상태 확인 + sessions.json 정리 ──
+  # ── 6. 세션 상태 확인 + sessions.json 정리 ──
   check_and_clean_sessions
 
-  # ── 5. 내부 이벤트 소비 ──
+  # ── 7. 내부 이벤트 소비 ──
   consume_internal_events
 
-  # ── 6. 임계값 확인 → 알림/복구 ──
+  # ── 8. 임계값 확인 → 알림/복구 ──
   check_thresholds_and_act "$curr_health"
 
-  # ── 7. 토큰 비용 모니터링 ──
-  collect_token_metrics
-
-  # ── 8. 정기 작업 (로그 로테이션, 만료 파일 정리) ──
+  # ── 9. 정기 작업 (로그 로테이션, 만료 파일 정리) ──
   run_periodic_tasks
 
   sleep "$INTERVAL"

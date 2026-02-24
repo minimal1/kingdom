@@ -54,6 +54,29 @@
         }
       }
     },
+    "petition": {
+      "type": "object",
+      "description": "DM 메시지 LLM 분류 설정 (비동기 petition)",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "petition 기능 활성화 여부",
+          "default": true
+        },
+        "model": {
+          "type": "string",
+          "description": "petition에 사용할 Claude 모델",
+          "default": "haiku"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "petition LLM 호출 타임아웃 (초)",
+          "minimum": 5,
+          "default": 15
+        }
+      }
+    },
     "intervals": {
       "type": "object",
       "description": "메인 루프 폴링 주기 (초)",
@@ -76,6 +99,12 @@
           "description": "장군 스케줄 확인 주기",
           "minimum": 1,
           "default": 60
+        },
+        "petition_check_seconds": {
+          "type": "integer",
+          "description": "petition 결과 확인 주기",
+          "minimum": 1,
+          "default": 5
         },
         "loop_tick_seconds": {
           "type": "integer",
