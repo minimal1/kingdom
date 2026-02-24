@@ -303,7 +303,7 @@ system_scripts:
     - "tests/test_install_general.sh"
 
 # ============================================================
-# GENERAL PACKAGES — 빌트인 장군 4종
+# GENERAL PACKAGES — 빌트인 장군 5종
 # ============================================================
 
 general_packages:
@@ -327,6 +327,14 @@ general_packages:
       cc_plugins: []
       timeout: 120
       has_claude_md: true  # generals/gen-briefing/general-claude.md
+    gen-herald:
+      path: "generals/gen-herald/"
+      description: "DM 대화 및 시스템 정보 전령관 (catch-all)"
+      subscribes: ["slack.channel.message"]
+      schedules: []
+      cc_plugins: []
+      timeout: 120
+      has_claude_md: true  # generals/gen-herald/general-claude.md
 
 # ============================================================
 # SOUL SYSTEM — 아이덴티티 계층

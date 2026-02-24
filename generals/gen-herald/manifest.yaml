@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-herald
+description: "Kingdom 전령관 — DM 대화, 시스템 정보, 일상 소통 담당"
+timeout_seconds: 120
+
+cc_plugins: []
+
+subscribes:
+  - slack.channel.message
+
+schedules: []

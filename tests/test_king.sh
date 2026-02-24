@@ -9,6 +9,7 @@ setup() {
   cp "${BATS_TEST_DIRNAME}/../config/king.yaml" "$BASE_DIR/config/"
   install_test_general "gen-pr"
   install_test_general "gen-briefing"
+  install_test_general "gen-herald"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/router.sh"
@@ -690,6 +691,11 @@ EOF
 }
 
 @test "king: process_petition_results handles unroutable DM" {
+  # gen-herald가 설치된 경우 catch-all이 작동하므로, 라우팅 테이블에서 제거
+  local updated
+  updated=$(jq 'del(.["slack.channel.message"])' "$ROUTING_TABLE_FILE")
+  echo "$updated" > "$ROUTING_TABLE_FILE"
+
   cat > "$BASE_DIR/queue/events/petitioning/evt-petition-005.json" << 'EOF'
 {"id":"evt-petition-005","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"뭔가 알 수 없는 요청","channel":"D08XXX","message_ts":"1234.5678"}}
 EOF
@@ -719,6 +725,33 @@ EOF
 
   # orphan 결과가 정리됨
   assert [ ! -f "$BASE_DIR/state/king/petition-results/evt-orphan.json" ]
+}
+
+# --- gen-herald catch-all ---
+
+@test "king: gen-herald manifest registers slack.channel.message in routing table" {
+  # load_general_manifests는 setup()에서 이미 실행됨
+  run jq -r '.["slack.channel.message"]' "$ROUTING_TABLE_FILE"
+  assert_output "gen-herald"
+}
+
+@test "king: petition failure falls back to gen-herald catch-all" {
+  cat > "$BASE_DIR/queue/events/petitioning/evt-petition-herald.json" << 'EOF'
+{"id":"evt-petition-herald","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"오늘 날씨 어때?","channel":"D08XXX","message_ts":"1234.5678"}}
+EOF
+
+  # petition 분류 실패 (general: null, direct_response 없음)
+  echo '{"general":null}' > "$BASE_DIR/state/king/petition-results/evt-petition-herald.json"
+
+  process_petition_results
+
+  # 정적 매핑(gen-herald)으로 dispatched
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-petition-herald.json" ]
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.target_general' "$task_file"
+  assert_output "gen-herald"
 }
 
 @test "king: handle_unroutable_dm sends guidance and completes event" {

@@ -85,6 +85,9 @@ queue/events/pending/
 DM 메시지 petition 경로 (slack.channel.message):
   pending/ → petitioning/ (petition 스폰) → dispatched/ 또는 completed/ (결과에 따라)
   petition 결과: state/king/petition-results/{event_id}.json
+  정적 매핑 폴백: gen-herald가 slack.channel.message를 subscribes하므로 catch-all 역할
+    petition 분류 실패 → 정적 매핑 → gen-herald → dispatch
+    petition 비활성화 → 정적 매핑 → gen-herald → dispatch
 ```
 
 ### 기존 작업 재개 경로
