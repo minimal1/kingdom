@@ -52,7 +52,11 @@ remove_awaiting_response() {
 # --- Conversation Threads (멀티턴: 대화 스레드 추적) ---
 
 save_conversation_thread() {
-  local thread_ts="$1" task_id="$2" channel="$3" reply_context_json="${4:-"{}"}" ttl="${5:-3600}"
+  local thread_ts="$1" task_id="$2" channel="$3" reply_context_json="${4:-"{}"}" ttl="${5:-3600}" last_reply_ts="${6:-}"
+  # last_reply_ts가 없으면 thread_ts를 사용 (최초 등록 시)
+  if [[ -z "$last_reply_ts" ]]; then
+    last_reply_ts="$thread_ts"
+  fi
   local expires_at
   local now_epoch
   now_epoch=$(date +%s)
@@ -65,7 +69,7 @@ save_conversation_thread() {
 
   portable_flock "$CONV_FILE.lock" \
     "jq --arg ts '$thread_ts' --arg tid '$task_id' --arg ch '$channel' \
-      --arg lrt '$thread_ts' --arg exp '$expires_at' --argjson rc '$reply_context_json' \
+      --arg lrt '$last_reply_ts' --arg exp '$expires_at' --argjson rc '$reply_context_json' \
       '.[\$ts] = {task_id: \$tid, channel: \$ch, last_reply_ts: \$lrt, expires_at: \$exp, reply_context: \$rc}' \
       '$CONV_FILE' > '$CONV_FILE.tmp' \
     && mv '$CONV_FILE.tmp' '$CONV_FILE'"

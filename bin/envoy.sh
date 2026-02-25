@@ -111,7 +111,10 @@ process_thread_reply_msg() {
   content=$(echo "$msg" | jq -r '.content')
   task_id=$(echo "$msg" | jq -r '.task_id')
 
-  send_thread_reply "$channel" "$thread_ts" "$content" || return 1
+  local reply_response
+  reply_response=$(send_thread_reply "$channel" "$thread_ts" "$content") || return 1
+  local bot_reply_ts
+  bot_reply_ts=$(echo "$reply_response" | jq -r '.ts // empty')
 
   # 대화 추적 등록 (track_conversation이 있을 때)
   local track
@@ -121,7 +124,7 @@ process_thread_reply_msg() {
     reply_ctx=$(echo "$msg" | jq -c '.track_conversation.reply_context // {}')
     local ttl
     ttl=$(echo "$msg" | jq -r '.track_conversation.ttl_seconds // "'"$CONV_TTL"'"')
-    save_conversation_thread "$thread_ts" "$task_id" "$channel" "$reply_ctx" "$ttl"
+    save_conversation_thread "$thread_ts" "$task_id" "$channel" "$reply_ctx" "$ttl" "$bot_reply_ts"
     log "[EVENT] [envoy] Conversation tracked for thread: $thread_ts"
   fi
 
