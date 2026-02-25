@@ -7,8 +7,6 @@ MAX_PROMPT_BYTES="${MAX_PROMPT_BYTES:-204800}"
 
 build_prompt() {
   local task_json="$1"
-  local memory="$2"
-  local repo_context="$3"
 
   local task_id
   task_id=$(echo "$task_json" | jq -r '.id')
@@ -61,17 +59,6 @@ build_prompt() {
     echo '```'
   fi
 
-  if [ -n "$memory" ]; then
-    echo ""
-    echo "## Domain Memory"
-    echo "$memory"
-  fi
-
-  if [ -n "$repo_context" ]; then
-    echo ""
-    echo "## Repository Context"
-    echo "$repo_context"
-  fi
 }
 
 # --- Prompt Size Guard ---

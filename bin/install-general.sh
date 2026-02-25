@@ -86,6 +86,15 @@ if [ -f "$PACKAGE_DIR/general-claude.md" ]; then
   cp "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME/CLAUDE.md"
 fi
 
+# Memory 경로 안내 자동 주입 (항상)
+cat >> "$BASE_DIR/workspace/$NAME/CLAUDE.md" << MEMORY
+
+## Memory
+
+작업 전 도메인 지식을 확보하라:
+- \`../../memory/generals/${NAME}/\` 디렉토리의 모든 .md 파일을 읽어라
+MEMORY
+
 echo "Installed general: $NAME"
 echo "  Manifest:  config/generals/${NAME}.yaml"
 echo "  Template:  config/generals/templates/${NAME}.md"

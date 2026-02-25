@@ -138,6 +138,31 @@ EOF
   rm -rf "$conflict_pkg"
 }
 
+# --- Memory path injection ---
+
+@test "install: CLAUDE.md contains Memory section with domain path" {
+  "$BASE_DIR/bin/install-general.sh" "$TEST_PKG" > /dev/null
+  run cat "$BASE_DIR/workspace/gen-foo/CLAUDE.md"
+  assert_output --partial "## Memory"
+  assert_output --partial "memory/generals/gen-foo/"
+}
+
+@test "install: CLAUDE.md has Memory even without general-claude.md" {
+  # TEST_PKG has no general-claude.md → CLAUDE.md created with Memory only
+  "$BASE_DIR/bin/install-general.sh" "$TEST_PKG" > /dev/null
+  assert [ -f "$BASE_DIR/workspace/gen-foo/CLAUDE.md" ]
+  run cat "$BASE_DIR/workspace/gen-foo/CLAUDE.md"
+  assert_output --partial "## Memory"
+}
+
+@test "install: CLAUDE.md appends Memory after general-claude.md content" {
+  echo "# Gen-Foo Soul" > "$TEST_PKG/general-claude.md"
+  "$BASE_DIR/bin/install-general.sh" "$TEST_PKG" "--force" > /dev/null
+  run cat "$BASE_DIR/workspace/gen-foo/CLAUDE.md"
+  assert_output --partial "Gen-Foo Soul"
+  assert_output --partial "## Memory"
+}
+
 # --- CC Plugin warning ---
 
 @test "install: warns when plugin not in global settings" {

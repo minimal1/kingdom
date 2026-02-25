@@ -80,20 +80,20 @@ teardown() {
   [[ "$result" == *"## Task Payload"* ]]
 }
 
-@test "prompt-builder: build_prompt includes memory section" {
+@test "prompt-builder: build_prompt does not include memory section (CLAUDE.md path guide)" {
   local task='{"id":"task-006","type":"test","repo":"","payload":{}}'
 
   local result
-  result=$(build_prompt "$task" "remember: no barrel exports" "")
-  [[ "$result" == *"barrel exports"* ]]
+  result=$(build_prompt "$task")
+  [[ "$result" != *"Domain Memory"* ]]
 }
 
-@test "prompt-builder: build_prompt includes repo context" {
+@test "prompt-builder: build_prompt does not include repo context (CLAUDE.md path guide)" {
   local task='{"id":"task-007","type":"test","repo":"","payload":{}}'
 
   local result
-  result=$(build_prompt "$task" "" "TypeScript strict mode")
-  [[ "$result" == *"TypeScript strict mode"* ]]
+  result=$(build_prompt "$task")
+  [[ "$result" != *"Repository Context"* ]]
 }
 
 @test "prompt-builder: build_prompt does not include output requirements" {

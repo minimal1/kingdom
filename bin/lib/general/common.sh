@@ -367,11 +367,6 @@ main_loop() {
       }
     fi
 
-    local memory
-    memory=$(load_domain_memory "$GENERAL_DOMAIN")
-    local repo_context
-    repo_context=$(load_repo_memory "$GENERAL_DOMAIN" "$repo")
-
     local prompt_file="$BASE_DIR/state/prompts/${task_id}.md"
 
     # Resume task with session_id → minimal prompt (context preserved in session)
@@ -389,7 +384,7 @@ main_loop() {
       printf '사람의 응답: %s\n\n이전 작업을 이어서 진행하라.\n' "$human_response" > "$prompt_file"
       log "[SYSTEM] [$GENERAL_DOMAIN] Resume prompt built for task: $task_id (session: $resume_session_id)"
     else
-      build_prompt "$task" "$memory" "$repo_context" > "$prompt_file"
+      build_prompt "$task" > "$prompt_file"
     fi
     check_prompt_size "$prompt_file"
 

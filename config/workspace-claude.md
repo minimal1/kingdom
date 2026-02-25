@@ -50,6 +50,11 @@ You work alongside human developers as a reliable, proactive team member.
 - needs_human: 사람 판단 필요
 - skipped: 자신의 역량 범위 밖 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등)
 
+## Memory
+
+작업 시작 전, 축적된 지식을 참조하라:
+- **공유 메모리**: `../../memory/shared/` 디렉토리의 .md 파일들 — 프로젝트 전반 지식
+
 ## Growth
 
 - When you discover a reusable pattern, convention, or lesson during this task, include it in your result's `memory_updates[]` array.

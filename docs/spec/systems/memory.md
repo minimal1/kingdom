@@ -85,17 +85,10 @@ Layer 3 파일이 너무 커지면 프롬프트 토큰 낭비. 관리 규칙:
 
 ## 병사에게 전달되는 메모리 구조
 
-장군이 프롬프트를 조립할 때 메모리를 선별적으로 포함:
+CLAUDE.md가 memory 파일 경로를 안내하고, 병사가 직접 Read 도구로 참조:
 
-```
-## 프로젝트 컨텍스트 (shared/project-context.md에서 발췌)
-{핵심 요약만}
+- **공유 메모리**: `workspace/CLAUDE.md`에서 `../../memory/shared/` 경로 안내
+- **도메인 메모리**: `workspace/{general}/CLAUDE.md`에서 `../../memory/generals/{domain}/` 경로 안내
 
-## 이 레포 특성 (generals/{domain}/repo-{name}.md)
-{전체 포함}
-
-## 과거 패턴 (generals/{domain}/patterns.md에서 관련 항목만)
-{작업과 관련된 패턴만 선별}
-```
-
-총 토큰 예산: 프롬프트의 **20% 이내**를 메모리에 할당
+CLAUDE.md는 CC의 system prompt에 포함되어 context 압축에서 보호된다.
+프롬프트에 직접 주입하지 않으므로 200KB 가드에 의한 truncation 위험이 없다.
