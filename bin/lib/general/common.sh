@@ -272,7 +272,7 @@ report_to_king() {
   local tmp_file="${result_file}.tmp"
 
   if [ -n "$raw_result" ] && [ "$raw_result" != "" ]; then
-    echo "$raw_result" | jq --arg s "$status" '.status = $s' > "$tmp_file"
+    echo "$raw_result" | jq --arg s "$status" --arg tid "$task_id" '.status = $s | .task_id = $tid' > "$tmp_file"
   else
     jq -n \
       --arg task_id "$task_id" \
