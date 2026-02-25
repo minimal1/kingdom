@@ -1,6 +1,6 @@
 # Kingdom Briefing Task
 
-Kingdom 시스템 상태를 수집하여 Slack에 브리핑 메시지를 보내라.
+Kingdom 시스템 상태를 수집하여 브리핑 메시지를 작성하라.
 
 ## 1단계: 상태 수집
 
@@ -83,10 +83,10 @@ tail -20 $KINGDOM_BASE_DIR/logs/system.log 2>/dev/null || echo "(no log)"
 
 ## 2단계: 브리핑 작성
 
-수집한 정보로 Slack 메시지를 작성한다. 아래 섹션으로 구분한다:
+수집한 정보로 브리핑 텍스트를 작성한다. 아래 섹션으로 구분한다:
 
 ```
-(시간 인사), Boss. Kingdom 정기 브리핑입니다.
+(시간 인사), Boss. Kingdom 브리핑입니다.
 
 ▸ System Status
   king · sentinel · envoy: ✅
@@ -116,44 +116,22 @@ tail -20 $KINGDOM_BASE_DIR/logs/system.log 2>/dev/null || echo "(no log)"
 
 **Heads Up 기준**: heartbeat DOWN, health가 green이 아닌 경우, 토큰 status가 ok가 아닌 경우, 에러 로그가 있는 경우 등을 간결하게 기재한다. 없으면 "All clear, Boss."
 
-## 3단계: Slack 전송
+## 3단계: 결과 보고
 
-Bash 도구로 아래 curl을 실행한다. 메시지 텍스트에 개행이 포함되므로 jq로 JSON 안전하게 생성한다.
-채널은 `{{payload.default_channel}}`에서 주입된다 (manifest.yaml의 payload.default_channel).
-
-```bash
-MESSAGE="(2단계에서 작성한 브리핑 텍스트)"
-
-curl -s -X POST https://slack.com/api/chat.postMessage \
-  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg ch "{{payload.default_channel}}" --arg txt "$MESSAGE" '{channel: $ch, text: $txt}')"
-```
-
-전송 성공 여부는 응답의 `.ok` 필드로 확인한다.
-
-## 4단계: 결과 보고
-
-`.kingdom-task.json` 파일을 읽고, 아래 형식으로 result JSON을 작성한다:
+`.kingdom-task.json` 파일을 읽고, **summary에 브리핑 텍스트를 넣어** 결과를 보고한다.
+왕이 summary를 사절에게 전달하여 Slack 스레드 답글로 전송한다.
 
 ```bash
 TASK_FILE=".kingdom-task.json"
 TASK_ID=$(jq -r '.id' "$TASK_FILE")
 RESULT_DIR="$KINGDOM_BASE_DIR/state/results"
 
-# Slack 전송 성공 시
-jq -n --arg tid "$TASK_ID" '{
+BRIEFING="(2단계에서 작성한 브리핑 텍스트)"
+
+jq -n --arg tid "$TASK_ID" --arg summary "$BRIEFING" '{
   task_id: $tid,
   status: "success",
-  summary: "briefing sent to {{payload.default_channel}}",
-  memory_updates: []
-}' > "$RESULT_DIR/${TASK_ID}.json"
-
-# Slack 전송 실패 시
-jq -n --arg tid "$TASK_ID" --arg err "(에러 내용)" '{
-  task_id: $tid,
-  status: "failed",
-  error: $err,
+  summary: $summary,
   memory_updates: []
 }' > "$RESULT_DIR/${TASK_ID}.json"
 ```
