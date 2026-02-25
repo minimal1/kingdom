@@ -11,12 +11,12 @@
       "type": "string",
       "description": "장군 이름 (gen-{domain} 형식)",
       "pattern": "^gen-[a-z][a-z0-9-]*$",
-      "examples": ["gen-pr", "gen-briefing"]
+      "examples": ["gen-pr", "gen-briefing", "gen-herald"]
     },
     "description": {
       "type": "string",
       "description": "장군 역할 설명",
-      "examples": ["PR review general", "Jira ticket implementation general"]
+      "examples": ["GitHub PR 코드 리뷰 전문 장군", "Kingdom 시스템 상태 브리핑", "일상 대화 및 범용 DM 응대"]
     },
     "timeout_seconds": {
       "type": "integer",
@@ -35,7 +35,7 @@
     },
     "subscribes": {
       "type": "array",
-      "description": "구독할 이벤트 타입 목록. 빈 배열이면 스케줄 전용 장군",
+      "description": "구독할 이벤트 타입 목록. 빈 배열이면 스케줄 또는 petition 라우팅 전용 장군",
       "items": {
         "type": "string",
         "description": "이벤트 타입 (source.entity.action 형식)",
@@ -44,7 +44,8 @@
           "github.pr.review_requested",
           "github.pr.assigned",
           "jira.ticket.assigned",
-          "jira.ticket.updated"
+          "jira.ticket.updated",
+          "slack.channel.message"
         ]
       }
     },

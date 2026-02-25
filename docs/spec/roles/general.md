@@ -738,7 +738,9 @@ claude plugin install friday@qp-plugin
 
 | 장군 | CC Plugin | 역할 |
 |------|-----------|------|
-| gen-pr | friday@qp-plugin | PR 리뷰 |
+| gen-pr | friday@qp-plugin | GitHub PR 코드 리뷰 |
+| gen-briefing | (없음) | 시스템 상태 브리핑 (DM 요청) |
+| gen-herald | (없음) | 일상 대화 및 범용 DM 응대 (catch-all) |
 
 ### gen-pr: PR Review 장군
 
@@ -857,6 +859,8 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 | 장군 | CC Plugin | 내부 품질 기준 |
 |------|-----------|---------------|
 | gen-pr | friday | 리뷰의 구체성, 오탐 비율 (ralph-loop) |
+| gen-briefing | (없음) | 시스템 데이터 수집 완료 여부 |
+| gen-herald | (없음) | 응답 생성 여부 |
 
 ---
 
@@ -884,7 +888,8 @@ exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
 ```
 generals/                                # 장군 패키지 (소스)
 ├── gen-pr/                              # manifest.yaml + prompt.md + install.sh + README.md + general-claude.md(선택)
-└── gen-briefing/
+├── gen-briefing/
+└── gen-herald/
 
 bin/generals/                            # 엔트리 스크립트 (install-general.sh가 자동 생성)
 └── gen-pr.sh                            # GENERAL_DOMAIN="gen-pr" + main_loop
