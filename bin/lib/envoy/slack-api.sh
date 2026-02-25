@@ -7,12 +7,20 @@ SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
 slack_api() {
   local method="$1"
   local data="$2"
+  local http_method="${3:-POST}"  # POST (default) or GET
 
   local response
-  response=$(curl -s -w "\n%{http_code}" -X POST "$SLACK_API/$method" \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "$data")
+  if [[ "$http_method" == "GET" ]]; then
+    local query_string
+    query_string=$(echo "$data" | jq -r 'to_entries | map(select(.value | length > 0) | "\(.key)=\(.value | @uri)") | join("&")')
+    response=$(curl -s -w "\n%{http_code}" "$SLACK_API/$method?$query_string" \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN")
+  else
+    response=$(curl -s -w "\n%{http_code}" -X POST "$SLACK_API/$method" \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$data")
+  fi
 
   local http_code
   http_code=$(echo "$response" | tail -1)
@@ -61,7 +69,7 @@ send_thread_reply() {
 read_channel_messages() {
   local channel="$1" oldest="$2"
   slack_api "conversations.history" \
-    "$(jq -n --arg c "$channel" --arg o "$oldest" '{channel: $c, oldest: $o, limit: 20}')"
+    "$(jq -n --arg c "$channel" --arg o "$oldest" '{channel: $c, oldest: $o, limit: "20"}')" "GET"
 }
 
 read_thread_replies() {
@@ -70,5 +78,5 @@ read_thread_replies() {
   local oldest="$3"
   slack_api "conversations.replies" \
     "$(jq -n --arg c "$channel" --arg ts "$thread_ts" --arg o "$oldest" \
-      '{channel: $c, ts: $ts, oldest: $o, limit: 20}')"
+      '{channel: $c, ts: $ts, oldest: $o, limit: "20"}')" "GET"
 }
