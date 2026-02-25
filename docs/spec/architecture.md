@@ -130,7 +130,7 @@
 
 1. **PR Review** (`gen-pr`) — friday 플러그인 활용
 2. **Briefing** (`gen-briefing`) — 시스템 상태 브리핑 (DM 요청)
-3. **Herald** (`gen-herald`) — DM 대화 및 시스템 정보 (catch-all)
+3. **Herald** (`gen-herald`) — 일상 대화 및 범용 DM 응대 (catch-all)
 
 > Jira 구현(`gen-jira`), 테스트 작성(`gen-test`)은 장군 패키지 시스템으로 추가 가능하나 builtin에서는 제외됨.
 

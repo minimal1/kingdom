@@ -329,7 +329,7 @@ general_packages:
       has_claude_md: true  # generals/gen-briefing/general-claude.md
     gen-herald:
       path: "generals/gen-herald/"
-      description: "DM 대화 및 시스템 정보 전령관 (catch-all)"
+      description: "일상 대화 및 범용 DM 응대 (catch-all)"
       subscribes: ["slack.channel.message"]
       schedules: []
       cc_plugins: []
