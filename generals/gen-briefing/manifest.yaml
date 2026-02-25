@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-briefing
-description: "Kingdom briefing general (F.R.I.D.A.Y. style)"
+description: "Kingdom 시스템 상태 브리핑 — 역할 heartbeat, 큐, 리소스, 토큰 현황 종합 보고"
 timeout_seconds: 120
 
 cc_plugins: []

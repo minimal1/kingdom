@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-pr
-description: "PR review general"
+description: "GitHub PR 코드 리뷰 전문 장군 — friday 플러그인으로 PR 분석 및 리뷰 코멘트 작성"
 timeout_seconds: 1800
 
 cc_plugins:

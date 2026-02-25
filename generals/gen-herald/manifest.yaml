@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-herald
-description: "Kingdom 전령관 — DM 대화, 시스템 정보, 일상 소통 담당"
+description: "일상 대화 및 범용 DM 응대 — 인사, 잡담, 간단한 질문 처리"
 timeout_seconds: 120
 
 cc_plugins: []
