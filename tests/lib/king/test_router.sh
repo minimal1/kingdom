@@ -42,15 +42,36 @@ teardown() {
   assert_output "1"
 }
 
-@test "router: schedules loaded from gen-briefing" {
+@test "router: schedules loaded from manifest" {
+  # 스케줄이 있는 임시 장군 매니페스트 생성
+  cat > "$BASE_DIR/config/generals/gen-sched-test.yaml" << 'EOF'
+name: gen-sched-test
+subscribes: []
+schedules:
+  - name: test-hourly
+    cron: "0 * * * *"
+    task_type: "test"
+    payload: {}
+EOF
+
   load_general_manifests
   local schedules
   schedules=$(get_schedules)
   [ -n "$schedules" ]
-  [[ "$schedules" == gen-briefing\|* ]]
+  [[ "$schedules" == gen-sched-test\|* ]]
 }
 
 @test "router: schedule entries are single-line compact JSON" {
+  cat > "$BASE_DIR/config/generals/gen-sched-test.yaml" << 'EOF'
+name: gen-sched-test
+subscribes: []
+schedules:
+  - name: test-hourly
+    cron: "0 * * * *"
+    task_type: "test"
+    payload: {}
+EOF
+
   load_general_manifests
   local line_count
   line_count=$(get_schedules | wc -l | tr -d ' ')
