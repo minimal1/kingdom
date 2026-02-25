@@ -10,16 +10,16 @@
 
 | Type | 소스 | 발생 조건 | Priority | ID 패턴 |
 |------|------|----------|----------|---------|
-| `github.pr.review_requested` | GitHub | PR 리뷰 요청 수신 | normal | `evt-github-{notification_id}` |
-| `github.pr.mentioned` | GitHub | PR에서 멘션됨 | normal | `evt-github-{notification_id}` |
-| `github.pr.assigned` | GitHub | PR에 어사인됨 | normal | `evt-github-{notification_id}` |
-| `github.pr.comment` | GitHub | PR에 코멘트 추가 | low | `evt-github-{notification_id}` |
-| `github.pr.state_change` | GitHub | PR 상태 변경 (merged, closed 등) | low | `evt-github-{notification_id}` |
-| `github.notification.*` | GitHub | 기타 notification reason | low | `evt-github-{notification_id}` |
-| `github.issue.mentioned` | GitHub | Issue에서 멘션됨 | low | `evt-github-{notification_id}` |
-| `github.issue.assigned` | GitHub | Issue에 어사인됨 | normal | `evt-github-{notification_id}` |
-| `github.issue.comment` | GitHub | Issue에 코멘트 추가 | low | `evt-github-{notification_id}` |
-| `github.issue.state_change` | GitHub | Issue 상태 변경 | low | `evt-github-{notification_id}` |
+| `github.pr.review_requested` | GitHub | PR 리뷰 요청 수신 | normal | `evt-github-{notification_id}-{updated_at}` |
+| `github.pr.mentioned` | GitHub | PR에서 멘션됨 | normal | `evt-github-{notification_id}-{updated_at}` |
+| `github.pr.assigned` | GitHub | PR에 어사인됨 | normal | `evt-github-{notification_id}-{updated_at}` |
+| `github.pr.comment` | GitHub | PR에 코멘트 추가 | low | `evt-github-{notification_id}-{updated_at}` |
+| `github.pr.state_change` | GitHub | PR 상태 변경 (merged, closed 등) | low | `evt-github-{notification_id}-{updated_at}` |
+| `github.notification.*` | GitHub | 기타 notification reason | low | `evt-github-{notification_id}-{updated_at}` |
+| `github.issue.mentioned` | GitHub | Issue에서 멘션됨 | low | `evt-github-{notification_id}-{updated_at}` |
+| `github.issue.assigned` | GitHub | Issue에 어사인됨 | normal | `evt-github-{notification_id}-{updated_at}` |
+| `github.issue.comment` | GitHub | Issue에 코멘트 추가 | low | `evt-github-{notification_id}-{updated_at}` |
+| `github.issue.state_change` | GitHub | Issue 상태 변경 | low | `evt-github-{notification_id}-{updated_at}` |
 | `jira.ticket.assigned` | Jira | 티켓 할당됨 | normal | `evt-jira-{ticket_key}-{updated_ts}` |
 | `jira.ticket.updated` | Jira | 할당된 티켓 상태/내용 변경 | normal | `evt-jira-{ticket_key}-{updated_ts}` |
 | `jira.ticket.commented` | Jira | 할당된 티켓에 코멘트 | low | `evt-jira-{ticket_key}-{updated_ts}` |
@@ -124,7 +124,7 @@ slack.thread.reply
 
 | 소스 | 패턴 | 생성자 | 중복 방지 |
 |------|------|--------|----------|
-| GitHub | `evt-github-{notification_id}` | 파수꾼 | ETag + seen/ 인덱스 |
+| GitHub | `evt-github-{notification_id}-{updated_at}` | 파수꾼 | ETag + seen/ 인덱스 |
 | Jira | `evt-jira-{ticket_key}-{updated_ts}` | 파수꾼 | timestamp 기반 + seen/ 인덱스 |
 | Slack (DM) | `evt-slack-msg-{ts_sanitized}` | 사절 | ts 자연적 유일성 |
 | Slack (reply) | `evt-slack-reply-{thread_ts_sanitized}-{unix_ts}` | 사절 | thread_ts + timestamp |

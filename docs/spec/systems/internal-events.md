@@ -77,8 +77,8 @@ emit_internal_event() {
 | `event.discarded` | king | 매칭 장군 없어 이벤트 폐기 | `event_id`, `event_type`, `reason` |
 
 ```json
-{"ts": "...", "type": "event.detected", "actor": "sentinel", "data": {"event_id": "evt-github-12345", "source": "github", "event_type": "github.pr.review_requested"}}
-{"ts": "...", "type": "event.dispatched", "actor": "king", "data": {"event_id": "evt-github-12345", "task_id": "task-20260207-001", "target_general": "gen-pr"}}
+{"ts": "...", "type": "event.detected", "actor": "sentinel", "data": {"event_id": "evt-github-12345-2026-02-07T10:00:00Z", "source": "github", "event_type": "github.pr.review_requested"}}
+{"ts": "...", "type": "event.dispatched", "actor": "king", "data": {"event_id": "evt-github-12345-2026-02-07T10:00:00Z", "task_id": "task-20260207-001", "target_general": "gen-pr"}}
 ```
 
 ### 2. task — 작업 생명주기

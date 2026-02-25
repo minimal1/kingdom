@@ -1,6 +1,6 @@
 {
   "id": "task-20260207-001",
-  "event_id": "evt-github-12345678",
+  "event_id": "evt-github-12345678-2026-02-07T10:00:00Z",
   "event_type": "github.pr.review_requested",
   "target_general": "gen-pr",
   "priority": "normal",

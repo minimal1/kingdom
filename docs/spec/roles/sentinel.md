@@ -198,7 +198,7 @@ github_parse() {
       ($reasons | length == 0) or (.reason as $r | $reasons | index($r))
     ) |
     {
-    id: ("evt-github-" + .id),
+    id: ("evt-github-" + .id + "-" + .updated_at),
     type: (
       if .subject.type == "PullRequest" then
         if .reason == "review_requested" then "github.pr.review_requested"
@@ -524,7 +524,7 @@ done
 
 ```json
 {
-  "id": "evt-github-12345678",
+  "id": "evt-github-12345678-2026-02-07T10:00:00Z",
   "type": "github.pr.review_requested",
   "source": "github",
   "repo": "querypie/frontend",
@@ -552,7 +552,7 @@ done
 
 | 소스 | ID 패턴 | 예시 |
 |------|---------|------|
-| GitHub | `evt-github-{notification_id}` | `evt-github-12345678` |
+| GitHub | `evt-github-{notification_id}-{updated_at}` | `evt-github-12345678-2026-02-07T10:00:00Z` |
 | Jira | `evt-jira-{ticket_key}-{updated_timestamp}` | `evt-jira-QP-123-20260207100000` |
 
 ### 활성 큐 + seen 인덱스
@@ -574,7 +574,7 @@ state/sentinel/
 ├── github-state.json   # { "etag": "W/\"abc123\"" }
 ├── jira-state.json     # { "last_check": "2026/02/07 10:00", "known_issues": {...} }
 └── seen/               # 중복 방지 인덱스 (빈 파일, 30일 보관)
-    ├── evt-github-12345678
+    ├── evt-github-12345678-2026-02-07T10:00:00Z
     ├── evt-jira-QP-123-20260207100000
     └── ...
 ```

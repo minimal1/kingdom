@@ -1,5 +1,5 @@
 {
-  "id": "evt-github-12345678",
+  "id": "evt-github-12345678-2026-02-07T10:00:00Z",
   "type": "github.pr.review_requested",
   "source": "github",
   "priority": "normal",

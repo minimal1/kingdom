@@ -17,19 +17,19 @@ teardown() {
 @test "integration: sentinel event → king creates task + message" {
   # Simulate sentinel emitting a GitHub PR event
   jq -n '{
-    id: "evt-github-12345678",
+    id: "evt-github-12345678-2026-02-07T10:00:00Z",
     type: "github.pr.review_requested",
     source: "github", priority: "normal",
     repo: "chequer/qp",
     payload: {pr_number: 42, title: "Add feature X"}
-  }' > "$BASE_DIR/queue/events/pending/evt-github-12345678.json"
+  }' > "$BASE_DIR/queue/events/pending/evt-github-12345678-2026-02-07T10:00:00Z.json"
 
   # King processes events
   process_pending_events
 
   # Event dispatched
-  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-github-12345678.json" ]
-  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-github-12345678.json" ]
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-github-12345678-2026-02-07T10:00:00Z.json" ]
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-github-12345678-2026-02-07T10:00:00Z.json" ]
 
   # Task created targeting gen-pr
   local task_file

@@ -20,18 +20,18 @@ teardown() {
   today=$(date +%Y%m%d)
 
   jq -n '{
-    id: "evt-github-99887766",
+    id: "evt-github-99887766-2026-02-25T10:00:00Z",
     type: "github.pr.review_requested",
     source: "github", priority: "normal",
     repo: "chequer/qp",
     payload: {pr_number: 99, title: "Refactor auth module"}
-  }' > "$BASE_DIR/queue/events/pending/evt-github-99887766.json"
+  }' > "$BASE_DIR/queue/events/pending/evt-github-99887766-2026-02-25T10:00:00Z.json"
 
   # Phase 2: King processes event → creates task + thread_start message
   process_pending_events
 
-  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-github-99887766.json" ]
-  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-github-99887766.json" ]
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-github-99887766-2026-02-25T10:00:00Z.json" ]
+  assert [ -f "$BASE_DIR/queue/events/dispatched/evt-github-99887766-2026-02-25T10:00:00Z.json" ]
 
   local task_file
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
@@ -109,11 +109,11 @@ teardown() {
   today=$(date +%Y%m%d)
 
   jq -n '{
-    id: "evt-github-QP-200", type: "github.pr.review_requested",
+    id: "evt-github-QP-200-2026-02-25T10:00:00Z", type: "github.pr.review_requested",
     source: "github", priority: "high",
     repo: "chequer/qp",
     payload: {pr_number: 200, title: "Fix login bug"}
-  }' > "$BASE_DIR/queue/events/pending/evt-github-QP-200.json"
+  }' > "$BASE_DIR/queue/events/pending/evt-github-QP-200-2026-02-25T10:00:00Z.json"
 
   # King processes event
   process_pending_events

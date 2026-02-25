@@ -43,7 +43,7 @@ T+0s   파수꾼 github_parse()
        → 스코프 필터 통과 (querypie/frontend ∈ sentinel.yaml.scope.repos)
        → 이벤트 스키마 변환:
          {
-           "id": "evt-github-12345678",
+           "id": "evt-github-12345678-2026-02-07T10:00:00Z",
            "type": "github.pr.review_requested",
            "source": "github",
            "repo": "querypie/frontend",
@@ -52,17 +52,17 @@ T+0s   파수꾼 github_parse()
          }
 
 T+0s   파수꾼 sentinel_emit_event()
-       → is_duplicate("evt-github-12345678") = false
-       → 쓰기: queue/events/pending/.tmp-evt-github-12345678.json
-       → mv → queue/events/pending/evt-github-12345678.json
-       → touch state/sentinel/seen/evt-github-12345678
+       → is_duplicate("evt-github-12345678-2026-02-07T10:00:00Z") = false
+       → 쓰기: queue/events/pending/.tmp-evt-github-12345678-2026-02-07T10:00:00Z.json
+       → mv → queue/events/pending/evt-github-12345678-2026-02-07T10:00:00Z.json
+       → touch state/sentinel/seen/evt-github-12345678-2026-02-07T10:00:00Z
 ```
 
 ### Phase 2: 작업 배정 (왕)
 
 ```
 T+~10s  왕 process_pending_events()
-        → queue/events/pending/ 스캔 → evt-github-12345678.json 발견
+        → queue/events/pending/ 스캔 → evt-github-12345678-2026-02-07T10:00:00Z.json 발견
         → get_resource_health() = "green" → 수용 가능
         → sessions.json jq 'length' = 1 < max_soldiers(3) → 수용 가능
         → find_general("github.pr.review_requested") → "gen-pr"
@@ -72,7 +72,7 @@ T+~10s  왕 dispatch_new_task()
         → 쓰기: queue/tasks/pending/task-20260207-001.json
           {
             "id": "task-20260207-001",
-            "event_id": "evt-github-12345678",
+            "event_id": "evt-github-12345678-2026-02-07T10:00:00Z",
             "target_general": "gen-pr",
             "type": "github.pr.review_requested",
             "payload": { ... },
@@ -197,7 +197,7 @@ T+~215s  사절 process_outbound_queue()
 ```
 
 **최종 상태**:
-- `queue/events/completed/evt-github-12345678.json` (7일 후 삭제)
+- `queue/events/completed/evt-github-12345678-2026-02-07T10:00:00Z.json` (7일 후 삭제)
 - `queue/tasks/completed/task-20260207-001.json` (7일 후 삭제)
 - `state/results/task-20260207-001.json` + `-raw.json` (7일 후 삭제)
 - `state/prompts/task-20260207-001.md` (3일 후 삭제)

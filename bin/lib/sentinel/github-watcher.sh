@@ -95,7 +95,7 @@ github_parse() {
       ($reasons | length == 0) or (.reason as $r | $reasons | index($r))
     ) |
     {
-      id: ("evt-github-" + .id),
+      id: ("evt-github-" + .id + "-" + .updated_at),
       type: (
         if .subject.type == "PullRequest" then
           if .reason == "review_requested" then "github.pr.review_requested"

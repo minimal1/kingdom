@@ -20,7 +20,7 @@ teardown() {
   local events
   events=$(github_parse "$raw")
   run jq -r '.[0].id' <<< "$events"
-  assert_output "evt-github-12345678"
+  assert_output "evt-github-12345678-2026-02-07T10:00:00Z"
 }
 
 @test "github: parse maps review_requested to correct type" {
@@ -93,13 +93,13 @@ EOF
   assert_output "feat: add user authentication"
 }
 
-@test "github: event ID pattern is evt-github-{id}" {
+@test "github: event ID pattern is evt-github-{id}-{updated_at}" {
   local raw
   raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/github-notification.json")
   local events
   events=$(github_parse "$raw")
   run jq -r '.[0].id' <<< "$events"
-  assert_output --regexp '^evt-github-[0-9]+$'
+  assert_output --regexp '^evt-github-[0-9]+-[0-9T:Z-]+$'
 }
 
 @test "github: parse extracts pr_number from PullRequest URL" {

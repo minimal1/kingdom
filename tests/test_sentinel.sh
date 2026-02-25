@@ -131,6 +131,6 @@ EOF
     fi
   done
 
-  assert [ -f "$BASE_DIR/state/sentinel/seen/evt-github-12345678" ]
-  assert [ -f "$BASE_DIR/state/sentinel/seen/evt-github-12345679" ]
+  assert [ -f "$BASE_DIR/state/sentinel/seen/evt-github-12345678-2026-02-07T10:00:00Z" ]
+  assert [ -f "$BASE_DIR/state/sentinel/seen/evt-github-12345679-2026-02-07T10:05:00Z" ]
 }
