@@ -61,7 +61,7 @@ API 응답의 `ok` 필드가 `true`인지 확인하라. 실패 시 에러를 보
 ```json
 "proclamation": {
   "channel": "{share_channel}",
-  "message": "PR News\n1. {레포A 이름} — https://app.slack.com/docs/{workspace_id}/{Canvas ID A}\n2. {레포B 이름} — https://app.slack.com/docs/{workspace_id}/{Canvas ID B}\n\n— General Catchup of Kingdom"
+  "message": "PR News\n1. {레포A 이름} — https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID A}\n2. {레포B 이름} — https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID B}\n\n— General Catchup of Kingdom"
 }
 ```
 
