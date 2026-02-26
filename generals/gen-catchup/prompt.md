@@ -34,7 +34,27 @@ friday 플러그인의 pr-catchup 기능을 사용하여 지난 1일간 머지�
 
 Step 1의 분석 결과를 해당 레포의 Canvas에 게시하라.
 
-**중요: `operation: replace`로 Canvas 전체를 덮어쓴다.** 기존 문서 내용은 초기화되고, 분석 결과가 Title부터 새로 작성된다. 절대로 기존 내용에 이어쓰지 않는다.
+**중요: Canvas 전체를 덮어쓴다.** 기존 문서 내용은 초기화되고, 분석 결과가 새로 작성된다. 절대로 기존 내용에 이어쓰지 않는다. API는 호출당 operation 1개만 허용되므로 2번 호출한다.
+
+**호출 1 — Title 변경** (`rename`):
+
+```bash
+curl -s -X POST "https://slack.com/api/canvases.edit" \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "canvas_id": "{Canvas ID}",
+    "changes": [{
+      "operation": "rename",
+      "title_content": {
+        "type": "markdown",
+        "markdown": "{레포 이름} PR News — {YYYY-MM-DD}"
+      }
+    }]
+  }'
+```
+
+**호출 2 — 본문 덮어쓰기** (`replace`):
 
 ```bash
 curl -s -X POST "https://slack.com/api/canvases.edit" \
@@ -52,7 +72,7 @@ curl -s -X POST "https://slack.com/api/canvases.edit" \
   }'
 ```
 
-API 응답의 `ok` 필드가 `true`인지 확인하라. 실패 시 에러를 보고하라.
+각 호출의 `ok` 필드가 `true`인지 확인하라. 실패 시 에러를 보고하라.
 
 ### Step 3. 팀 채널에 PR News 공유
 
@@ -63,7 +83,7 @@ API 응답의 `ok` 필드가 `true`인지 확인하라. 실패 시 에러를 보
 ```json
 "proclamation": {
   "channel": "{share_channel}",
-  "message": "PR News\n1. {레포A 이름} — https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID A}\n2. {레포B 이름} — https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID B}\n\n— General Catchup of Kingdom"
+  "message": "PR News\n1. <https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID A}|{레포A 이름}>\n2. <https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID B}|{레포B 이름}>\n\n— General Catchup of Kingdom"
 }
 ```
 
