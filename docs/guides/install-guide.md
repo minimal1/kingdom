@@ -304,12 +304,17 @@ cat > /opt/kingdom/.env << 'EOF'
 JIRA_API_TOKEN=...
 JIRA_URL=https://your-domain.atlassian.net
 SLACK_BOT_TOKEN=xoxb-...
+
+# ⚠️ systemd는 셸 환경(~/.bashrc, mise activate)을 로드하지 않으므로
+# mise로 설치한 도구(yq, jq, gh, claude, node 등)를 찾으려면 shims 경로 필수
+# 홈 디렉토리 경로를 실제 사용자에 맞게 변경할 것
+PATH=/home/ec2-user/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
 EOF
 chmod 600 /opt/kingdom/.env
 ```
 
 > `~/.bashrc`: 수동 `start.sh` 실행 및 tmux 세션에서 참조.
-> `.env`: systemd의 `EnvironmentFile`이 로드 (6절 참고).
+> `.env`: systemd의 `EnvironmentFile`이 로드 (6절 참고). `PATH`에 mise shims 경로를 포함해야 yq, claude 등을 찾을 수 있다.
 > GitHub 인증은 `gh auth login`으로 keyring에 저장되므로 환경변수 불필요.
 
 #### macOS
@@ -428,6 +433,7 @@ EC2 재부팅 시 자동 시작, 크래시 시 자동 재시작.
 
 ```bash
 # 서비스 파일 생성
+# ⚠️ User= 과 PATH의 홈 디렉토리를 실제 사용자에 맞게 변경할 것
 sudo tee /etc/systemd/system/kingdom.service << 'EOF'
 [Unit]
 Description=Kingdom — Autonomous Dev Agent System
@@ -442,7 +448,6 @@ ExecStop=/opt/kingdom/bin/stop.sh
 Restart=always
 RestartSec=10
 EnvironmentFile=/opt/kingdom/.env
-Environment="PATH=/usr/local/bin:/home/ec2-user/.local/bin:/usr/bin:/bin"
 
 [Install]
 WantedBy=multi-user.target
@@ -620,7 +625,8 @@ done
 | 병사 즉시 실패 | claude 인증 만료 | `claude login` 재인증 |
 | Sentinel 알림 없음 | GitHub 알림이 없음 | `gh api /notifications --jq 'length'` 확인 |
 | yq 파싱 오류 | Python yq 설치됨 | `yq --version`으로 mikefarah 버전 확인 |
-| systemd 실패 | PATH에 claude 없음 | Service의 Environment PATH에 claude 경로 추가 |
+| systemd 실패 (217/USER) | User= 계정이 시스템에 없음 | `id <username>`으로 확인, service 파일의 User= 수정 |
+| systemd에서 yq/claude 못 찾음 | mise shims PATH 누락 | `.env`에 `PATH=~/.local/share/mise/shims:...` 추가 (4.5절 참고) |
 | Slack 메시지 안 감 | Bot이 채널에 미초대 | Slack에서 `/invite @kingdom-bot` |
 
 ### 긴급 복구
