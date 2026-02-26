@@ -575,6 +575,37 @@ EOF
   [ "$task_count" -eq 0 ]
 }
 
+@test "king: dispatch_scheduled_task includes repo when provided" {
+  dispatch_scheduled_task "gen-briefing" "test-repo-sched" "test-type" '{}' "chequer-io/querypie-frontend"
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.repo' "$task_file"
+  assert_output "chequer-io/querypie-frontend"
+}
+
+@test "king: dispatch_scheduled_task sets repo null when not provided" {
+  dispatch_scheduled_task "gen-briefing" "test-no-repo" "test-type" '{}' ""
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.repo' "$task_file"
+  assert_output "null"
+}
+
+@test "king: check_general_schedules passes repo from schedule config" {
+  echo 'gen-briefing|{"name":"test-with-repo","cron":"* * * * *","task_type":"test-repo","repo":"chequer-io/querypie-frontend","payload":{}}' > "$SCHEDULES_FILE"
+
+  check_general_schedules
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.repo' "$task_file"
+  assert_output "chequer-io/querypie-frontend"
+  run jq -r '.type' "$task_file"
+  assert_output "test-repo"
+}
+
 # --- write_to_queue ---
 
 @test "king: write_to_queue creates file atomically" {

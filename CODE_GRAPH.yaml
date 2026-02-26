@@ -305,7 +305,7 @@ system_scripts:
     - "tests/test_install_general.sh"
 
 # ============================================================
-# GENERAL PACKAGES — 빌트인 장군 5종
+# GENERAL PACKAGES — 빌트인 장군 6종
 # ============================================================
 
 general_packages:
@@ -345,6 +345,14 @@ general_packages:
       cc_plugins: ["friday@qp-plugin"]
       timeout: 900
       has_claude_md: true  # generals/gen-catchup/general-claude.md
+    gen-test-writer:
+      path: "generals/gen-test-writer/"
+      description: "30분 주기 테스트 자동 작성 → PR 오픈"
+      subscribes: []
+      schedules: ["periodic-test-write"]
+      cc_plugins: ["friday@qp-plugin"]
+      timeout: 1800
+      has_claude_md: true  # generals/gen-test-writer/general-claude.md
 
 # ============================================================
 # SOUL SYSTEM — 아이덴티티 계층

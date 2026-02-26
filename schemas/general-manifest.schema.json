@@ -73,6 +73,12 @@
             "description": "생성될 task의 type 필드",
             "examples": ["daily-test-generation", "briefing"]
           },
+          "repo": {
+            "type": "string",
+            "description": "작업 대상 레포 (owner/repo 형식). 지정 시 ensure_workspace에서 자동 clone. multi-repo는 스케줄을 여러 개 선언",
+            "pattern": "^[\\w.-]+/[\\w.-]+$",
+            "examples": ["chequer-io/querypie-frontend", "chequer-io/querypie-backend"]
+          },
           "payload": {
             "type": "object",
             "description": "task payload에 포함될 데이터. prompt의 {{payload.KEY}}로 참조 가능",

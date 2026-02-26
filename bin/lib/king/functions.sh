@@ -672,8 +672,14 @@ dispatch_scheduled_task() {
   local sched_name="$2"
   local task_type="$3"
   local payload="$4"
+  local repo="${5:-}"
   local task_id
   task_id=$(next_task_id)
+
+  local repo_arg="null"
+  if [[ -n "$repo" ]]; then
+    repo_arg="\"$repo\""
+  fi
 
   local task
   task=$(jq -n \
@@ -682,12 +688,13 @@ dispatch_scheduled_task() {
     --arg type "$task_type" \
     --arg sched "$sched_name" \
     --argjson payload "$payload" \
+    --argjson repo "$repo_arg" \
     '{
       id: $id,
       event_id: ("schedule-" + $sched),
       target_general: $general,
       type: $type,
-      repo: null,
+      repo: $repo,
       payload: $payload,
       priority: "low",
       retry_count: 0,
@@ -698,7 +705,7 @@ dispatch_scheduled_task() {
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
 
   create_thread_start_message "$task_id" "$general" \
-    "$(jq -n --arg t "$task_type" '{type: ("schedule." + $t), repo: null}')"
+    "$(jq -n --arg t "$task_type" --argjson r "$repo_arg" '{type: ("schedule." + $t), repo: $r}')"
 }
 
 check_general_schedules() {
@@ -730,7 +737,9 @@ check_general_schedules() {
         continue
       fi
 
-      dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload"
+      local repo
+      repo=$(echo "$sched_json" | jq -r '.repo // empty')
+      dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload" "$repo"
       mark_triggered "$sched_name"
       log "[EVENT] [king] Scheduled task triggered: $sched_name -> $general"
     fi
