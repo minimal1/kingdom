@@ -235,7 +235,7 @@ general:
     - path: "bin/lib/general/prompt-builder.sh"
       description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md로 자동 로드)"
       functions:
-        - "build_prompt()"
+        - "build_prompt()  — {{TASK_ID}}, {{TASK_TYPE}}, {{REPO}}, {{REPO_DIR}}, {{payload.*}} 치환"
         - "check_prompt_size()  — 200KB 가드"
     - path: "bin/spawn-soldier.sh"
       description: "tmux 세션 생성 → claude -p 실행 → 결과 대기"

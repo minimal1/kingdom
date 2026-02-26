@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-test-writer
+description: "테스트 코드 자동 작성 장군 — friday write-test 스킬로 테스트 커버리지 확장 후 PR 오픈"
+timeout_seconds: 1800
+
+cc_plugins:
+  - friday@qp-plugin
+
+subscribes: []
+
+schedules:
+  - name: periodic-test-write
+    cron: "*/30 * * * *"
+    task_type: test-write
+    repo: chequer-io/querypie-mono
+    payload:
+      base_branch: develop

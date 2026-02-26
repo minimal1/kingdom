@@ -16,6 +16,10 @@ build_prompt() {
   payload=$(echo "$task_json" | jq -c '.payload')
   local repo
   repo=$(echo "$task_json" | jq -r '.repo // ""')
+  local repo_dir=""
+  if [ -n "$repo" ]; then
+    repo_dir=$(basename "$repo")
+  fi
 
   # --- Task Prompt (template) ---
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
@@ -34,6 +38,7 @@ build_prompt() {
   content=$(sed -e "s|{{TASK_ID}}|$task_id|g" \
                 -e "s|{{TASK_TYPE}}|$task_type|g" \
                 -e "s|{{REPO}}|$repo|g" \
+                -e "s|{{REPO_DIR}}|$repo_dir|g" \
                 "$template")
 
   # Payload field substitution: {{payload.KEY}} → value

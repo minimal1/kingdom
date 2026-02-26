@@ -1,1 +1,3 @@
-/friday:review-pr {{payload.pr_number}}
+cd {{REPO_DIR}}
+
+/friday:review {{payload.pr_number}}
