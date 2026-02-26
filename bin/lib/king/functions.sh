@@ -94,10 +94,15 @@ create_thread_update_message() {
 create_notification_message() {
   local task_id="$1"
   local content="$2"
+  local override_channel="${3:-}"
   local msg_id
   msg_id=$(next_msg_id)
   local channel
-  channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
+  if [ -n "$override_channel" ]; then
+    channel="$override_channel"
+  else
+    channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
+  fi
 
   local message
   message=$(jq -n \
@@ -108,6 +113,23 @@ create_notification_message() {
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+}
+
+create_proclamation_message() {
+  local task_id="$1" channel="$2" message="$3"
+  local msg_id
+  msg_id=$(next_msg_id)
+  local proc_task_id="proclamation-${task_id}"
+
+  local msg
+  msg=$(jq -n \
+    --arg id "$msg_id" --arg task "$proc_task_id" \
+    --arg ch "$channel" --arg ct "$message" \
+    '{id: $id, type: "notification", task_id: $task, channel: $ch,
+      urgency: "high", content: $ct,
+      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+
+  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$msg"
 }
 
 # --- Event Processing ---
@@ -380,8 +402,18 @@ handle_success() {
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   else
+    local notify_ch
+    notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
     create_notification_message "$task_id" \
-      "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
+      "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")" "$notify_ch"
+  fi
+
+  # Proclamation: 별도 채널 공표
+  local proc_ch proc_msg
+  proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
   fi
 
   log "[EVENT] [king] Task completed: $task_id"
@@ -399,7 +431,17 @@ handle_failure() {
   general=$(echo "$task" | jq -r '.target_general')
 
   complete_task "$task_id"
-  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")"
+  local notify_ch
+  notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
+  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")" "$notify_ch"
+
+  # Proclamation: 별도 채널 공표
+  local proc_ch proc_msg
+  proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+  fi
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -465,7 +507,17 @@ handle_skipped() {
   general=$(echo "$task" | jq -r '.target_general')
 
   complete_task "$task_id"
-  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")"
+  local notify_ch
+  notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
+  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")" "$notify_ch"
+
+  # Proclamation: 별도 채널 공표
+  local proc_ch proc_msg
+  proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+  fi
 
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }

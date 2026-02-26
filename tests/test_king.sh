@@ -754,6 +754,169 @@ EOF
   assert_output "gen-herald"
 }
 
+# --- notify_channel ---
+
+@test "king: handle_success with notify_channel sends to custom channel" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-040.json" << 'EOF'
+{"id":"task-20260210-040","event_id":"evt-040","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-040.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-040.json" << 'EOF'
+{"task_id":"task-20260210-040","status":"success","summary":"Catchup done","notify_channel":"C_CUSTOM_CH"}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-040.json" ]
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "notification"
+  run jq -r '.channel' "$msg_file"
+  assert_output "C_CUSTOM_CH"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "✅ gen-pr"
+}
+
+@test "king: handle_failure with notify_channel sends to custom channel" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-041.json" << 'EOF'
+{"id":"task-20260210-041","event_id":"evt-041","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-041.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-041.json" << 'EOF'
+{"task_id":"task-20260210-041","status":"failed","error":"timeout","notify_channel":"C_FAIL_CH"}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-041.json" ]
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.channel' "$msg_file"
+  assert_output "C_FAIL_CH"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "❌ gen-pr"
+}
+
+@test "king: handle_skipped with notify_channel sends to custom channel" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-042.json" << 'EOF'
+{"id":"task-20260210-042","event_id":"evt-042","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-042.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-042.json" << 'EOF'
+{"task_id":"task-20260210-042","status":"skipped","reason":"already merged","notify_channel":"C_SKIP_CH"}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-042.json" ]
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.channel' "$msg_file"
+  assert_output "C_SKIP_CH"
+  run jq -r '.content' "$msg_file"
+  assert_output --partial "⏭️ gen-pr"
+}
+
+@test "king: create_notification_message defaults to default channel when no override" {
+  create_notification_message "task-test-default" "test message"
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.channel' "$msg_file"
+  # Should use default channel from config, not empty
+  [ -n "$output" ]
+  [ "$output" != "null" ]
+}
+
+# --- Proclamation ---
+
+@test "king: handle_success queues proclamation message when present" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-050.json" << 'EOF'
+{"id":"task-20260210-050","event_id":"evt-050","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-050.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-050.json" << 'EOF'
+{"task_id":"task-20260210-050","status":"success","summary":"PR News posted","proclamation":{"channel":"C0TEAMCH","message":"PR News\n1. repo-a"}}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-050.json" ]
+
+  # 메시지 2개: notification + proclamation
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -eq 2 ]
+
+  # proclamation 메시지 확인 (task_id가 proclamation- 접두사)
+  local proc_file
+  proc_file=$(grep -l '"proclamation-task-20260210-050"' "$BASE_DIR/queue/messages/pending/"*.json)
+  run jq -r '.channel' "$proc_file"
+  assert_output "C0TEAMCH"
+  run jq -r '.urgency' "$proc_file"
+  assert_output "high"
+  run jq -r '.content' "$proc_file"
+  assert_output --partial "PR News"
+}
+
+@test "king: handle_failure queues proclamation message when present" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-051.json" << 'EOF'
+{"id":"task-20260210-051","event_id":"evt-051","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-051.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-051.json" << 'EOF'
+{"task_id":"task-20260210-051","status":"failed","error":"canvas update failed","proclamation":{"channel":"C0TEAMCH","message":"Catchup partial result"}}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-051.json" ]
+
+  # 메시지 2개: notification + proclamation
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -eq 2 ]
+
+  local proc_file
+  proc_file=$(grep -l '"proclamation-task-20260210-051"' "$BASE_DIR/queue/messages/pending/"*.json)
+  run jq -r '.channel' "$proc_file"
+  assert_output "C0TEAMCH"
+}
+
+@test "king: handle_success no proclamation when field absent" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-052.json" << 'EOF'
+{"id":"task-20260210-052","event_id":"evt-052","target_general":"gen-pr","type":"github.pr.review_requested","status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-052.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-052.json" << 'EOF'
+{"task_id":"task-20260210-052","status":"success","summary":"Regular task done"}
+EOF
+
+  check_task_results
+
+  assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-052.json" ]
+
+  # 메시지 1개만 (notification only, no proclamation)
+  local msg_count
+  msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$msg_count" -eq 1 ]
+
+  # proclamation 메시지 없음 확인
+  local proc_count
+  proc_count=$(grep -l '"proclamation-' "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$proc_count" -eq 0 ]
+}
+
 @test "king: handle_unroutable_dm sends guidance and completes event" {
   cat > "$BASE_DIR/queue/events/pending/evt-unroutable.json" << 'EOF'
 {"id":"evt-unroutable","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"hello","channel":"D08XXX","message_ts":"1234.5678"}}

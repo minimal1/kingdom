@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-catchup
+description: "일간 PR 캐치업 요약 — pr-catchup 스킬로 분석 후 Slack Canvas에 게시"
+timeout_seconds: 900
+
+cc_plugins:
+  - friday@qp-plugin
+
+subscribes: []
+
+schedules:
+  - name: daily-catchup
+    cron: "0 0 * * *"
+    task_type: catchup
+    payload: {}

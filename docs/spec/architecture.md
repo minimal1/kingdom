@@ -129,8 +129,9 @@
 ## 작업 우선순위
 
 1. **PR Review** (`gen-pr`) — friday 플러그인 활용
-2. **Briefing** (`gen-briefing`) — 시스템 상태 브리핑 (DM 요청)
-3. **Herald** (`gen-herald`) — 일상 대화 및 범용 DM 응대 (catch-all)
+2. **Catchup** (`gen-catchup`) — 일간 PR 캐치업 요약 → Slack Canvas 게시 (스케줄)
+3. **Briefing** (`gen-briefing`) — 시스템 상태 브리핑 (DM 요청)
+4. **Herald** (`gen-herald`) — 일상 대화 및 범용 DM 응대 (catch-all)
 
 > Jira 구현(`gen-jira`), 테스트 작성(`gen-test`)은 장군 패키지 시스템으로 추가 가능하나 builtin에서는 제외됨.
 

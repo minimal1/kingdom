@@ -126,6 +126,54 @@ queue/messages/
 }
 ```
 
+### notification 채널 Override
+
+`notification` 타입 메시지의 `channel`은 기본적으로 왕의 `slack.default_channel` 설정을 따른다. 단, 병사 결과 JSON에 `notify_channel` 필드가 포함된 경우 해당 채널 ID로 override된다. 이를 통해 장군별로 알림 대상 채널을 유연하게 지정할 수 있다.
+
+```
+결과 JSON의 notify_channel 있음 → 해당 채널로 알림
+결과 JSON의 notify_channel 없음 → config/king.yaml의 slack.default_channel (또는 $SLACK_DEFAULT_CHANNEL)
+```
+
+### Proclamation (별도 채널 공표)
+
+병사가 작업 결과와 **독립적으로** 특정 채널에 메시지를 공표하는 메커니즘. 운영 알림(`notify_channel`)과는 다르다.
+
+| 구분 | `notify_channel` | `proclamation` |
+|------|------------------|----------------|
+| 용도 | 운영 알림(✅/❌/⏭️) 채널 override | 별도 채널에 공표 메시지 발송 |
+| 동작 | 기본 채널 대신 지정 채널로 알림 | 운영 알림에 **추가로** 별도 메시지 생성 |
+| task_id | 원래 task_id | `proclamation-{task_id}` (충돌 회피) |
+| 적용 status | success/failed/skipped | success/failed/skipped (needs_human 제외) |
+
+#### task_id 충돌 회피
+
+사절의 `process_notification()`은 `task_id`로 thread mapping을 조회한다. proclamation에 원래 `task_id`를 쓰면 운영 스레드에 답글로 들어간다.
+
+```
+proclamation task_id = "proclamation-{원래_task_id}"
+→ 사절 thread mapping 조회 실패
+→ 채널 직접 메시지로 발송 (새 메시지)
+```
+
+이 방식으로 **사절 코드 수정 없이** 기존 notification 경로를 재사용한다.
+
+#### 결과 JSON 예시
+
+```json
+{
+  "task_id": "task-20260226-001",
+  "status": "success",
+  "summary": "PR News 게시 완료",
+  "proclamation": {
+    "channel": "C0TEAMCH",
+    "message": "PR News\n1. repo-a — canvas_link_a\n..."
+  }
+}
+```
+
+> 전체 결과 스키마: `schemas/soldier-result.schema.json`
+
 ## Polling 주기
 
 | 역할 | 대상 | 주기 |

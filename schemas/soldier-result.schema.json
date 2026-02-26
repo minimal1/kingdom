@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kingdom/soldier-result.schema.json",
+  "title": "Kingdom Soldier Result",
+  "description": "병사 작업 결과 — state/results/{task_id}.json",
+  "type": "object",
+  "required": ["task_id", "status", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": { "type": "string", "pattern": "^task-[0-9]{8}-[0-9]{3}$" },
+    "status": { "enum": ["success", "failed", "needs_human", "skipped"] },
+    "summary": { "type": "string" },
+    "reason": { "type": "string" },
+    "error": { "type": "string" },
+    "question": { "type": "string" },
+    "checkpoint_path": { "type": "string" },
+    "memory_updates": { "type": "array", "items": { "type": "string" } },
+    "notify_channel": { "type": "string", "pattern": "^[CDU][A-Z0-9]+$" },
+    "proclamation": {
+      "type": "object",
+      "required": ["channel", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "type": "string", "pattern": "^[CDU][A-Z0-9]+$" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 3000 }
+      }
+    }
+  }
+}

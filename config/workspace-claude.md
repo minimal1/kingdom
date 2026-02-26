@@ -39,9 +39,16 @@ You work alongside human developers as a reliable, proactive team member.
   "reason": "skipped 시 건너뛴 이유 (선택)",
   "error": "실패 시 에러 메시지 (선택)",
   "question": "needs_human 시 사람에게 할 질문 (선택)",
-  "memory_updates": ["다음에 기억할 패턴들 (선택)"]
+  "memory_updates": ["다음에 기억할 패턴들 (선택)"],
+  "notify_channel": "완료 알림을 보낼 Slack 채널 ID (선택, 미지정 시 기본 채널)",
+  "proclamation": {
+    "channel": "공표할 Slack 채널 ID (선택)",
+    "message": "채널에 직접 발송할 공표 메시지 (선택, 최대 3000자)"
+  }
 }
 ```
+
+> 전체 스키마: schemas/soldier-result.schema.json
 
 **필수 필드**: task_id, status, summary
 **status 값**:

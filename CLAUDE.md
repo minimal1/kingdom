@@ -50,6 +50,7 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 | gen-pr | `generals/gen-pr/manifest.yaml` | `generals/gen-pr/prompt.md` | `generals/gen-pr/install.sh` | `architecture.md`, `event-types.md` |
 | gen-briefing | `generals/gen-briefing/manifest.yaml` | `generals/gen-briefing/prompt.md` | `generals/gen-briefing/install.sh` | `architecture.md` |
 | gen-herald | `generals/gen-herald/manifest.yaml` | `generals/gen-herald/prompt.md` | `generals/gen-herald/install.sh` | `architecture.md`, `event-types.md` |
+| gen-catchup | `generals/gen-catchup/manifest.yaml` | `generals/gen-catchup/prompt.md` | `generals/gen-catchup/install.sh` | `architecture.md` |
 
 공통 schema: `schemas/general-manifest.schema.json`
 공통 spec: `docs/spec/roles/general.md`

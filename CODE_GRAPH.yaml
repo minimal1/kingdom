@@ -28,7 +28,8 @@ king:
         - "already_triggered(), mark_triggered()"
         - "check_general_schedules(), dispatch_scheduled_task()"
         - "handle_direct_response(), handle_unroutable_dm()"
-        - "create_thread_start_message(), create_thread_update_message(), create_notification_message()"
+        - "create_thread_start_message(), create_thread_update_message(), create_notification_message(task_id, content, override_channel?)"
+        - "create_proclamation_message(task_id, channel, message)"
     - path: "bin/lib/king/petition.sh"
       description: "DM 비동기 petition — tmux spawn + 결과 수거"
       functions:
@@ -251,6 +252,7 @@ general:
 soldier:
   description: "Claude Code -p 모드로 실제 작업 수행하는 일회성 프로세스"
   entry_point: "bin/spawn-soldier.sh"
+  schema: "schemas/soldier-result.schema.json"
   key_files:
     - path: "config/workspace-claude.md"
       description: "병사의 CLAUDE.md — 결과 JSON 스키마 지시"
@@ -335,6 +337,14 @@ general_packages:
       cc_plugins: []
       timeout: 120
       has_claude_md: true  # generals/gen-herald/general-claude.md
+    gen-catchup:
+      path: "generals/gen-catchup/"
+      description: "일간 PR 캐치업 요약 → Slack Canvas 게시"
+      subscribes: []
+      schedules: ["daily-catchup"]
+      cc_plugins: ["friday@qp-plugin"]
+      timeout: 900
+      has_claude_md: true  # generals/gen-catchup/general-claude.md
 
 # ============================================================
 # SOUL SYSTEM — 아이덴티티 계층
@@ -393,6 +403,8 @@ schema_config_mapping:
       config: "config/chamberlain.yaml"
     - schema: "schemas/general-manifest.schema.json"
       config: "generals/gen-*/manifest.yaml"
+    - schema: "schemas/soldier-result.schema.json"
+      config: "config/workspace-claude.md"
 
 # ============================================================
 # DOCUMENTATION — 문서 구조

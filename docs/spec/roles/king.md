@@ -537,10 +537,10 @@ state/results/{task-id}.json
      ▼
 ┌──────────────────────┐
 │ status 분기           │
-├─ success             │──→ 완료 처리 (아래)
-├─ failed              │──→ 에스컬레이션 (장군이 재시도 소진 후)
+├─ success             │──→ 완료 처리 (아래) [+ proclamation if present]
+├─ failed              │──→ 에스컬레이션 (장군이 재시도 소진 후) [+ proclamation if present]
 ├─ needs_human         │──→ 사절에게 human_input_request
-├─ skipped             │──→ 완료 처리 + 사절에게 ⏭️ 알림
+├─ skipped             │──→ 완료 처리 + 사절에게 ⏭️ 알림 [+ proclamation if present]
 └──────────────────────┘
 ```
 
@@ -625,8 +625,16 @@ handle_success() {
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   else
-    # 일반 작업 → 알림 메시지
-    create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")"
+    # 일반 작업 → 알림 메시지 (결과에 notify_channel이 있으면 해당 채널로)
+    local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
+    create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")" "$notify_ch"
+  fi
+
+  # Proclamation: 별도 채널 공표 (운영 알림과 독립)
+  local proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  local proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
   fi
 
   log "[EVENT] [king] Task completed: $task_id"
@@ -648,7 +656,15 @@ handle_failure() {
 
   # 장군이 이미 재시도를 소진한 최종 실패 — 에스컬레이션만 수행
   complete_task "$task_id"
-  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")"
+  local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
+  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")" "$notify_ch"
+
+  # Proclamation
+  local proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  local proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+  fi
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -716,7 +732,15 @@ handle_skipped() {
   local general=$(echo "$task" | jq -r '.target_general')
 
   complete_task "$task_id"
-  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")"
+  local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
+  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")" "$notify_ch"
+
+  # Proclamation
+  local proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
+  local proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
+  if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+  fi
 
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
@@ -1044,12 +1068,18 @@ create_thread_update_message() {
      "$BASE_DIR/queue/messages/pending/${msg_id}.json"
 }
 
-# notification: 완료/실패 알림
+# notification: 완료/실패 알림 (override_channel 지정 시 해당 채널로 전송)
 create_notification_message() {
   local task_id="$1"
   local content="$2"
+  local override_channel="${3:-}"   # 병사 결과의 notify_channel (선택)
   local msg_id=$(next_msg_id)
-  local channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
+  local channel
+  if [ -n "$override_channel" ]; then
+    channel="$override_channel"
+  else
+    channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
+  fi
 
   local message=$(jq -n \
     --arg id "$msg_id" --arg task "$task_id" \
@@ -1061,6 +1091,26 @@ create_notification_message() {
   echo "$message" > "$BASE_DIR/queue/messages/pending/.tmp-${msg_id}.json"
   mv "$BASE_DIR/queue/messages/pending/.tmp-${msg_id}.json" \
      "$BASE_DIR/queue/messages/pending/${msg_id}.json"
+}
+
+# proclamation: 별도 채널 공표 (운영 알림과 독립적)
+# task_id를 "proclamation-{원래_task_id}"로 변환하여 사절의 thread mapping 조회를 의도적으로 실패시킴
+# → 운영 스레드가 아닌 채널 직접 메시지로 발송 (사절 코드 수정 불필요)
+create_proclamation_message() {
+  local task_id="$1"
+  local channel="$2"
+  local message="$3"
+  local msg_id=$(next_msg_id)
+  local proc_task_id="proclamation-${task_id}"
+
+  local msg=$(jq -n \
+    --arg id "$msg_id" --arg task "$proc_task_id" \
+    --arg ch "$channel" --arg ct "$message" \
+    '{id: $id, type: "notification", task_id: $task, channel: $ch,
+      urgency: "high", content: $ct,
+      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+
+  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$msg"
 }
 ```
 
