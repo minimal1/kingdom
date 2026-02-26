@@ -369,7 +369,21 @@ scope:
     - "assign"             # PR/Issue assign
 ```
 
-### 5.2 폴링 간격
+### 5.2 Timezone (Linux)
+
+Kingdom의 cron 스케줄(장군의 `schedules.cron`)은 **서버 시간** 기준으로 동작한다. 한국 시간에 맞추려면:
+
+```bash
+# 현재 timezone 확인
+timedatectl
+
+# 한국 시간으로 변경
+sudo timedatectl set-timezone Asia/Seoul
+```
+
+> `setup.sh` Step 4에서 자동으로 안내한다.
+
+### 5.3 폴링 간격
 
 ```yaml
 # config/sentinel.yaml
@@ -384,7 +398,7 @@ intervals:
   schedule_check_seconds: 60
 ```
 
-### 5.3 동시 실행 제한
+### 5.4 동시 실행 제한
 
 ```yaml
 # config/king.yaml
@@ -393,7 +407,7 @@ concurrency:
                            # macOS 로컬이면 1~2로 줄이는 것을 권장
 ```
 
-### 5.4 리소스 임계값 (Chamberlain)
+### 5.5 리소스 임계값 (Chamberlain)
 
 ```yaml
 # config/chamberlain.yaml

@@ -129,6 +129,13 @@ mv "$ENV_FILE.tmp" "$ENV_FILE"
 echo "KINGDOM_BASE_DIR=$DEST" >> "$ENV_FILE"
 ok ".env KINGDOM_BASE_DIR: $DEST"
 
+# mise shims PATH 자동 감지 (systemd용)
+MISE_SHIMS="$HOME/.local/share/mise/shims"
+if [[ -d "$MISE_SHIMS" ]]; then
+  update_env "PATH" "$MISE_SHIMS:/usr/local/bin:/usr/bin:/bin"
+  ok ".env PATH: mise shims 포함"
+fi
+
 # ─── Step 2: 의존성 확인 ──────────────────────────────────
 
 step 2 "의존성 확인"
@@ -300,6 +307,25 @@ record "인증: 설정 완료"
 # ─── Step 4: 기본 설정 ────────────────────────────────────
 
 step 4 "기본 설정"
+
+# Timezone (Linux only)
+if [[ "$OS" != "Darwin" ]]; then
+  echo ""
+  CURRENT_TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "unknown")
+  info "현재 timezone: $CURRENT_TZ"
+  info "Kingdom의 cron 스케줄은 서버 시간 기준으로 동작합니다."
+  TZ_INPUT=$(ask "Timezone" "Asia/Seoul")
+  if [[ "$TZ_INPUT" != "$CURRENT_TZ" ]]; then
+    if sudo timedatectl set-timezone "$TZ_INPUT" 2>/dev/null; then
+      ok "Timezone 설정: $TZ_INPUT"
+    else
+      fail "Timezone 설정 실패 (sudo 권한 확인)"
+      info "수동 설정: sudo timedatectl set-timezone $TZ_INPUT"
+    fi
+  else
+    ok "Timezone 유지: $CURRENT_TZ"
+  fi
+fi
 
 # GitHub 감시 레포
 echo ""
