@@ -35,9 +35,6 @@ retention:
 cleanup:
   hour: 3
 
-daily_report:
-  hour: 9
-
 events_rotation:
   hour: 0
 

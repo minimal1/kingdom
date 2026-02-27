@@ -116,7 +116,7 @@ queue/messages/
 ```json
 {
   "id": "msg-{YYYYMMDD}-{seq}",
-  "type": "thread_start | thread_update | human_input_request | notification | report",
+  "type": "thread_start | thread_update | human_input_request | notification",
   "channel": "dev-eddy",
   "urgency": "normal | high | urgent",
   "content": "사람이 읽을 메시지",

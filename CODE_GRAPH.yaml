@@ -18,6 +18,7 @@ king:
       functions:
         - "next_seq_id(), next_task_id(), next_msg_id()"
         - "write_to_queue()"
+        - "format_task_context(type, payload) — GitHub/Jira payload → Slack mrkdwn 링크"
         - "process_pending_events()"
         - "dispatch_new_task()"
         - "process_thread_reply()"
@@ -134,7 +135,6 @@ envoy:
     - "thread_reply    — 스레드 답글 + 대화 추적 등록"
     - "human_input_request — 사람 질문 (awaiting 등록, reply_context 포함)"
     - "notification    — 완료/실패 알림"
-    - "report          — 일일 리포트"
   inbound_events:
     - "slack.channel.message — DM 새 메시지"
     - "slack.thread.reply    — 스레드 응답 (needs_human + 대화 통합)"
@@ -188,14 +188,13 @@ chamberlain:
         - "create_alert_message()"
         - "check_thresholds_and_act()"
     - path: "bin/lib/chamberlain/log-rotation.sh"
-      description: "정기 작업 — 로그 로테이션, 만료 파일 정리, 일일 리포트"
+      description: "정기 작업 — 로그 로테이션, 만료 파일 정리"
       functions:
         - "run_periodic_tasks()"
         - "should_run_daily()"
         - "rotate_logs_if_needed()"
         - "cleanup_expired_files()"
         - "rotate_events_log()"
-        - "generate_daily_report()"
   dependencies:
     - common
   data_flow: "시스템 메트릭 → resources.json (왕이 소비) / queue/messages/pending/ (사절이 소비)"
@@ -388,7 +387,7 @@ message_queue:
     messages:
       path: "queue/messages/"
       flow: "pending/ → sent/ | failed/"
-      producer: king, chamberlain
+      producer: king, chamberlain  # chamberlain: alert messages
       consumer: envoy
       retry: "최대 3회, 초과 시 failed/로 격리"
 

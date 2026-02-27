@@ -22,7 +22,6 @@
 - `state/resources.json` 갱신 (왕이 리소스 기반 작업 수용 판단에 사용)
 - 이상 감지 시 사절에게 알림 요청
 - 경량 자동 복구 (필수 세션 재시작, 로그 로테이션, 만료 파일 정리)
-- 일일 리포트 생성
 
 ## 하지 않는 것
 
@@ -387,7 +386,7 @@ check_and_clean_sessions() {
 
 내관은 `logs/events.log`를 주기적으로 읽어 메트릭 집계와 이상 감지를 수행한다.
 
-> **소비 보장**: At-least-once. 내관 crash 시 offset 미갱신 상태로 재시작되어 동일 이벤트를 재처리할 수 있다. `aggregate_metrics`의 카운터가 약간 부풀 수 있으나, `generate_daily_report`가 events.log를 직접 재집계하므로 일일 리포트의 정확성은 보장된다. 중복 알림은 정보성이므로 허용.
+> **소비 보장**: At-least-once. 내관 crash 시 offset 미갱신 상태로 재시작되어 동일 이벤트를 재처리할 수 있다. `aggregate_metrics`의 카운터가 약간 부풀 수 있으나 근사치로 충분하다. 중복 알림은 정보성이므로 허용.
 
 ### consume_internal_events
 
@@ -442,8 +441,7 @@ aggregate_metrics() {
   local soldier_spawned=$(echo "$events" | grep -c '"type":"soldier.spawned"' || echo 0)
   local soldier_timeout=$(echo "$events" | grep -c '"type":"soldier.timeout"' || echo 0)
 
-  # 기존 누적값에 합산 (at-least-once이므로 crash 복구 시 중복 카운트 가능)
-  # 이 값은 실시간 근사치이며, 정확한 집계는 generate_daily_report가 events.log를 직접 재집계
+  # 기존 누적값에 합산 (at-least-once이므로 crash 복구 시 중복 카운트 가능, 근사치)
   local prev=$(cat "$stats_file" 2>/dev/null || echo '{}')
 
   echo "$prev" | jq \
@@ -603,11 +601,6 @@ run_periodic_tasks() {
     cleanup_expired_files
   fi
 
-  # ── 일일 리포트 (매일 09:00) ──
-  if [ "$now_hour" = "09" ] && [ "$now_min" = "00" ] && should_run_daily "daily-report"; then
-    generate_daily_report
-  fi
-
   # ── events.log 일별 분할 (매일 00:00) ──
   if [ "$now_hour" = "00" ] && [ "$now_min" = "00" ] && should_run_daily "events-rotation"; then
     rotate_events_log
@@ -712,68 +705,6 @@ rotate_events_log() {
   echo "0" > "$BASE_DIR/state/chamberlain/events-offset"
 
   log "[ROTATION] [chamberlain] Events log rotated: events-${yesterday}.log"
-}
-```
-
----
-
-## 일일 리포트
-
-```bash
-generate_daily_report() {
-  local yesterday=$(date -d 'yesterday' +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)
-  local events_file="$BASE_DIR/logs/events.log"
-
-  # 어제 00:00:00 ~ 23:59:59 이벤트만 필터 (ts의 날짜 prefix 매칭)
-  local yesterday_events=$(grep "\"ts\":\"${yesterday}" "$events_file" 2>/dev/null || echo "")
-
-  local tasks_created=$(echo "$yesterday_events" | grep -c '"type":"task.created"' || echo 0)
-  local tasks_completed=$(echo "$yesterday_events" | grep -c '"type":"task.completed"' || echo 0)
-  local tasks_failed=$(echo "$yesterday_events" | grep -c '"type":"task.failed"' || echo 0)
-  local tasks_needs_human=$(echo "$yesterday_events" | grep -c '"type":"task.needs_human"' || echo 0)
-  local soldiers_spawned=$(echo "$yesterday_events" | grep -c '"type":"soldier.spawned"' || echo 0)
-  local soldiers_timeout=$(echo "$yesterday_events" | grep -c '"type":"soldier.timeout"' || echo 0)
-
-  # 장군별 평균 작업 시간
-  local avg_durations=$(echo "$yesterday_events" | grep '"type":"task.completed"' | \
-    jq -s 'group_by(.actor) | map({
-      actor: .[0].actor,
-      avg_seconds: ([.[].data.duration_seconds] | add / length | round)
-    })' 2>/dev/null || echo "[]")
-
-  local report=$(jq -n \
-    --arg date "$yesterday" \
-    --argjson tc "$tasks_created" \
-    --argjson tcomp "$tasks_completed" \
-    --argjson tf "$tasks_failed" \
-    --argjson tn "$tasks_needs_human" \
-    --argjson ss "$soldiers_spawned" \
-    --argjson st "$soldiers_timeout" \
-    --argjson avg "$avg_durations" \
-    '{
-      report_type: "daily",
-      date: $date,
-      tasks: {created: $tc, completed: $tcomp, failed: $tf, needs_human: $tn},
-      soldiers: {spawned: $ss, timeout: $st},
-      avg_duration_by_general: $avg
-    }')
-
-  # 사절에게 리포트 메시지 생성 (type: "report" — 사절의 process_report 핸들러가 처리)
-  local msg_id="msg-daily-report-$(date +%s)"
-  jq -n \
-    --arg id "$msg_id" \
-    --arg content "$report" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{
-      id: $id,
-      type: "report",
-      task_id: null,
-      content: $content,
-      urgency: "low",
-      created_at: $ts
-    }' > "$BASE_DIR/queue/messages/pending/${msg_id}.json"
-
-  log "[REPORT] [chamberlain] Daily report generated for $yesterday"
 }
 ```
 
@@ -1061,9 +992,6 @@ retention:
   session_logs_days: 7          # logs/sessions/ 병사 로그 보존 기간
   seen_days: 30                 # state/sentinel/seen/ 중복 방지 인덱스 보존 기간
 
-daily_report:
-  hour: 9                       # 일일 리포트 생성 시각 (09:00)
-
 events_rotation:
   hour: 0                       # events.log 일별 분할 시각 (00:00)
 
@@ -1100,7 +1028,7 @@ bin/lib/chamberlain/
 │                                           # evaluate_token_status, detect_date_change
 └── log-rotation.sh                         # run_periodic_tasks, should_run_daily,
                                             # rotate_logs_if_needed, cleanup_expired_files,
-                                            # rotate_events_log, generate_daily_report
+                                            # rotate_events_log
 ```
 
 ---

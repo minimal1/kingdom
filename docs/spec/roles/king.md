@@ -626,8 +626,14 @@ handle_success() {
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   else
     # 일반 작업 → 알림 메시지 (결과에 notify_channel이 있으면 해당 채널로)
+    # Rich context: task의 type/payload에서 GitHub/Jira 링크 추출
     local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-    create_notification_message "$task_id" "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")" "$notify_ch"
+    local ctx=$(format_task_context "$(echo "$task" | jq -r '.type')" "$(echo "$task" | jq -c '.payload // {}')")
+    if [[ -n "$ctx" ]]; then
+      create_notification_message "$task_id" "$(printf '✅ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$summary")" "$notify_ch"
+    else
+      create_notification_message "$task_id" "$(printf '✅ *%s* | %s\n%s' "$general" "$task_id" "$summary")" "$notify_ch"
+    fi
   fi
 
   # Proclamation: 별도 채널 공표 (운영 알림과 독립)
@@ -657,7 +663,12 @@ handle_failure() {
   # 장군이 이미 재시도를 소진한 최종 실패 — 에스컬레이션만 수행
   complete_task "$task_id"
   local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")" "$notify_ch"
+  local ctx=$(format_task_context "$(echo "$task" | jq -r '.type')" "$(echo "$task" | jq -c '.payload // {}')")
+  if [[ -n "$ctx" ]]; then
+    create_notification_message "$task_id" "$(printf '❌ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$error")" "$notify_ch"
+  else
+    create_notification_message "$task_id" "$(printf '❌ *%s* | %s\n%s' "$general" "$task_id" "$error")" "$notify_ch"
+  fi
 
   # Proclamation
   local proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
@@ -741,7 +752,12 @@ handle_skipped() {
 
   complete_task "$task_id"
   local notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")" "$notify_ch"
+  local ctx=$(format_task_context "$(echo "$task" | jq -r '.type')" "$(echo "$task" | jq -c '.payload // {}')")
+  if [[ -n "$ctx" ]]; then
+    create_notification_message "$task_id" "$(printf '⏭️ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$reason")" "$notify_ch"
+  else
+    create_notification_message "$task_id" "$(printf '⏭️ *%s* | %s\n%s' "$general" "$task_id" "$reason")" "$notify_ch"
+  fi
 
   # Proclamation
   local proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
@@ -1052,8 +1068,17 @@ create_thread_start_message() {
   local msg_id=$(next_msg_id)
   local channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
-  local content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
-  [ -n "$repo" ] && content=$(printf '📋 %s | %s\n%s | %s' "$general" "$task_id" "$event_type" "$repo")
+  # Rich context: payload에서 GitHub/Jira 링크 추출 (format_task_context)
+  local payload=$(echo "$event" | jq -c '.payload // {}')
+  [ -n "$repo" ] && payload=$(echo "$payload" | jq --arg r "$repo" '.repo //= $r')
+  local ctx=$(format_task_context "$event_type" "$payload")
+
+  if [[ -n "$ctx" ]]; then
+    local content=$(printf '📋 *%s* | %s\n%s\n`%s`' "$general" "$task_id" "$ctx" "$event_type")
+  else
+    local content=$(printf '📋 *%s* | %s\n`%s`' "$general" "$task_id" "$event_type")
+    [ -n "$repo" ] && content=$(printf '📋 *%s* | %s\n`%s` | %s' "$general" "$task_id" "$event_type" "$repo")
+  fi
 
   local message=$(jq -n \
     --arg id "$msg_id" --arg task "$task_id" \
