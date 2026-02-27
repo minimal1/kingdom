@@ -469,6 +469,13 @@ handle_needs_human() {
     --arg g "$general" --arg s "$session_id" --arg r "$repo" \
     '{general: $g, session_id: $s, repo: $r}')
 
+  # DM 원본 채널/스레드 정보 추출 (complete_task가 파일 이동 전에 읽기)
+  local task
+  task=$(cat "$BASE_DIR/queue/tasks/in_progress/${task_id}.json" 2>/dev/null)
+  local reply_ch reply_ts
+  reply_ch=$(echo "$task" | jq -r '.payload.channel // empty')
+  reply_ts=$(echo "$task" | jq -r '.payload.thread_ts // .payload.message_ts // empty')
+
   # 태스크 완료 (checkpoint에 모든 정보 보존됨)
   complete_task "$task_id"
   rm -f "$BASE_DIR/state/results/${task_id}.json"
@@ -481,6 +488,7 @@ handle_needs_human() {
     --arg task_id "$task_id" \
     --arg content "[question] $question" \
     --argjson reply_ctx "$reply_ctx" \
+    --arg ch "$reply_ch" --arg ts "$reply_ts" \
     '{
       id: $id,
       type: "human_input_request",
@@ -489,7 +497,8 @@ handle_needs_human() {
       reply_context: $reply_ctx,
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
       status: "pending"
-    }')
+    } + (if $ch != "" then {channel: $ch} else {} end)
+      + (if $ts != "" then {thread_ts: $ts} else {} end)')
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   log "[EVENT] [king] Needs human input: $task_id (completed, reply_context included)"

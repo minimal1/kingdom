@@ -96,7 +96,7 @@ sentinel:
   state_files:
     - "state/sentinel/seen/"
     - "state/sentinel/heartbeat"
-    - "state/sentinel/github-watcher.json"
+    - "state/sentinel/github-state.json"
     - "state/sentinel/jira-watcher.json"
   config: "config/sentinel.yaml"
   schema: "schemas/sentinel.schema.json"

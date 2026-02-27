@@ -99,7 +99,17 @@ process_human_input_request() {
     add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
     log "[EVENT] [envoy] Human input requested for task: $task_id"
   else
-    log "[WARN] [envoy] No thread mapping for task: $task_id (human_input_request)"
+    # DM 원본: 메시지에 channel/thread_ts가 직접 포함된 경우 (thread_mapping 없이)
+    local msg_ch msg_ts
+    msg_ch=$(echo "$msg" | jq -r '.channel // empty')
+    msg_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
+    if [[ -n "$msg_ch" && -n "$msg_ts" ]]; then
+      send_thread_reply "$msg_ch" "$msg_ts" "$content" || return 1
+      add_awaiting_response "$task_id" "$msg_ts" "$msg_ch" "$reply_ctx"
+      log "[EVENT] [envoy] Human input requested for task: $task_id (DM fallback)"
+    else
+      log "[WARN] [envoy] No thread mapping for task: $task_id (human_input_request)"
+    fi
   fi
 }
 

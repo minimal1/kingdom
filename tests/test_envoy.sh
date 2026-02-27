@@ -100,6 +100,48 @@ EOF
   assert_output "task-001"
 }
 
+@test "envoy: human_input_request DM fallback uses message channel/thread_ts" {
+  # thread_mapping 없이, 메시지에 channel/thread_ts가 직접 포함된 경우
+  # envoy.sh에서 process_human_input_request 함수만 인라인 정의
+  process_human_input_request() {
+    local msg="$1"
+    local task_id content
+    task_id=$(echo "$msg" | jq -r '.task_id')
+    content=$(echo "$msg" | jq -r '.content')
+    local reply_ctx
+    reply_ctx=$(echo "$msg" | jq -c '.reply_context // {}')
+    local mapping
+    mapping=$(get_thread_mapping "$task_id")
+
+    if [[ -n "$mapping" ]]; then
+      local thread_ts channel
+      thread_ts=$(echo "$mapping" | jq -r '.thread_ts')
+      channel=$(echo "$mapping" | jq -r '.channel')
+      send_thread_reply "$channel" "$thread_ts" "$content" || return 1
+      add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
+    else
+      local msg_ch msg_ts
+      msg_ch=$(echo "$msg" | jq -r '.channel // empty')
+      msg_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
+      if [[ -n "$msg_ch" && -n "$msg_ts" ]]; then
+        send_thread_reply "$msg_ch" "$msg_ts" "$content" || return 1
+        add_awaiting_response "$task_id" "$msg_ts" "$msg_ch" "$reply_ctx"
+      fi
+    fi
+  }
+
+  local msg='{"id":"msg-dm-human","type":"human_input_request","task_id":"task-dm-001","channel":"D999","thread_ts":"1707300000.000200","content":"[question] 리뷰할 PR 번호를 지정해주세요.","reply_context":{"general":"gen-pr","session_id":"sess-dm","repo":"chequer/qp"},"created_at":"2026-01-01T00:00:00Z","status":"pending"}'
+
+  run process_human_input_request "$msg"
+  assert_success
+
+  # awaiting에 DM 채널로 등록됨
+  run jq -r '.[0].channel' "$BASE_DIR/state/envoy/awaiting-responses.json"
+  assert_output "D999"
+  run jq -r '.[0].task_id' "$BASE_DIR/state/envoy/awaiting-responses.json"
+  assert_output "task-dm-001"
+}
+
 @test "envoy: 5 message types recognized" {
   # 각 메시지 타입이 case문에서 처리되는지 간접 확인
   for type in thread_start thread_update human_input_request notification report; do

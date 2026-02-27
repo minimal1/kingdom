@@ -255,6 +255,36 @@ EOF
   assert_output "sess-abc"
 }
 
+@test "king: handle_needs_human includes channel/thread_ts for DM tasks" {
+  # DM 기반 task: payload에 channel + message_ts 있음
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-015.json" << 'EOF'
+{"id":"task-20260210-015","event_id":"evt-dm-015","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"channel":"D999","message_ts":"1707300000.000200"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-dm-015.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-015-checkpoint.json" << 'EOF'
+{"target_general":"gen-pr","session_id":"sess-dm","repo":"chequer/qp"}
+EOF
+  cat > "$BASE_DIR/state/results/task-20260210-015.json" << 'EOF'
+{"task_id":"task-20260210-015","status":"needs_human","question":"리뷰할 PR 번호를 직접 지정해주세요.","checkpoint_path":"PLACEHOLDER"}
+EOF
+  local cp_path="$BASE_DIR/state/results/task-20260210-015-checkpoint.json"
+  jq --arg cp "$cp_path" '.checkpoint_path = $cp' "$BASE_DIR/state/results/task-20260210-015.json" > "$BASE_DIR/state/results/task-20260210-015.json.tmp"
+  mv "$BASE_DIR/state/results/task-20260210-015.json.tmp" "$BASE_DIR/state/results/task-20260210-015.json"
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "human_input_request"
+  # DM 원본 channel/thread_ts가 메시지에 포함됨
+  run jq -r '.channel' "$msg_file"
+  assert_output "D999"
+  run jq -r '.thread_ts' "$msg_file"
+  assert_output "1707300000.000200"
+}
+
 @test "king: skips checkpoint/raw/soldier-id result files" {
   cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-004.json" << 'EOF'
 {"id":"task-20260210-004","event_id":"evt-013","status":"in_progress"}

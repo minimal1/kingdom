@@ -238,9 +238,13 @@ save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
   "type": "human_input_request",
   "task_id": "task-20260207-001",
   "content": "[question] 보안 이슈 2건 발견. 리뷰에 포함할까요?",
-  "context": {
-    "checkpoint_path": "state/results/task-20260207-001-checkpoint.json"
+  "reply_context": {
+    "general": "gen-pr",
+    "session_id": "sess-abc",
+    "repo": "chequer-io/querypie-frontend"
   },
+  "channel": "D999",
+  "thread_ts": "1707300000.000200",
   "created_at": "2026-02-07T10:03:00Z",
   "status": "pending"
 }
@@ -253,18 +257,27 @@ process_human_input_request() {
   local msg="$1"
   local task_id=$(echo "$msg" | jq -r '.task_id')
   local content=$(echo "$msg" | jq -r '.content')
-  local mapping=$(get_thread_mapping "$task_id")
-  local thread_ts=$(echo "$mapping" | jq -r '.thread_ts')
-  local channel=$(echo "$mapping" | jq -r '.channel')
-
-  # 스레드에 질문 게시
-  send_thread_reply "$channel" "$thread_ts" "$content"
-
-  # awaiting_response 목록에 등록 (reply_context 포함)
   local reply_ctx=$(echo "$msg" | jq -c '.reply_context // {}')
-  add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
+  local mapping=$(get_thread_mapping "$task_id")
 
-  log "[EVENT] [envoy] Human input requested for task: $task_id"
+  if [[ -n "$mapping" ]]; then
+    local thread_ts=$(echo "$mapping" | jq -r '.thread_ts')
+    local channel=$(echo "$mapping" | jq -r '.channel')
+    send_thread_reply "$channel" "$thread_ts" "$content"
+    add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
+    log "[EVENT] [envoy] Human input requested for task: $task_id"
+  else
+    # DM 원본: 메시지에 channel/thread_ts가 직접 포함된 경우 (thread_mapping 없이)
+    local msg_ch=$(echo "$msg" | jq -r '.channel // empty')
+    local msg_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
+    if [[ -n "$msg_ch" && -n "$msg_ts" ]]; then
+      send_thread_reply "$msg_ch" "$msg_ts" "$content"
+      add_awaiting_response "$task_id" "$msg_ts" "$msg_ch" "$reply_ctx"
+      log "[EVENT] [envoy] Human input requested for task: $task_id (DM fallback)"
+    else
+      log "[WARN] [envoy] No thread mapping for task: $task_id (human_input_request)"
+    fi
+  fi
 }
 ```
 
