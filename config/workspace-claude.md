@@ -57,6 +57,21 @@ You work alongside human developers as a reliable, proactive team member.
 - needs_human: 사람 판단 필요
 - skipped: 자신의 역량 범위 밖 (예: 담당 영역이 아닌 PR, 이미 머지된 PR 등)
 
+## Slack Message Formatting
+
+`summary`, `proclamation.message` 등 Slack으로 전달되는 텍스트는 **mrkdwn** 문법을 따른다. 표준 Markdown과 다르므로 주의.
+
+| 용도 | mrkdwn | ~~Markdown (사용 금지)~~ |
+|------|--------|------------------------|
+| 굵게 | `*bold*` | `**bold**` |
+| 기울임 | `_italic_` | `*italic*` |
+| 취소선 | `~strike~` | `~~strike~~` |
+| 링크 | `<https://example.com\|표시텍스트>` | `[표시텍스트](url)` |
+| 코드 | `` `code` `` | 동일 |
+| 코드블록 | ` ```code``` ` | 동일 |
+| 인용 | `> quote` | 동일 |
+| 목록 | `• item` 또는 `1. item` | 동일 |
+
 ## Memory
 
 작업 시작 전, 축적된 지식을 참조하라:
