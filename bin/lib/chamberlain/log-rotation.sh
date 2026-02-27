@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Chamberlain Log Rotation — periodic tasks, cleanup, daily report
+# Chamberlain Log Rotation — periodic tasks, cleanup
 
 # --- Periodic Task Dispatcher ---
 
@@ -15,19 +15,12 @@ run_periodic_tasks() {
   # Read scheduled hours from config (removing leading zeros for comparison)
   local cleanup_hour
   cleanup_hour=$(printf '%02d' "$(get_config "chamberlain" "cleanup.hour" 3)")
-  local report_hour
-  report_hour=$(printf '%02d' "$(get_config "chamberlain" "daily_report.hour" 9)")
   local events_rotation_hour
   events_rotation_hour=$(printf '%02d' "$(get_config "chamberlain" "events_rotation.hour" 0)")
 
   # Expired file cleanup
   if [ "$now_hour" = "$cleanup_hour" ] && [ "$now_min" = "00" ] && should_run_daily "cleanup"; then
     cleanup_expired_files
-  fi
-
-  # Daily report
-  if [ "$now_hour" = "$report_hour" ] && [ "$now_min" = "00" ] && should_run_daily "daily-report"; then
-    generate_daily_report
   fi
 
   # Events log rotation
@@ -160,61 +153,4 @@ rotate_events_log() {
   echo "0" > "$BASE_DIR/state/chamberlain/events-offset"
 
   log "[ROTATION] [chamberlain] Events log rotated: events-${yesterday}.log"
-}
-
-# --- Daily Report ---
-
-generate_daily_report() {
-  local yesterday
-  if is_macos; then
-    yesterday=$(date -v-1d +%Y-%m-%d)
-  else
-    yesterday=$(date -d 'yesterday' +%Y-%m-%d)
-  fi
-
-  local events_file="$BASE_DIR/logs/events.log"
-
-  # Filter yesterday's events by timestamp prefix
-  local yesterday_events
-  yesterday_events=$(grep "\"ts\":\"${yesterday}" "$events_file" 2>/dev/null || echo "")
-
-  local tasks_created tasks_completed tasks_failed tasks_needs_human soldiers_spawned soldiers_timeout
-  tasks_created=$(echo "$yesterday_events" | grep -c '"type":"task.created"' 2>/dev/null || true)
-  tasks_completed=$(echo "$yesterday_events" | grep -c '"type":"task.completed"' 2>/dev/null || true)
-  tasks_failed=$(echo "$yesterday_events" | grep -c '"type":"task.failed"' 2>/dev/null || true)
-  tasks_needs_human=$(echo "$yesterday_events" | grep -c '"type":"task.needs_human"' 2>/dev/null || true)
-  soldiers_spawned=$(echo "$yesterday_events" | grep -c '"type":"soldier.spawned"' 2>/dev/null || true)
-  soldiers_timeout=$(echo "$yesterday_events" | grep -c '"type":"soldier.timeout"' 2>/dev/null || true)
-
-  local report
-  report=$(jq -n \
-    --arg date "$yesterday" \
-    --argjson tc "$tasks_created" \
-    --argjson tcomp "$tasks_completed" \
-    --argjson tf "$tasks_failed" \
-    --argjson tn "$tasks_needs_human" \
-    --argjson ss "$soldiers_spawned" \
-    --argjson st "$soldiers_timeout" \
-    '{
-      report_type: "daily",
-      date: $date,
-      tasks: {created: $tc, completed: $tcomp, failed: $tf, needs_human: $tn},
-      soldiers: {spawned: $ss, timeout: $st}
-    }')
-
-  local msg_id="msg-daily-report-$(date +%s)"
-  jq -n \
-    --arg id "$msg_id" \
-    --arg content "$report" \
-    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{
-      id: $id,
-      type: "report",
-      task_id: null,
-      content: $content,
-      urgency: "low",
-      created_at: $ts
-    }' > "$BASE_DIR/queue/messages/pending/${msg_id}.json"
-
-  log "[REPORT] [chamberlain] Daily report generated for $yesterday"
 }

@@ -163,29 +163,3 @@ EOF
   [ "$rotated_count" -eq 1 ]
 }
 
-# --- generate_daily_report ---
-
-@test "log-rotation: generate_daily_report creates message" {
-  # Write events with yesterday's date
-  local yesterday
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    yesterday=$(date -v-1d +%Y-%m-%d)
-  else
-    yesterday=$(date -d 'yesterday' +%Y-%m-%d)
-  fi
-
-  echo "{\"ts\":\"${yesterday}T10:00:00Z\",\"type\":\"task.completed\",\"actor\":\"gen-pr\",\"data\":{}}" >> "$BASE_DIR/logs/events.log"
-  echo "{\"ts\":\"${yesterday}T11:00:00Z\",\"type\":\"task.created\",\"actor\":\"king\",\"data\":{}}" >> "$BASE_DIR/logs/events.log"
-
-  generate_daily_report
-
-  # Should create a report message
-  local msg_file
-  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"msg-daily-report-*.json 2>/dev/null | head -1)
-  assert [ -f "$msg_file" ]
-
-  run jq -r '.type' "$msg_file"
-  assert_output "report"
-  run jq -r '.urgency' "$msg_file"
-  assert_output "low"
-}

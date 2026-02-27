@@ -120,6 +120,74 @@ EOF
   assert_output "thread_start"
 }
 
+@test "king: thread_start message includes rich context for github PR" {
+  cat > "$BASE_DIR/queue/events/pending/evt-rich-001.json" << 'EOF'
+{"id":"evt-rich-001","type":"github.pr.review_requested","source":"github","priority":"normal","repo":"chequer-io/querypie-frontend","payload":{"pr_number":123,"subject_title":"Add authentication middleware"}}
+EOF
+
+  process_pending_events
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  local content
+  content=$(jq -r '.content' "$msg_file")
+  # Bold general name
+  echo "$content" | grep -q '\*gen-pr\*'
+  # GitHub link in Slack mrkdwn format
+  echo "$content" | grep -q '<https://github.com/chequer-io/querypie-frontend/pull/123|#123 Add authentication middleware>'
+  # Backtick-wrapped event type
+  echo "$content" | grep -q '`github.pr.review_requested`'
+}
+
+@test "king: thread_start message falls back to event_type when no context" {
+  cat > "$BASE_DIR/queue/events/pending/evt-noctx-001.json" << 'EOF'
+{"id":"evt-noctx-001","type":"github.pr.review_requested","source":"github","priority":"normal","repo":"chequer/qp","payload":{}}
+EOF
+
+  process_pending_events
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  local content
+  content=$(jq -r '.content' "$msg_file")
+  # Backtick event type + repo fallback
+  echo "$content" | grep -q '`github.pr.review_requested`'
+  echo "$content" | grep -q 'chequer/qp'
+}
+
+@test "king: handle_success notification includes rich context" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-060.json" << 'EOF'
+{"id":"task-20260210-060","event_id":"evt-060","target_general":"gen-pr","type":"github.pr.review_requested","repo":"chequer-io/querypie-frontend","payload":{"pr_number":456,"subject_title":"Fix login bug"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-060.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-060.json" << 'EOF'
+{"task_id":"task-20260210-060","status":"success","summary":"PR approved"}
+EOF
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  local content
+  content=$(jq -r '.content' "$msg_file")
+  echo "$content" | grep -q '\*gen-pr\*'
+  echo "$content" | grep -q '<https://github.com/chequer-io/querypie-frontend/pull/456|#456 Fix login bug>'
+  echo "$content" | grep -q 'PR approved'
+}
+
+@test "king: format_task_context returns empty for unknown event types" {
+  local ctx
+  ctx=$(format_task_context "schedule.briefing" '{}')
+  [ -z "$ctx" ]
+}
+
+@test "king: format_task_context builds jira link" {
+  local ctx
+  ctx=$(format_task_context "jira.ticket.created" '{"url":"https://jira.example.com/browse/PROJ-123","ticket_key":"PROJ-123","summary":"Fix performance issue"}')
+  [ "$ctx" = '<https://jira.example.com/browse/PROJ-123|PROJ-123 Fix performance issue>' ]
+}
+
 @test "king: unmatched event moves to completed" {
   cat > "$BASE_DIR/queue/events/pending/evt-003.json" << 'EOF'
 {"id":"evt-003","type":"unknown.event","source":"test","priority":"normal","payload":{}}
@@ -190,7 +258,7 @@ EOF
   run jq -r '.type' "$msg_file"
   assert_output "notification"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "✅ gen-pr"
+  assert_output --partial "✅ *gen-pr*"
 }
 
 @test "king: handle_failure completes task with error notification" {
@@ -211,7 +279,7 @@ EOF
   local msg_file
   msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
   run jq -r '.content' "$msg_file"
-  assert_output --partial "❌ gen-pr"
+  assert_output --partial "❌ *gen-pr*"
 }
 
 @test "king: handle_needs_human completes task and includes reply_context" {
@@ -499,7 +567,7 @@ EOF
   [ "$msg_count" -eq 1 ]
   local content
   content=$(jq -r '.content' "$BASE_DIR/queue/messages/pending/"*.json)
-  echo "$content" | grep -q '⏭️ gen-pr'
+  echo "$content" | grep -q '⏭️ \*gen-pr\*'
 }
 
 @test "king: max_soldiers defers events when full" {
@@ -838,7 +906,7 @@ EOF
   run jq -r '.channel' "$msg_file"
   assert_output "C_CUSTOM_CH"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "✅ gen-pr"
+  assert_output --partial "✅ *gen-pr*"
 }
 
 @test "king: handle_failure with notify_channel sends to custom channel" {
@@ -860,7 +928,7 @@ EOF
   run jq -r '.channel' "$msg_file"
   assert_output "C_FAIL_CH"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "❌ gen-pr"
+  assert_output --partial "❌ *gen-pr*"
 }
 
 @test "king: handle_skipped with notify_channel sends to custom channel" {
@@ -882,7 +950,7 @@ EOF
   run jq -r '.channel' "$msg_file"
   assert_output "C_SKIP_CH"
   run jq -r '.content' "$msg_file"
-  assert_output --partial "⏭️ gen-pr"
+  assert_output --partial "⏭️ *gen-pr*"
 }
 
 @test "king: create_notification_message defaults to default channel when no override" {

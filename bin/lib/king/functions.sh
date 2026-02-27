@@ -47,6 +47,39 @@ write_to_queue() {
   mv "$dir/.tmp-${id}.json" "$dir/${id}.json"
 }
 
+# --- Task Context Formatter ---
+
+format_task_context() {
+  local type="$1"
+  local payload="$2"
+
+  case "$type" in
+    github.pr.*|github.issue.*)
+      local title pr_number repo_name html_url
+      title=$(echo "$payload" | jq -r '.subject_title // empty')
+      pr_number=$(echo "$payload" | jq -r '.pr_number // empty')
+      repo_name=$(echo "$payload" | jq -r '.repo // empty')
+      if [[ -n "$pr_number" && -n "$repo_name" ]]; then
+        html_url="https://github.com/${repo_name}/pull/${pr_number}"
+        printf '<%s|#%s %s>' "$html_url" "$pr_number" "$title"
+      elif [[ -n "$title" ]]; then
+        printf '%s' "$title"
+      fi
+      ;;
+    jira.ticket.*)
+      local url ticket_key summary
+      url=$(echo "$payload" | jq -r '.url // empty')
+      ticket_key=$(echo "$payload" | jq -r '.ticket_key // empty')
+      summary=$(echo "$payload" | jq -r '.summary // empty')
+      if [[ -n "$url" && -n "$ticket_key" ]]; then
+        printf '<%s|%s %s>' "$url" "$ticket_key" "$summary"
+      elif [[ -n "$summary" ]]; then
+        printf '%s' "$summary"
+      fi
+      ;;
+  esac
+}
+
 # --- Message Creation Helpers ---
 
 create_thread_start_message() {
@@ -62,9 +95,23 @@ create_thread_start_message() {
   local channel
   channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
 
+  # Build rich context from payload
+  local payload
+  payload=$(echo "$event" | jq -c '.payload // {}')
+  # Inject repo into payload for format_task_context if not present
+  if [[ -n "$repo" ]]; then
+    payload=$(echo "$payload" | jq --arg r "$repo" '.repo //= $r')
+  fi
+  local ctx
+  ctx=$(format_task_context "$event_type" "$payload")
+
   local content
-  content=$(printf '📋 %s | %s\n%s' "$general" "$task_id" "$event_type")
-  [ -n "$repo" ] && content=$(printf '📋 %s | %s\n%s | %s' "$general" "$task_id" "$event_type" "$repo")
+  if [[ -n "$ctx" ]]; then
+    content=$(printf '📋 *%s* | %s\n%s\n`%s`' "$general" "$task_id" "$ctx" "$event_type")
+  else
+    content=$(printf '📋 *%s* | %s\n`%s`' "$general" "$task_id" "$event_type")
+    [ -n "$repo" ] && content=$(printf '📋 *%s* | %s\n`%s` | %s' "$general" "$task_id" "$event_type" "$repo")
+  fi
 
   local message
   message=$(jq -n \
@@ -404,8 +451,24 @@ handle_success() {
   else
     local notify_ch
     notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-    create_notification_message "$task_id" \
-      "$(printf '✅ %s | %s\n%s' "$general" "$task_id" "$summary")" "$notify_ch"
+    local task_type
+    task_type=$(echo "$task" | jq -r '.type // empty')
+    local payload
+    payload=$(echo "$task" | jq -c '.payload // {}')
+    local task_repo
+    task_repo=$(echo "$task" | jq -r '.repo // empty')
+    if [[ -n "$task_repo" ]]; then
+      payload=$(echo "$payload" | jq --arg r "$task_repo" '.repo //= $r')
+    fi
+    local ctx
+    ctx=$(format_task_context "$task_type" "$payload")
+    local notif_content
+    if [[ -n "$ctx" ]]; then
+      notif_content=$(printf '✅ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$summary")
+    else
+      notif_content=$(printf '✅ *%s* | %s\n%s' "$general" "$task_id" "$summary")
+    fi
+    create_notification_message "$task_id" "$notif_content" "$notify_ch"
   fi
 
   # Proclamation: 별도 채널 공표
@@ -433,7 +496,24 @@ handle_failure() {
   complete_task "$task_id"
   local notify_ch
   notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-  create_notification_message "$task_id" "$(printf '❌ %s | %s\n%s' "$general" "$task_id" "$error")" "$notify_ch"
+  local task_type
+  task_type=$(echo "$task" | jq -r '.type // empty')
+  local payload
+  payload=$(echo "$task" | jq -c '.payload // {}')
+  local task_repo
+  task_repo=$(echo "$task" | jq -r '.repo // empty')
+  if [[ -n "$task_repo" ]]; then
+    payload=$(echo "$payload" | jq --arg r "$task_repo" '.repo //= $r')
+  fi
+  local ctx
+  ctx=$(format_task_context "$task_type" "$payload")
+  local notif_content
+  if [[ -n "$ctx" ]]; then
+    notif_content=$(printf '❌ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$error")
+  else
+    notif_content=$(printf '❌ *%s* | %s\n%s' "$general" "$task_id" "$error")
+  fi
+  create_notification_message "$task_id" "$notif_content" "$notify_ch"
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
@@ -518,7 +598,24 @@ handle_skipped() {
   complete_task "$task_id"
   local notify_ch
   notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
-  create_notification_message "$task_id" "$(printf '⏭️ %s | %s\n%s' "$general" "$task_id" "$reason")" "$notify_ch"
+  local task_type
+  task_type=$(echo "$task" | jq -r '.type // empty')
+  local payload
+  payload=$(echo "$task" | jq -c '.payload // {}')
+  local task_repo
+  task_repo=$(echo "$task" | jq -r '.repo // empty')
+  if [[ -n "$task_repo" ]]; then
+    payload=$(echo "$payload" | jq --arg r "$task_repo" '.repo //= $r')
+  fi
+  local ctx
+  ctx=$(format_task_context "$task_type" "$payload")
+  local notif_content
+  if [[ -n "$ctx" ]]; then
+    notif_content=$(printf '⏭️ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$reason")
+  else
+    notif_content=$(printf '⏭️ *%s* | %s\n%s' "$general" "$task_id" "$reason")
+  fi
+  create_notification_message "$task_id" "$notif_content" "$notify_ch"
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
