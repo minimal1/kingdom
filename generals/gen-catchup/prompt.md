@@ -4,17 +4,17 @@
 
 ## 대상 레포
 
-| # | 레포 | 브랜치 | 기간 | Canvas ID |
-|---|------|--------|------|-----------|
-| 1 | `TODO_REPO_A` | `TODO_BRANCH_A` | 1d | `TODO_CANVAS_ID_A` |
-| 2 | `TODO_REPO_B` | `TODO_BRANCH_B` | 1d | `TODO_CANVAS_ID_B` |
+| #   | 레포          | 브랜치          | 기간 | Canvas ID          |
+| --- | ------------- | --------------- | ---- | ------------------ |
+| 1   | `TODO_REPO_A` | `TODO_BRANCH_A` | 1d   | `TODO_CANVAS_ID_A` |
+| 2   | `TODO_REPO_B` | `TODO_BRANCH_B` | 1d   | `TODO_CANVAS_ID_B` |
 
 ## 공유 설정
 
-| 항목 | 값 |
-|------|-----|
+| 항목          | 값                      |
+| ------------- | ----------------------- |
 | share_channel | `TODO_SHARE_CHANNEL_ID` |
-| workspace_id | `TODO_WORKSPACE_ID` |
+| workspace_id  | `TODO_WORKSPACE_ID`     |
 
 ## 처리 절차
 
@@ -83,7 +83,7 @@ curl -s -X POST "https://slack.com/api/canvases.edit" \
 ```json
 "proclamation": {
   "channel": "{share_channel}",
-  "message": "PR News\n1. <https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID A}|{레포A 이름}>\n2. <https://app.slack.com/client/{workspace_id}/unified-files/doc/{Canvas ID B}|{레포B 이름}>\n\n— General Catchup of Kingdom"
+  "message": "PR News\n1. <https://chequer.slack.com/docs/{workspace_id}/{Canvas ID A}|{레포A 이름}>\n2. <https://chequer.slack.com/docs/{workspace_id}/{Canvas ID B}|{레포B 이름}>\n\n— General Catchup of Kingdom"
 }
 ```
 
