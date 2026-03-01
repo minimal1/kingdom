@@ -75,6 +75,7 @@ process_thread_start() {
   actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
 
   save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
+  add_reaction "$actual_channel" "$thread_ts" "eyes" || true
   emit_internal_event "message.sent" "envoy" \
     "$(jq -n -c --arg mid "$(echo "$msg" | jq -r '.id')" --arg tid "$task_id" --arg ch "$actual_channel" \
       '{msg_id: $mid, task_id: $tid, channel: $ch}')"
@@ -178,6 +179,14 @@ process_notification() {
       send_thread_reply "$channel" "$thread_ts" "$content" || return 1
 
       if echo "$content" | grep -qE '^(✅|❌|⏭️)'; then
+        # 스레드 부모 메시지 리액션 업데이트
+        remove_reaction "$channel" "$thread_ts" "eyes" || true
+        if echo "$content" | grep -q '^✅'; then
+          add_reaction "$channel" "$thread_ts" "white_check_mark" || true
+        elif echo "$content" | grep -q '^❌'; then
+          add_reaction "$channel" "$thread_ts" "x" || true
+        fi
+
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"
         # 원본 DM에 최종 리액션 업데이트

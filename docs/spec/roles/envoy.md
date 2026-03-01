@@ -354,6 +354,19 @@ needs_human           → 👀 제거 + 🙋 raising_hand
 Direct response       → 👀 제거 + ✅ white_check_mark
 ```
 
+### 채널 스레드 부모 메시지 리액션
+
+채널 스레드의 부모 메시지(thread_start)에도 상태 리액션을 추가하여, 채널에서 한눈에 작업 진행/완료 상태를 파악할 수 있다.
+
+```
+thread_start 발송       → 👀 eyes (즉시, fire-and-forget)
+notification ✅ (성공)   → 👀 제거 + ✅ white_check_mark
+notification ❌ (실패)   → 👀 제거 + ❌ x
+notification ⏭️ (건너뜀) → 👀 제거 (제거만)
+```
+
+DM 원본 리액션(`source_ref` 기반)과 독립적으로 동작하며, `thread_ts`와 `channel`은 thread mapping에서 추출한다.
+
 ### 메커니즘
 
 1. **즉시 리액션**: `check_channel_messages()`에서 DM 감지 시 `add_reaction("eyes")` 호출 (fire-and-forget)

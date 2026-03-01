@@ -217,6 +217,86 @@ EOF
   rm -f "$MOCK_LOG"
 }
 
+@test "envoy: thread_start adds eyes reaction to parent message" {
+  export MOCK_LOG="$(mktemp)"
+
+  # process_thread_start 인라인 정의
+  process_thread_start() {
+    local msg="$1"
+    local task_id channel content
+    task_id=$(echo "$msg" | jq -r '.task_id')
+    channel=$(echo "$msg" | jq -r '.channel // "C_DEFAULT"')
+    content=$(echo "$msg" | jq -r '.content')
+
+    local response
+    response=$(send_message "$channel" "$content") || return 1
+    local thread_ts
+    thread_ts=$(echo "$response" | jq -r '.ts')
+    local actual_channel
+    actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+
+    save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
+    add_reaction "$actual_channel" "$thread_ts" "eyes" || true
+  }
+
+  local msg='{"id":"msg-001","type":"thread_start","task_id":"task-react-001","channel":"C123","content":"test start","created_at":"2026-01-01T00:00:00Z","status":"pending"}'
+  run process_thread_start "$msg"
+  assert_success
+
+  # MOCK_LOG에 reactions.add + eyes 호출 확인
+  run cat "$MOCK_LOG"
+  assert_output --partial "reactions.add"
+  rm -f "$MOCK_LOG"
+}
+
+@test "envoy: notification success updates thread parent reaction" {
+  export MOCK_LOG="$(mktemp)"
+
+  # 매핑 생성
+  save_thread_mapping "task-react-002" "1707300000.000200" "C123"
+
+  # process_notification 인라인 정의 (envoy.sh에서 가져옴)
+  process_notification() {
+    local msg="$1"
+    local task_id content
+    task_id=$(echo "$msg" | jq -r '.task_id // empty')
+    content=$(echo "$msg" | jq -r '.content')
+
+    if [[ -n "$task_id" ]]; then
+      local mapping
+      mapping=$(get_thread_mapping "$task_id")
+      if [[ -n "$mapping" ]]; then
+        local thread_ts channel
+        thread_ts=$(echo "$mapping" | jq -r '.thread_ts')
+        channel=$(echo "$mapping" | jq -r '.channel')
+        send_thread_reply "$channel" "$thread_ts" "$content" || return 1
+
+        if echo "$content" | grep -qE '^(✅|❌|⏭️)'; then
+          remove_reaction "$channel" "$thread_ts" "eyes" || true
+          if echo "$content" | grep -q '^✅'; then
+            add_reaction "$channel" "$thread_ts" "white_check_mark" || true
+          elif echo "$content" | grep -q '^❌'; then
+            add_reaction "$channel" "$thread_ts" "x" || true
+          fi
+          remove_thread_mapping "$task_id"
+          remove_awaiting_response "$task_id"
+        fi
+      fi
+    fi
+  }
+
+  local msg='{"id":"msg-notif-001","type":"notification","task_id":"task-react-002","content":"✅ 작업 완료","created_at":"2026-01-01T00:00:00Z","status":"pending"}'
+  run process_notification "$msg"
+  assert_success
+
+  # MOCK_LOG에 reactions.remove (eyes) + reactions.add (white_check_mark) 호출 확인
+  local log_content
+  log_content=$(cat "$MOCK_LOG")
+  echo "$log_content" | grep -q "reactions.remove"
+  echo "$log_content" | grep -q "reactions.add"
+  rm -f "$MOCK_LOG"
+}
+
 @test "envoy: 5 message types recognized" {
   # 각 메시지 타입이 case문에서 처리되는지 간접 확인
   for type in thread_start thread_update human_input_request notification report; do
