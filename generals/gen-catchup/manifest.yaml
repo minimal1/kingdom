@@ -12,4 +12,15 @@ schedules:
   - name: daily-catchup
     cron: "0 0 * * *"
     task_type: catchup
-    payload: {}
+    payload:
+      share_channel: "TODO_SHARE_CHANNEL_ID"
+      workspace_id: "TODO_WORKSPACE_ID"
+      repos:
+        - repo: "TODO_REPO_A"
+          branch: "TODO_BRANCH_A"
+          period_days: 1
+          canvas_id: "TODO_CANVAS_ID_A"
+        - repo: "TODO_REPO_B"
+          branch: "TODO_BRANCH_B"
+          period_days: 1
+          canvas_id: "TODO_CANVAS_ID_B"
