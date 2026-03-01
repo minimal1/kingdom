@@ -438,9 +438,9 @@ EOF
   assert [ -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-020.json" ]
 }
 
-# --- DM 메시지 이벤트: thread_start 건너뛰기 ---
+# --- DM 메시지 이벤트: thread_start with existing thread_ts ---
 
-@test "king: DM with petition disabled uses static routing, skips thread_start" {
+@test "king: DM with petition disabled creates thread_start with existing thread_ts" {
   # petition 비활성화: YAML boolean false는 yq // 연산자에서 falsy 취급되므로 문자열 사용
   cat > "$BASE_DIR/config/king.yaml" << 'EOF'
 slack:
@@ -474,10 +474,18 @@ EOF
   # 이벤트 dispatched
   assert [ -f "$BASE_DIR/queue/events/dispatched/evt-dm-001.json" ]
 
-  # thread_start 메시지가 생성되지 않아야 함 (message_ts 있으므로)
+  # thread_start 메시지가 기존 thread_ts를 포함하여 생성되어야 함
   local msg_count
   msg_count=$(ls "$BASE_DIR/queue/messages/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
-  [ "$msg_count" -eq 0 ]
+  [ "$msg_count" -eq 1 ]
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_start"
+  run jq -r '.thread_ts' "$msg_file"
+  assert_output "1234.5678"
+  run jq -r '.channel' "$msg_file"
+  assert_output "D08XXX"
 }
 
 # --- handle_success reply_to ---

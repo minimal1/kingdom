@@ -128,12 +128,27 @@ create_thread_start_message() {
     [ -n "$repo" ] && content=$(printf '📋 *%s* | %s\n`%s` | %s' "$general" "$task_id" "$event_type" "$repo")
   fi
 
+  # DM 이벤트: 기존 메시지를 스레드 부모로 재사용 (새 메시지 불필요)
+  local existing_ts existing_ch
+  existing_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
+  existing_ch=$(echo "$event" | jq -r '.payload.channel // empty')
+
   local message
-  message=$(jq -n \
-    --arg id "$msg_id" --arg task "$task_id" \
-    --arg ch "$channel" --arg ct "$content" \
-    '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  if [[ -n "$existing_ts" && -n "$existing_ch" ]]; then
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$task_id" \
+      --arg ch "$existing_ch" --arg ct "$content" \
+      --arg ts "$existing_ts" \
+      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
+        thread_ts: $ts,
+        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  else
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$task_id" \
+      --arg ch "$channel" --arg ct "$content" \
+      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
+        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  fi
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
 }
@@ -318,12 +333,7 @@ dispatch_new_task() {
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
 
-  # DM 메시지 이벤트는 이미 스레드가 있으므로 thread_start 건너뜀
-  local reply_to_ts
-  reply_to_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
-  if [[ -z "$reply_to_ts" ]]; then
-    create_thread_start_message "$task_id" "$general" "$event"
-  fi
+  create_thread_start_message "$task_id" "$general" "$event"
   mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
 
   log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"

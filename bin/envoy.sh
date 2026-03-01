@@ -65,14 +65,23 @@ process_thread_start() {
   channel=$(echo "$msg" | jq -r '.channel // "'"$DEFAULT_CHANNEL"'"')
   content=$(echo "$msg" | jq -r '.content')
 
-  local response
-  response=$(send_message "$channel" "$content") || return 1
-  local thread_ts
-  thread_ts=$(echo "$response" | jq -r '.ts')
+  local thread_ts actual_channel
+  local existing_ts
+  existing_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
 
-  # API 응답의 실제 channel ID 사용 (DM일 때 D-prefixed ID 반환)
-  local actual_channel
-  actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+  if [[ -n "$existing_ts" ]]; then
+    # DM 경로: 기존 메시지를 스레드 부모로 재사용 (새 메시지 불필요)
+    thread_ts="$existing_ts"
+    actual_channel="$channel"
+    send_thread_reply "$channel" "$thread_ts" "$content" || return 1
+  else
+    # 일반 경로: 새 채널 메시지 생성
+    local response
+    response=$(send_message "$channel" "$content") || return 1
+    thread_ts=$(echo "$response" | jq -r '.ts')
+    # API 응답의 실제 channel ID 사용 (DM일 때 D-prefixed ID 반환)
+    actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+  fi
 
   save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
   add_reaction "$actual_channel" "$thread_ts" "eyes" || true

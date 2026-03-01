@@ -394,11 +394,8 @@ dispatch_new_task() {
   mv "$BASE_DIR/queue/tasks/pending/.tmp-${task_id}.json" \
      "$BASE_DIR/queue/tasks/pending/${task_id}.json"
 
-  # 사절에게 thread_start 메시지 생성 (DM 이벤트는 이미 스레드가 있으므로 건너뜀)
-  local reply_to_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
-  if [[ -z "$reply_to_ts" ]]; then
-    create_thread_start_message "$task_id" "$general" "$event"
-  fi
+  # 사절에게 thread_start 메시지 생성 (DM이면 기존 thread_ts 포함)
+  create_thread_start_message "$task_id" "$general" "$event"
 
   # 이벤트를 dispatched로 이동
   mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
@@ -1101,11 +1098,25 @@ create_thread_start_message() {
     [ -n "$repo" ] && content=$(printf '📋 *%s* | %s\n`%s` | %s' "$general" "$task_id" "$event_type" "$repo")
   fi
 
-  local message=$(jq -n \
-    --arg id "$msg_id" --arg task "$task_id" \
-    --arg ch "$channel" --arg ct "$content" \
-    '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  # DM 이벤트: 기존 메시지를 스레드 부모로 재사용 (thread_ts + channel 포함)
+  local existing_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
+  local existing_ch=$(echo "$event" | jq -r '.payload.channel // empty')
+
+  local message
+  if [[ -n "$existing_ts" && -n "$existing_ch" ]]; then
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$task_id" \
+      --arg ch "$existing_ch" --arg ct "$content" --arg ts "$existing_ts" \
+      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
+        thread_ts: $ts,
+        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  else
+    message=$(jq -n \
+      --arg id "$msg_id" --arg task "$task_id" \
+      --arg ch "$channel" --arg ct "$content" \
+      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
+        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
+  fi
 
   echo "$message" > "$BASE_DIR/queue/messages/pending/.tmp-${msg_id}.json"
   mv "$BASE_DIR/queue/messages/pending/.tmp-${msg_id}.json" \

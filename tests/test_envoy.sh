@@ -249,6 +249,47 @@ EOF
   rm -f "$MOCK_LOG"
 }
 
+@test "envoy: thread_start with existing thread_ts skips send_message and creates mapping" {
+  # DM 경로: thread_ts가 이미 있으면 새 메시지를 보내지 않고 mapping만 생성
+  process_thread_start() {
+    local msg="$1"
+    local task_id channel content
+    task_id=$(echo "$msg" | jq -r '.task_id')
+    channel=$(echo "$msg" | jq -r '.channel // "C_DEFAULT"')
+    content=$(echo "$msg" | jq -r '.content')
+
+    local thread_ts actual_channel
+    local existing_ts
+    existing_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
+
+    if [[ -n "$existing_ts" ]]; then
+      thread_ts="$existing_ts"
+      actual_channel="$channel"
+      send_thread_reply "$channel" "$thread_ts" "$content" || return 1
+    else
+      local response
+      response=$(send_message "$channel" "$content") || return 1
+      thread_ts=$(echo "$response" | jq -r '.ts')
+      actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+    fi
+
+    save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
+    add_reaction "$actual_channel" "$thread_ts" "eyes" || true
+  }
+
+  local msg='{"id":"msg-dm-start","type":"thread_start","task_id":"task-dm-mapping","channel":"D08XXX","thread_ts":"1234.5678","content":"📋 gen-herald | task-dm-mapping","created_at":"2026-01-01T00:00:00Z","status":"pending"}'
+  run process_thread_start "$msg"
+  assert_success
+
+  # thread mapping이 DM 채널과 기존 thread_ts로 생성되었는지 확인
+  local mapping
+  mapping=$(get_thread_mapping "task-dm-mapping")
+  run jq -r '.thread_ts' <<< "$mapping"
+  assert_output "1234.5678"
+  run jq -r '.channel' <<< "$mapping"
+  assert_output "D08XXX"
+}
+
 @test "envoy: notification success updates thread parent reaction" {
   export MOCK_LOG="$(mktemp)"
 

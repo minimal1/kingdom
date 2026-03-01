@@ -201,17 +201,27 @@ read_thread_replies() {
 }
 ```
 
-사절은 이 메시지를 전송한 후, 반환된 `ts`를 스레드 매핑에 저장:
+사절은 이 메시지를 처리할 때 두 가지 경로로 분기한다:
+
+**일반 경로** (GitHub/Jira 이벤트 — `thread_ts` 없음): 새 채널 메시지를 생성하고 반환된 `ts`를 스레드 매핑에 저장.
+
+**DM 경로** (`thread_ts` 있음): DM 원본 메시지가 이미 스레드 부모이므로 새 메시지를 생성하지 않고, 스레드 답글로 상태 알림을 보낸 뒤 기존 `thread_ts`로 매핑만 저장.
 
 ```bash
-# send_message 후 thread_ts 추출 (에러 시 다음 주기에 재시도)
-response=$(send_message "$channel" "$content") || return 1
-thread_ts=$(echo "$response" | jq -r '.ts')
+existing_ts=$(echo "$msg" | jq -r '.thread_ts // empty')
 
-# API 응답의 실제 channel ID 사용 (DM일 때 D-prefixed ID 반환)
-actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+if [[ -n "$existing_ts" ]]; then
+  # DM 경로: 기존 메시지를 스레드 부모로 재사용
+  thread_ts="$existing_ts"
+  actual_channel="$channel"
+  send_thread_reply "$channel" "$thread_ts" "$content"
+else
+  # 일반 경로: 새 채널 메시지 생성
+  response=$(send_message "$channel" "$content") || return 1
+  thread_ts=$(echo "$response" | jq -r '.ts')
+  actual_channel=$(echo "$response" | jq -r '.channel // "'"$channel"'"')
+fi
 
-# 매핑 저장 (actual_channel — DM이면 D08XXX, 채널이면 C0XXX)
 save_thread_mapping "$task_id" "$thread_ts" "$actual_channel"
 ```
 
