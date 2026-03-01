@@ -142,6 +142,81 @@ EOF
   assert_output "task-dm-001"
 }
 
+@test "envoy: update_source_reactions removes eyes and adds final emoji" {
+  # update_source_reactions 함수 인라인 정의 (envoy.sh에서 가져옴)
+  update_source_reactions() {
+    local msg="$1" final_emoji="$2"
+    local source_ref
+    source_ref=$(echo "$msg" | jq -c '.source_ref // empty')
+    [[ -z "$source_ref" || "$source_ref" == "null" ]] && return 0
+
+    local src_ch src_ts
+    src_ch=$(echo "$source_ref" | jq -r '.channel')
+    src_ts=$(echo "$source_ref" | jq -r '.message_ts')
+
+    remove_reaction "$src_ch" "$src_ts" "eyes" || true
+    if [[ -n "$final_emoji" ]]; then
+      add_reaction "$src_ch" "$src_ts" "$final_emoji" || true
+    fi
+  }
+
+  export MOCK_LOG="$(mktemp)"
+  local msg='{"source_ref":{"channel":"D999","message_ts":"1707300000.000100"},"content":"test"}'
+  run update_source_reactions "$msg" "white_check_mark"
+  assert_success
+
+  # curl이 reactions.remove와 reactions.add 모두 호출됨
+  run cat "$MOCK_LOG"
+  assert_output --partial "reactions.remove"
+  assert_output --partial "reactions.add"
+  rm -f "$MOCK_LOG"
+}
+
+@test "envoy: update_source_reactions skips when no source_ref" {
+  update_source_reactions() {
+    local msg="$1" final_emoji="$2"
+    local source_ref
+    source_ref=$(echo "$msg" | jq -c '.source_ref // empty')
+    [[ -z "$source_ref" || "$source_ref" == "null" ]] && return 0
+    # 여기까지 오면 안 됨
+    return 1
+  }
+
+  local msg='{"content":"test without source_ref"}'
+  run update_source_reactions "$msg" "white_check_mark"
+  assert_success
+}
+
+@test "envoy: update_source_reactions only removes eyes when final_emoji empty" {
+  update_source_reactions() {
+    local msg="$1" final_emoji="$2"
+    local source_ref
+    source_ref=$(echo "$msg" | jq -c '.source_ref // empty')
+    [[ -z "$source_ref" || "$source_ref" == "null" ]] && return 0
+
+    local src_ch src_ts
+    src_ch=$(echo "$source_ref" | jq -r '.channel')
+    src_ts=$(echo "$source_ref" | jq -r '.message_ts')
+
+    remove_reaction "$src_ch" "$src_ts" "eyes" || true
+    if [[ -n "$final_emoji" ]]; then
+      add_reaction "$src_ch" "$src_ts" "$final_emoji" || true
+    fi
+  }
+
+  export MOCK_LOG="$(mktemp)"
+  local msg='{"source_ref":{"channel":"D999","message_ts":"1707300000.000100"}}'
+  run update_source_reactions "$msg" ""
+  assert_success
+
+  # reactions.remove만 호출, reactions.add는 없어야 함
+  local log_content
+  log_content=$(cat "$MOCK_LOG")
+  echo "$log_content" | grep -q "reactions.remove"
+  ! echo "$log_content" | grep -q "reactions.add"
+  rm -f "$MOCK_LOG"
+}
+
 @test "envoy: 5 message types recognized" {
   # 각 메시지 타입이 case문에서 처리되는지 간접 확인
   for type in thread_start thread_update human_input_request notification report; do

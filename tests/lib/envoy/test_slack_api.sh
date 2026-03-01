@@ -42,3 +42,24 @@ teardown() {
   run jq -r '.ok' <<< "$result"
   assert_output "true"
 }
+
+@test "slack-api: add_reaction calls reactions.add" {
+  local result
+  result=$(add_reaction "D999" "1707300000.000100" "eyes")
+  run jq -r '.ok' <<< "$result"
+  assert_output "true"
+}
+
+@test "slack-api: remove_reaction calls reactions.remove" {
+  # remove_reaction은 || true 이므로 항상 성공
+  run remove_reaction "D999" "1707300000.000100" "eyes"
+  assert_success
+}
+
+@test "slack-api: add_reaction logs call with correct params" {
+  export MOCK_LOG="$(mktemp)"
+  add_reaction "D999" "1707300000.000100" "white_check_mark" > /dev/null
+  run cat "$MOCK_LOG"
+  assert_output --partial "reactions.add"
+  rm -f "$MOCK_LOG"
+}

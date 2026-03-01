@@ -544,6 +544,27 @@ state/results/{task-id}.json
 └──────────────────────┘
 ```
 
+### source_ref 주입 (이모지 리액션용)
+
+DM 기반 작업의 결과 처리 시, 왕은 원본 DM의 참조 정보를 사절 메시지에 `source_ref`로 주입한다. 사절은 이를 사용하여 원본 DM에 이모지 리액션(👀→✅/❌/🙋)을 업데이트한다.
+
+```bash
+extract_source_ref() {
+  local task="$1"
+  local src_msg_ts=$(echo "$task" | jq -r '.payload.message_ts // empty')
+  local src_ch=$(echo "$task" | jq -r '.payload.channel // empty')
+  if [[ -n "$src_msg_ts" && -n "$src_ch" ]]; then
+    jq -n --arg ch "$src_ch" --arg ts "$src_msg_ts" '{channel: $ch, message_ts: $ts}'
+  else
+    echo "null"  # GitHub/Jira 이벤트는 source_ref 없음
+  fi
+}
+```
+
+적용 대상: `handle_success`, `handle_failure`, `handle_skipped`, `handle_needs_human`, `handle_direct_response`
+
+> 상세: [systems/message-passing.md](../systems/message-passing.md#source_ref-원본-dm-참조)
+
 ### 결과 처리 코드
 
 ```bash

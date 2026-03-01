@@ -38,6 +38,24 @@ fi
 
 log "[SYSTEM] [envoy] Started. channel_for_history=${CHANNEL_FOR_HISTORY:-none}"
 
+# --- Reaction Helper ---
+
+update_source_reactions() {
+  local msg="$1" final_emoji="$2"
+  local source_ref
+  source_ref=$(echo "$msg" | jq -c '.source_ref // empty')
+  [[ -z "$source_ref" || "$source_ref" == "null" ]] && return 0
+
+  local src_ch src_ts
+  src_ch=$(echo "$source_ref" | jq -r '.channel')
+  src_ts=$(echo "$source_ref" | jq -r '.message_ts')
+
+  remove_reaction "$src_ch" "$src_ts" "eyes" || true
+  if [[ -n "$final_emoji" ]]; then
+    add_reaction "$src_ch" "$src_ts" "$final_emoji" || true
+  fi
+}
+
 # --- Message Processors ---
 
 process_thread_start() {
@@ -97,6 +115,7 @@ process_human_input_request() {
     channel=$(echo "$mapping" | jq -r '.channel')
     send_thread_reply "$channel" "$thread_ts" "$content" || return 1
     add_awaiting_response "$task_id" "$thread_ts" "$channel" "$reply_ctx"
+    update_source_reactions "$msg" "raising_hand"
     log "[EVENT] [envoy] Human input requested for task: $task_id"
   else
     # DM 원본: 메시지에 channel/thread_ts가 직접 포함된 경우 (thread_mapping 없이)
@@ -106,6 +125,7 @@ process_human_input_request() {
     if [[ -n "$msg_ch" && -n "$msg_ts" ]]; then
       send_thread_reply "$msg_ch" "$msg_ts" "$content" || return 1
       add_awaiting_response "$task_id" "$msg_ts" "$msg_ch" "$reply_ctx"
+      update_source_reactions "$msg" "raising_hand"
       log "[EVENT] [envoy] Human input requested for task: $task_id (DM fallback)"
     else
       log "[WARN] [envoy] No thread mapping for task: $task_id (human_input_request)"
@@ -138,6 +158,7 @@ process_thread_reply_msg() {
     log "[EVENT] [envoy] Conversation tracked for thread: $thread_ts"
   fi
 
+  update_source_reactions "$msg" "white_check_mark"
   save_thread_mapping "$task_id" "$thread_ts" "$channel"
 }
 
@@ -159,6 +180,14 @@ process_notification() {
       if echo "$content" | grep -qE '^(✅|❌|⏭️)'; then
         remove_thread_mapping "$task_id"
         remove_awaiting_response "$task_id"
+        # 원본 DM에 최종 리액션 업데이트
+        if echo "$content" | grep -q '^✅'; then
+          update_source_reactions "$msg" "white_check_mark"
+        elif echo "$content" | grep -q '^❌'; then
+          update_source_reactions "$msg" "x"
+        else
+          update_source_reactions "$msg" ""
+        fi
         log "[EVENT] [envoy] Thread closed for task: $task_id"
       fi
     else
@@ -261,6 +290,7 @@ check_channel_messages() {
          payload: { text: $text, user_id: $user_id, channel: $channel, message_ts: $message_ts },
          priority: "normal",
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+    add_reaction "$CHANNEL_FOR_HISTORY" "$msg_ts" "eyes" || true
     emit_event "$event"
     log "[EVENT] [envoy] DM message detected: $event_id"
   done

@@ -36,6 +36,21 @@ next_msg_id() {
   next_seq_id "msg" "$MSG_SEQ_FILE"
 }
 
+# --- Source Ref Helper ---
+
+# DM 기반 task의 원본 메시지 참조를 추출 (리액션 업데이트용)
+extract_source_ref() {
+  local task="$1"
+  local src_msg_ts src_ch
+  src_msg_ts=$(echo "$task" | jq -r '.payload.message_ts // empty')
+  src_ch=$(echo "$task" | jq -r '.payload.channel // empty')
+  if [[ -n "$src_msg_ts" && -n "$src_ch" ]]; then
+    jq -n --arg ch "$src_ch" --arg ts "$src_msg_ts" '{channel: $ch, message_ts: $ts}'
+  else
+    echo "null"
+  fi
+}
+
 # --- Atomic Write Helper ---
 
 write_to_queue() {
@@ -142,6 +157,7 @@ create_notification_message() {
   local task_id="$1"
   local content="$2"
   local override_channel="${3:-}"
+  local source_ref_json="${4:-null}"
   local msg_id
   msg_id=$(next_msg_id)
   local channel
@@ -155,8 +171,9 @@ create_notification_message() {
   message=$(jq -n \
     --arg id "$msg_id" --arg task "$task_id" \
     --arg ch "$channel" --arg ct "$content" \
+    --argjson sr "$source_ref_json" \
     '{id: $id, type: "notification", task_id: $task, channel: $ch,
-      urgency: "normal", content: $ct,
+      urgency: "normal", content: $ct, source_ref: $sr,
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
@@ -439,13 +456,16 @@ handle_success() {
       track_json=$(jq -n --argjson rc "$reply_ctx" '{reply_context: $rc}')
     fi
 
+    local source_ref
+    source_ref=$(extract_source_ref "$task")
+
     local message
     message=$(jq -n \
       --arg id "$msg_id" --arg task "$task_id" \
       --arg ch "$reply_ch" --arg ts "$reply_ts" --arg ct "$summary" \
-      --argjson tc "$track_json" \
+      --argjson tc "$track_json" --argjson sr "$source_ref" \
       '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
-         thread_ts: $ts, content: $ct, track_conversation: $tc,
+         thread_ts: $ts, content: $ct, track_conversation: $tc, source_ref: $sr,
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   else
@@ -462,13 +482,15 @@ handle_success() {
     fi
     local ctx
     ctx=$(format_task_context "$task_type" "$payload")
+    local source_ref
+    source_ref=$(extract_source_ref "$task")
     local notif_content
     if [[ -n "$ctx" ]]; then
       notif_content=$(printf '✅ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$summary")
     else
       notif_content=$(printf '✅ *%s* | %s\n%s' "$general" "$task_id" "$summary")
     fi
-    create_notification_message "$task_id" "$notif_content" "$notify_ch"
+    create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
   fi
 
   # Proclamation: 별도 채널 공표
@@ -507,13 +529,15 @@ handle_failure() {
   fi
   local ctx
   ctx=$(format_task_context "$task_type" "$payload")
+  local source_ref
+  source_ref=$(extract_source_ref "$task")
   local notif_content
   if [[ -n "$ctx" ]]; then
     notif_content=$(printf '❌ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$error")
   else
     notif_content=$(printf '❌ *%s* | %s\n%s' "$general" "$task_id" "$error")
   fi
-  create_notification_message "$task_id" "$notif_content" "$notify_ch"
+  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
@@ -556,6 +580,9 @@ handle_needs_human() {
   reply_ch=$(echo "$task" | jq -r '.payload.channel // empty')
   reply_ts=$(echo "$task" | jq -r '.payload.thread_ts // .payload.message_ts // empty')
 
+  local source_ref
+  source_ref=$(extract_source_ref "$task")
+
   # 태스크 완료 (checkpoint에 모든 정보 보존됨)
   complete_task "$task_id"
   rm -f "$BASE_DIR/state/results/${task_id}.json"
@@ -568,6 +595,7 @@ handle_needs_human() {
     --arg task_id "$task_id" \
     --arg content "[question] $question" \
     --argjson reply_ctx "$reply_ctx" \
+    --argjson sr "$source_ref" \
     --arg ch "$reply_ch" --arg ts "$reply_ts" \
     '{
       id: $id,
@@ -575,6 +603,7 @@ handle_needs_human() {
       task_id: $task_id,
       content: $content,
       reply_context: $reply_ctx,
+      source_ref: $sr,
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
       status: "pending"
     } + (if $ch != "" then {channel: $ch} else {} end)
@@ -609,13 +638,15 @@ handle_skipped() {
   fi
   local ctx
   ctx=$(format_task_context "$task_type" "$payload")
+  local source_ref
+  source_ref=$(extract_source_ref "$task")
   local notif_content
   if [[ -n "$ctx" ]]; then
     notif_content=$(printf '⏭️ *%s* | %s\n%s\n%s' "$general" "$task_id" "$ctx" "$reason")
   else
     notif_content=$(printf '⏭️ *%s* | %s\n%s' "$general" "$task_id" "$reason")
   fi
-  create_notification_message "$task_id" "$notif_content" "$notify_ch"
+  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
@@ -661,12 +692,15 @@ handle_direct_response() {
   if [[ -n "$channel" && -n "$message_ts" ]]; then
     local msg_id
     msg_id=$(next_msg_id)
+    local source_ref
+    source_ref=$(jq -n --arg ch "$channel" --arg ts "$message_ts" '{channel: $ch, message_ts: $ts}')
     local message
     message=$(jq -n \
       --arg id "$msg_id" --arg task "$event_id" \
       --arg ch "$channel" --arg ts "$message_ts" --arg ct "$response" \
+      --argjson sr "$source_ref" \
       '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
-         thread_ts: $ts, content: $ct, track_conversation: null,
+         thread_ts: $ts, content: $ct, track_conversation: null, source_ref: $sr,
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   fi

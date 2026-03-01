@@ -17,6 +17,7 @@ king:
       description: "왕 핵심 함수 전체 (king.sh는 thin wrapper)"
       functions:
         - "next_seq_id(), next_task_id(), next_msg_id()"
+        - "extract_source_ref(task) — DM 원본 메시지 참조 추출 (리액션용)"
         - "write_to_queue()"
         - "format_task_context(type, payload) — GitHub/Jira payload → Slack mrkdwn 링크"
         - "process_pending_events()"
@@ -120,6 +121,8 @@ envoy:
         - "send_thread_reply()"
         - "read_channel_messages()"
         - "read_thread_replies()"
+        - "add_reaction(channel, timestamp, emoji)"
+        - "remove_reaction(channel, timestamp, emoji)"
     - path: "bin/lib/envoy/thread-manager.sh"
       description: "task_id ↔ thread_ts 매핑 + awaiting 응답 관리"
       functions:
@@ -128,6 +131,8 @@ envoy:
         - "save_conversation_thread(), get_conversation_thread(), update_conversation_thread(), remove_conversation_thread()"
   dependencies:
     - common
+  entry_functions:
+    - "update_source_reactions(msg, final_emoji) — source_ref 기반 원본 DM 리액션 업데이트"
   data_flow: "queue/messages/pending/ → Slack API → sent/ | failed/"
   message_types:
     - "thread_start    — 작업 시작 (스레드 생성)"

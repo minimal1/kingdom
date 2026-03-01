@@ -28,6 +28,12 @@ case "$url" in
   *"slack.com/api/chat.postMessage"*)
     echo '{"ok":true,"ts":"1707300000.000100","channel":"D_MOCK_DM"}'
     ;;
+  *"slack.com/api/reactions.add"*)
+    echo '{"ok":true}'
+    ;;
+  *"slack.com/api/reactions.remove"*)
+    echo '{"ok":true}'
+    ;;
   *"slack.com/api/conversations.replies"*)
     if [[ -n "$MOCK_SLACK_REPLIES" ]]; then
       cat "$MOCK_SLACK_REPLIES"

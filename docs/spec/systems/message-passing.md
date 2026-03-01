@@ -126,6 +126,22 @@ queue/messages/
 }
 ```
 
+### source_ref (원본 DM 참조)
+
+DM 기반 작업의 경우, 왕이 결과 처리 시 원본 DM의 `channel`과 `message_ts`를 `source_ref` 필드로 메시지에 주입한다. 사절은 이를 사용하여 원본 DM에 이모지 리액션을 업데이트한다.
+
+```json
+{
+  "source_ref": {
+    "channel": "D08XXXXX",
+    "message_ts": "1707300000.000100"
+  }
+}
+```
+
+- DM이 아닌 이벤트(GitHub/Jira)에서는 `source_ref`가 `null`이므로 리액션 로직을 자연스럽게 건너뜀
+- 적용 메시지 타입: `thread_reply`, `notification`, `human_input_request`
+
 ### notification 채널 Override
 
 `notification` 타입 메시지의 `channel`은 기본적으로 왕의 `slack.default_channel` 설정을 따른다. 단, 병사 결과 JSON에 `notify_channel` 필드가 포함된 경우 해당 채널 ID로 override된다. 이를 통해 장군별로 알림 대상 채널을 유연하게 지정할 수 있다.

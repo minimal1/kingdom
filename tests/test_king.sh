@@ -1046,6 +1046,152 @@ EOF
   [ "$proc_count" -eq 0 ]
 }
 
+@test "king: handle_success thread_reply includes source_ref for DM task" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-070.json" << 'EOF'
+{"id":"task-20260210-070","event_id":"evt-070","target_general":"gen-pr","type":"slack.channel.message","payload":{"channel":"D999","message_ts":"1707300000.000100"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-070.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-070.json" << 'EOF'
+{"task_id":"task-20260210-070","status":"success","summary":"Done!"}
+EOF
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_reply"
+  # source_ref 포함 확인
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+  run jq -r '.source_ref.message_ts' "$msg_file"
+  assert_output "1707300000.000100"
+}
+
+@test "king: handle_success notification includes source_ref for non-DM task with message_ts" {
+  # notification 경로: payload에 channel/message_ts가 없는 일반 task + payload에 message_ts만
+  # thread_ts도 없어야 notification 경로를 탐
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-071.json" << 'EOF'
+{"id":"task-20260210-071","event_id":"evt-071","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"pr_number":999,"channel":"D999","message_ts":"1707300000.000100"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-071.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-071.json" << 'EOF'
+{"task_id":"task-20260210-071","status":"success","summary":"PR approved"}
+EOF
+
+  check_task_results
+
+  # payload에 channel+message_ts 있으면 thread_reply 경로
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.type' "$msg_file"
+  assert_output "thread_reply"
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+}
+
+@test "king: handle_failure notification includes source_ref" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-072.json" << 'EOF'
+{"id":"task-20260210-072","event_id":"evt-072","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"channel":"D999","message_ts":"1707300000.000200"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-072.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-072.json" << 'EOF'
+{"task_id":"task-20260210-072","status":"failed","error":"timeout"}
+EOF
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+  run jq -r '.source_ref.message_ts' "$msg_file"
+  assert_output "1707300000.000200"
+}
+
+@test "king: handle_skipped notification includes source_ref" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-073.json" << 'EOF'
+{"id":"task-20260210-073","event_id":"evt-073","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"channel":"D999","message_ts":"1707300000.000300"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-073.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-073.json" << 'EOF'
+{"task_id":"task-20260210-073","status":"skipped","reason":"out of scope"}
+EOF
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+}
+
+@test "king: handle_needs_human includes source_ref" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-074.json" << 'EOF'
+{"id":"task-20260210-074","event_id":"evt-074","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"channel":"D999","message_ts":"1707300000.000400"},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-074.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-074-checkpoint.json" << 'EOF'
+{"target_general":"gen-pr","session_id":"sess-xyz","repo":"chequer/qp"}
+EOF
+  cat > "$BASE_DIR/state/results/task-20260210-074.json" << 'EOF'
+{"task_id":"task-20260210-074","status":"needs_human","question":"Approve?","checkpoint_path":"PLACEHOLDER"}
+EOF
+  local cp_path="$BASE_DIR/state/results/task-20260210-074-checkpoint.json"
+  jq --arg cp "$cp_path" '.checkpoint_path = $cp' "$BASE_DIR/state/results/task-20260210-074.json" > "$BASE_DIR/state/results/task-20260210-074.json.tmp"
+  mv "$BASE_DIR/state/results/task-20260210-074.json.tmp" "$BASE_DIR/state/results/task-20260210-074.json"
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+  run jq -r '.source_ref.message_ts' "$msg_file"
+  assert_output "1707300000.000400"
+}
+
+@test "king: source_ref is null for non-DM tasks" {
+  cat > "$BASE_DIR/queue/tasks/in_progress/task-20260210-075.json" << 'EOF'
+{"id":"task-20260210-075","event_id":"evt-075","target_general":"gen-pr","type":"github.pr.review_requested","payload":{"pr_number":123},"status":"in_progress"}
+EOF
+  echo '{}' > "$BASE_DIR/queue/events/dispatched/evt-075.json"
+
+  cat > "$BASE_DIR/state/results/task-20260210-075.json" << 'EOF'
+{"task_id":"task-20260210-075","status":"success","summary":"Done"}
+EOF
+
+  check_task_results
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.source_ref' "$msg_file"
+  assert_output "null"
+}
+
+@test "king: handle_direct_response includes source_ref" {
+  cat > "$BASE_DIR/queue/events/pending/evt-dr-sr.json" << 'EOF'
+{"id":"evt-dr-sr","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"test","channel":"D999","message_ts":"1707300000.000500"}}
+EOF
+
+  handle_direct_response \
+    '{"id":"evt-dr-sr","payload":{"channel":"D999","message_ts":"1707300000.000500"}}' \
+    "$BASE_DIR/queue/events/pending/evt-dr-sr.json" \
+    "Direct reply"
+
+  local msg_file
+  msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)
+  run jq -r '.source_ref.channel' "$msg_file"
+  assert_output "D999"
+  run jq -r '.source_ref.message_ts' "$msg_file"
+  assert_output "1707300000.000500"
+}
+
 @test "king: handle_unroutable_dm sends guidance and completes event" {
   cat > "$BASE_DIR/queue/events/pending/evt-unroutable.json" << 'EOF'
 {"id":"evt-unroutable","type":"slack.channel.message","source":"slack","priority":"normal","payload":{"text":"hello","channel":"D08XXX","message_ts":"1234.5678"}}

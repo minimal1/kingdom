@@ -80,3 +80,17 @@ read_thread_replies() {
     "$(jq -n --arg c "$channel" --arg ts "$thread_ts" --arg o "$oldest" \
       '{channel: $c, ts: $ts, oldest: $o, limit: "20"}')" "GET"
 }
+
+add_reaction() {
+  local channel="$1" timestamp="$2" emoji="$3"
+  slack_api "reactions.add" \
+    "$(jq -n --arg c "$channel" --arg ts "$timestamp" --arg e "$emoji" \
+      '{channel: $c, timestamp: $ts, name: $e}')"
+}
+
+remove_reaction() {
+  local channel="$1" timestamp="$2" emoji="$3"
+  slack_api "reactions.remove" \
+    "$(jq -n --arg c "$channel" --arg ts "$timestamp" --arg e "$emoji" \
+      '{channel: $c, timestamp: $ts, name: $e}')" || true
+}
