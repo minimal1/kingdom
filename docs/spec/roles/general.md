@@ -803,6 +803,8 @@ description: "문서 작성 장군"
 cc_plugins:
   - doc-writer@my-marketplace    # plugin-name@marketplace 형식
 
+default_repo: chequer-io/querypie-mono   # 이벤트에 repo가 없을 때 사용할 기본 레포 (선택)
+
 subscribes: []    # 외부 이벤트 구독 없음 — 순수 스케줄 기반
 
 schedules:

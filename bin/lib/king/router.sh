@@ -7,14 +7,17 @@ GENERALS_CONFIG_DIR="$BASE_DIR/config/generals"
 # Runtime state files (created in /tmp per session)
 ROUTING_TABLE_FILE=""
 SCHEDULES_FILE=""
+DEFAULT_REPO_FILE=""
 ROUTING_TABLE_COUNT=0
 
 # Load general manifests and build routing table
 load_general_manifests() {
   ROUTING_TABLE_FILE=$(mktemp)
   SCHEDULES_FILE=$(mktemp)
+  DEFAULT_REPO_FILE=$(mktemp)
   echo '{}' > "$ROUTING_TABLE_FILE"
   echo -n > "$SCHEDULES_FILE"
+  echo '{}' > "$DEFAULT_REPO_FILE"
   ROUTING_TABLE_COUNT=0
 
   for manifest in "$GENERALS_CONFIG_DIR"/*.yaml; do
@@ -23,6 +26,15 @@ load_general_manifests() {
     local name
     name=$(yq eval '.name' "$manifest" 2>/dev/null)
     [ -z "$name" ] && continue
+
+    # default_repo → lookup table
+    local default_repo
+    default_repo=$(yq eval '.default_repo // ""' "$manifest" 2>/dev/null)
+    if [ -n "$default_repo" ]; then
+      local updated_repo
+      updated_repo=$(jq --arg gn "$name" --arg r "$default_repo" '.[$gn] = $r' "$DEFAULT_REPO_FILE")
+      echo "$updated_repo" > "$DEFAULT_REPO_FILE"
+    fi
 
     # Subscribe events → routing table
     local subscribes
@@ -80,6 +92,12 @@ find_general() {
 
   log "[WARN] [king] No general found for event type: $event_type"
   return 1
+}
+
+# Get default repo for a general (from manifest default_repo field)
+get_default_repo() {
+  local general="$1"
+  jq -r --arg gn "$general" '.[$gn] // empty' "$DEFAULT_REPO_FILE" 2>/dev/null
 }
 
 # Get number of mapped event types

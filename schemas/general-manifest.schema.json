@@ -33,6 +33,12 @@
         "examples": ["friday@qp-plugin", "sunday", "saturday"]
       }
     },
+    "default_repo": {
+      "type": "string",
+      "description": "이벤트에 repo 정보가 없을 때 사용할 기본 레포 (owner/repo 형식). 지정 시 prepare_workspace에서 자동 clone",
+      "pattern": "^[\\w.-]+/[\\w.-]+$",
+      "examples": ["chequer-io/querypie-mono", "chequer-io/querypie-frontend"]
+    },
     "subscribes": {
       "type": "array",
       "description": "구독할 이벤트 타입 목록. 빈 배열이면 스케줄 또는 petition 라우팅 전용 장군",

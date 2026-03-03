@@ -10,6 +10,7 @@ setup() {
   install_test_general "gen-pr"
   install_test_general "gen-briefing"
   install_test_general "gen-herald"
+  install_test_general "gen-jira"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/router.sh"
@@ -38,6 +39,7 @@ setup() {
 teardown() {
   [ -n "$ROUTING_TABLE_FILE" ] && rm -f "$ROUTING_TABLE_FILE"
   [ -n "$SCHEDULES_FILE" ] && rm -f "$SCHEDULES_FILE"
+  [ -n "$DEFAULT_REPO_FILE" ] && rm -f "$DEFAULT_REPO_FILE"
   teardown_kingdom_env
 }
 
@@ -697,6 +699,52 @@ EOF
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
   run jq -r '.repo' "$task_file"
   assert_output "null"
+}
+
+@test "king: dispatch_new_task uses default_repo when event has no repo" {
+  local event
+  event=$(jq -n '{
+    id: "evt-jira-QP-1234-20260207",
+    type: "jira.ticket.assigned",
+    source: "jira",
+    repo: null,
+    payload: { ticket_key: "QP-1234", summary: "Test", status: "In Progress", labels: ["kingdom"] },
+    priority: "normal",
+    created_at: "2026-02-07T10:00:00Z",
+    status: "pending"
+  }')
+  local event_file="$BASE_DIR/queue/events/pending/evt-jira-QP-1234-20260207.json"
+  echo "$event" > "$event_file"
+
+  dispatch_new_task "$event" "gen-jira" "$event_file"
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.repo' "$task_file"
+  assert_output "chequer-io/querypie-mono"
+}
+
+@test "king: dispatch_new_task keeps event repo over default_repo" {
+  local event
+  event=$(jq -n '{
+    id: "evt-github-123-20260207",
+    type: "github.pr.review_requested",
+    source: "github",
+    repo: "chequer-io/querypie-frontend",
+    payload: { pr_number: "42" },
+    priority: "normal",
+    created_at: "2026-02-07T10:00:00Z",
+    status: "pending"
+  }')
+  local event_file="$BASE_DIR/queue/events/pending/evt-github-123-20260207.json"
+  echo "$event" > "$event_file"
+
+  dispatch_new_task "$event" "gen-pr" "$event_file"
+
+  local task_file
+  task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
+  run jq -r '.repo' "$task_file"
+  assert_output "chequer-io/querypie-frontend"
 }
 
 @test "king: check_general_schedules passes repo from schedule config" {

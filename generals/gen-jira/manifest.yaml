@@ -6,6 +6,8 @@ timeout_seconds: 1800
 cc_plugins:
   - friday@qp-plugin
 
+default_repo: chequer-io/querypie-mono
+
 subscribes:
   - jira.ticket.assigned
   - jira.ticket.updated

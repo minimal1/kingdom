@@ -304,6 +304,10 @@ dispatch_new_task() {
   event_type=$(echo "$event" | jq -r '.type')
   local repo
   repo=$(echo "$event" | jq -r '.repo // empty')
+  # 이벤트에 repo가 없으면 장군 manifest의 default_repo 사용
+  if [[ -z "$repo" ]]; then
+    repo=$(get_default_repo "$general")
+  fi
   local priority
   priority=$(echo "$event" | jq -r '.priority')
   local task_id

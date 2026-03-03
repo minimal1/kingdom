@@ -44,6 +44,7 @@ king:
       functions:
         - "load_general_manifests()"
         - "find_general()"
+        - "get_default_repo()"
         - "collect_and_sort_events()"
     - path: "bin/lib/king/resource-check.sh"
       description: "리소스 + 토큰 상태 읽기 → 작업 수용 판단"
