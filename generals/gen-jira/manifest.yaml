@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-jira
+description: "Jira 티켓 대응 장군 — kingdom 라벨 + In Progress 티켓을 friday:jira로 작업 수행"
+timeout_seconds: 1800
+
+cc_plugins:
+  - friday@qp-plugin
+
+subscribes:
+  - jira.ticket.assigned
+  - jira.ticket.updated
+
+schedules: []

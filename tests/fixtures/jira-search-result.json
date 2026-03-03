@@ -7,6 +7,7 @@
         "status": { "name": "In Progress" },
         "assignee": { "displayName": "Eddy", "accountId": "123" },
         "priority": { "name": "High" },
+        "labels": ["kingdom", "frontend"],
         "updated": "2026-02-07T10:00:00.000+0900",
         "issuetype": { "name": "Task" },
         "project": { "key": "QP" }
@@ -19,6 +20,7 @@
         "status": { "name": "To Do" },
         "assignee": { "displayName": "Eddy", "accountId": "123" },
         "priority": { "name": "Normal" },
+        "labels": [],
         "updated": "2026-02-07T09:30:00.000+0900",
         "issuetype": { "name": "Bug" },
         "project": { "key": "QP" }

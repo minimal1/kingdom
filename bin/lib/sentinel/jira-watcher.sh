@@ -20,6 +20,7 @@ jira_fetch() {
 
   local jql_base
   jql_base=$(get_config "sentinel" "polling.jira.scope.jql_base")
+
   local jql="${jql_base} AND updated >= \"$time_filter\" ORDER BY updated DESC"
 
   local response
@@ -29,7 +30,7 @@ jira_fetch() {
     -d "$(jq -n --arg jql "$jql" '{
       jql: $jql,
       maxResults: 20,
-      fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority"]
+      fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority", "labels"]
     }')" \
     "$jira_url/rest/api/3/search/jql") || {
     log "[EVENT] [sentinel] ERROR: Jira API call failed"
@@ -69,13 +70,16 @@ jira_parse() {
       summary: .fields.summary,
       status: .fields.status.name,
       priority_name: .fields.priority.name,
+      labels: [.fields.labels[]?],
       updated: .fields.updated,
       prev_status: ($known[.key].status // null)
-    } | {
+    } |
+    # 상태 변경 없으면 이벤트 미발생 (코멘트만 추가된 경우 등)
+    select(.prev_status == null or .prev_status != .status) |
+    {
       id: ("evt-jira-" + .key + "-" + (.updated | gsub("[^0-9]"; ""))),
       type: (
         if .prev_status == null then "jira.ticket.assigned"
-        elif .prev_status != .status then "jira.ticket.updated"
         else "jira.ticket.updated"
         end
       ),
@@ -87,6 +91,7 @@ jira_parse() {
         status: .status,
         previous_status: .prev_status,
         priority: .priority_name,
+        labels: .labels,
         url: ("https://chequer.atlassian.net/browse/" + .key)
       },
       priority: "normal",

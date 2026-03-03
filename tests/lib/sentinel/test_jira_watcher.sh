@@ -86,6 +86,27 @@ teardown() {
   assert_output "[]"
 }
 
+@test "jira: parse includes labels in payload" {
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/jira-search-result.json")
+  local events
+  events=$(jira_parse "$raw")
+  run jq -r '.[0].payload.labels[0]' <<< "$events"
+  assert_output "kingdom"
+  run jq '.[1].payload.labels | length' <<< "$events"
+  assert_output "0"
+}
+
+@test "jira: parse skips known ticket with no status change" {
+  save_state "jira" '{"known_issues":{"QP-1234":{"status":"In Progress"},"QP-1235":{"status":"To Do"}}}'
+  local raw
+  raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/jira-search-result.json")
+  local events
+  events=$(jira_parse "$raw")
+  run jq 'length' <<< "$events"
+  assert_output "0"
+}
+
 @test "jira: parse includes url in payload" {
   local raw
   raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/jira-search-result.json")

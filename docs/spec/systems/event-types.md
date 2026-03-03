@@ -78,7 +78,8 @@ queue/events/pending/
   왕이 시작 시 각 장군 매니페스트의 subscribes를 읽어 ROUTING_TABLE 구성.
   예:
     github.pr.*           → gen-pr   (gen-pr.yaml의 subscribes에 선언)
-    jira.ticket.*         → (현재 구독 장군 없음 — 장군 패키지 추가로 확장 가능)
+    jira.ticket.assigned  → gen-jira  (gen-jira.yaml의 subscribes에 선언)
+    jira.ticket.updated   → gen-jira  (프롬프트에서 In Progress 상태 가드)
     github.issue.*        → (현재 구독 장군 없음 — 파수꾼은 생성 가능)
   매칭 실패 시 → 경고 로그, 이벤트를 completed로 이동 (폐기)
 

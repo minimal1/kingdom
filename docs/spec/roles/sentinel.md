@@ -324,6 +324,7 @@ jira_fetch() {
   fi
 
   local jql_base=$(get_config "sentinel" "polling.jira.scope.jql_base")
+
   local jql="${jql_base} AND updated >= \"$time_filter\" ORDER BY updated DESC"
 
   local response
@@ -333,7 +334,7 @@ jira_fetch() {
     -d "$(jq -n --arg jql "$jql" '{
       jql: $jql,
       maxResults: 20,
-      fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority"]
+      fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority", "labels"]
     }')" \
     "$jira_url/rest/api/3/search/jql")
 
@@ -688,10 +689,10 @@ polling:
         - mention
         - comment
         - state_change
-  # jira:                           # 현재 비활성 — 향후 Jira 연동 시 주석 해제
-  #   interval_seconds: 300
-  #   scope:
-  #     jql_base: "assignee = currentUser() AND project IN (QP, QPD)"
+  jira:
+    interval_seconds: 300
+    scope:
+      jql_base: "assignee = currentUser() AND project IN (QP, QPD) AND sprint in openSprints()"
 ```
 
 > **동적 watcher 로딩**: `polling` 키의 자식 키가 watcher 이름이 된다. 위 설정에서 `jira`가 주석 처리되어 있으므로, 파수꾼은 `github`만 로딩한다. Jira 연동 시 주석 해제만으로 활성화된다.
