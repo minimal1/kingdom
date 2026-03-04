@@ -8,8 +8,9 @@ jira_fetch() {
   local last_check
   last_check=$(echo "$state" | jq -r '.last_check // empty')
   local jira_url="${JIRA_URL:-https://chequer.atlassian.net}"
+  local jira_email="${JIRA_USER_EMAIL:-eddy@chequer.io}"
   local auth
-  auth=$(echo -n "eddy@chequer.io:${JIRA_API_TOKEN}" | base64)
+  auth=$(echo -n "${jira_email}:${JIRA_API_TOKEN}" | base64)
 
   local time_filter
   if [[ -z "$last_check" ]]; then
@@ -62,9 +63,11 @@ jira_parse() {
   local known_states
   known_states=$(echo "$state" | jq '.known_issues // {}')
 
+  local jira_url="${JIRA_URL:-https://chequer.atlassian.net}"
+
   # 이벤트 변환
   local events
-  events=$(echo "$raw" | jq -c --argjson known "$known_states" '[
+  events=$(echo "$raw" | jq -c --argjson known "$known_states" --arg jira_url "$jira_url" '[
     .issues[] | {
       key: .key,
       summary: .fields.summary,
@@ -92,7 +95,7 @@ jira_parse() {
         previous_status: .prev_status,
         priority: .priority_name,
         labels: .labels,
-        url: ("https://chequer.atlassian.net/browse/" + .key)
+        url: ($jira_url + "/browse/" + .key)
       },
       priority: "normal",
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),

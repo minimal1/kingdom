@@ -292,7 +292,7 @@ Notifications API가 반환하는 reason 목록:
 |------|-----|
 | 파일 | `bin/lib/sentinel/jira-watcher.sh` |
 | 도구 | `curl` + Jira REST API |
-| 인증 | `JIRA_API_TOKEN` + `eddy@chequer.io` (Basic Auth) |
+| 인증 | `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` (Basic Auth) |
 | 폴링 전략 | JQL 쿼리로 최근 변경분만 조회 |
 | Rate Limit | ~10 req/sec 안전 (5분 주기면 문제 없음) |
 
@@ -312,7 +312,8 @@ jira_fetch() {
   local state=$(load_state "jira")
   local last_check=$(echo "$state" | jq -r '.last_check // empty')
   local jira_url="${JIRA_URL:-https://chequer.atlassian.net}"
-  local auth=$(echo -n "eddy@chequer.io:${JIRA_API_TOKEN}" | base64)
+  local jira_email="${JIRA_USER_EMAIL:-eddy@chequer.io}"
+  local auth=$(echo -n "${jira_email}:${JIRA_API_TOKEN}" | base64)
 
   # last_check가 없으면 (첫 실행) 최근 10분
   # Jira JQL은 "YYYY-MM-DD HH:mm" 또는 "-5m" 상대 포맷 지원
@@ -378,7 +379,7 @@ jira_parse() {
         summary: .summary,
         status: .status,
         previous_status: .prev_status,
-        url: ("https://chequer.atlassian.net/browse/" + .key)
+        url: ($jira_url + "/browse/" + .key)
       },
       priority: "normal",
       created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
@@ -714,4 +715,4 @@ polling:
 | 서비스 | 환경변수 | 비고 |
 |--------|---------|------|
 | GitHub | `GH_TOKEN` | `gh` CLI가 자동으로 사용. `repo`, `read:org` 스코프 필요 |
-| Jira | `JIRA_API_TOKEN` | `eddy@chequer.io` + token으로 Basic Auth 구성 |
+| Jira | `JIRA_USER_EMAIL`, `JIRA_API_TOKEN` | email + token으로 Basic Auth 구성 |
