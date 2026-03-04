@@ -34,10 +34,19 @@ jira_fetch() {
       fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority", "labels"]
     }')" \
     "$jira_url/rest/api/3/search/jql") || {
-    log "[EVENT] [sentinel] ERROR: Jira API call failed"
+    log "[EVENT] [sentinel] ERROR: Jira API curl failed"
     echo '{"issues":[]}'
     return 1
   }
+
+  # API 에러 응답 체크 (errorMessages 필드가 있으면 에러)
+  local api_errors
+  api_errors=$(echo "$response" | jq -r '.errorMessages // [] | join(", ")' 2>/dev/null)
+  if [[ -n "$api_errors" ]]; then
+    log "[EVENT] [sentinel] ERROR: Jira API error: $api_errors"
+    echo '{"issues":[]}'
+    return 1
+  fi
 
   # last_check 갱신
   local now
