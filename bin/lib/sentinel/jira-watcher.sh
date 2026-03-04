@@ -10,7 +10,7 @@ jira_fetch() {
   local jira_url="${JIRA_URL:-https://chequer.atlassian.net}"
   local jira_email="${JIRA_USER_EMAIL:-eddy@chequer.io}"
   local auth
-  auth=$(echo -n "${jira_email}:${JIRA_API_TOKEN}" | base64)
+  auth=$(echo -n "${jira_email}:${JIRA_API_TOKEN}" | base64 | tr -d '\n')
 
   local time_filter
   if [[ -z "$last_check" ]]; then
@@ -24,26 +24,23 @@ jira_fetch() {
 
   local jql="${jql_base} AND updated >= \"$time_filter\" ORDER BY updated DESC"
 
+  local request_body
+  request_body=$(jq -n --arg jql "$jql" '{
+    jql: $jql,
+    maxResults: 20,
+    fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority", "labels"]
+  }')
+
   local response
   response=$(curl -s -X POST \
     -H "Authorization: Basic $auth" \
     -H "Content-Type: application/json" \
-    -d "$(jq -n --arg jql "$jql" '{
-      jql: $jql,
-      maxResults: 20,
-      fields: ["key", "summary", "status", "assignee", "updated", "comment", "priority", "labels"]
-    }')" \
-    "$jira_url/rest/api/3/search/jql") || {
-    log "[EVENT] [sentinel] ERROR: Jira API curl failed"
-    echo '{"issues":[]}'
-    return 1
-  }
+    -d "$request_body" \
+    "$jira_url/rest/api/3/search/jql" 2>/dev/null) || true
 
-  # API 에러 응답 체크 (errorMessages 필드가 있으면 에러)
-  local api_errors
-  api_errors=$(echo "$response" | jq -r '.errorMessages // [] | join(", ")' 2>/dev/null)
-  if [[ -n "$api_errors" ]]; then
-    log "[EVENT] [sentinel] ERROR: Jira API error: $api_errors"
+  # 응답 검증: issues 배열이 없으면 에러
+  if ! echo "$response" | jq -e '.issues' >/dev/null 2>&1; then
+    log "[EVENT] [sentinel] ERROR: Jira API failed: ${response:0:200}"
     echo '{"issues":[]}'
     return 1
   fi
