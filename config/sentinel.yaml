@@ -15,4 +15,4 @@ polling:
   jira:
     interval_seconds: 300
     scope:
-      jql_base: "assignee = currentUser() AND project IN (QP, QPD) AND sprint in openSprints()"
+      jql_base: "project = QPD AND type in standardIssueTypes() AND 스프린트 IN openSprints() AND assignee = currentUser()"

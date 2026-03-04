@@ -86,6 +86,11 @@ teardown() {
   assert_output "[]"
 }
 
+@test "jira: parse returns empty for new API format (no total field)" {
+  run jira_parse '{"issues":[],"isLast":true}'
+  assert_output "[]"
+}
+
 @test "jira: parse includes labels in payload" {
   local raw
   raw=$(cat "${BATS_TEST_DIRNAME}/../../fixtures/jira-search-result.json")

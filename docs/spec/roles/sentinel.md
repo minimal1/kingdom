@@ -693,7 +693,7 @@ polling:
   jira:
     interval_seconds: 300
     scope:
-      jql_base: "assignee = currentUser() AND project IN (QP, QPD) AND sprint in openSprints()"
+      jql_base: "project = QPD AND type in standardIssueTypes() AND 스프린트 IN openSprints() AND assignee = currentUser()"
 ```
 
 > **동적 watcher 로딩**: `polling` 키의 자식 키가 watcher 이름이 된다. 위 설정에서 `jira`가 주석 처리되어 있으므로, 파수꾼은 `github`만 로딩한다. Jira 연동 시 주석 해제만으로 활성화된다.

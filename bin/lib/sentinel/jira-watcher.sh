@@ -50,10 +50,10 @@ jira_fetch() {
 jira_parse() {
   local raw="$1"
 
-  # 빈 결과 단축 경로
-  local total
-  total=$(echo "$raw" | jq -r '.total // 0')
-  if [[ "$total" == "0" ]]; then
+  # 빈 결과 단축 경로 (새 API는 total 없음, issues 배열 길이로 판단)
+  local issue_count
+  issue_count=$(echo "$raw" | jq '.issues | length')
+  if [[ "$issue_count" == "0" ]]; then
     echo "[]"
     return 0
   fi
