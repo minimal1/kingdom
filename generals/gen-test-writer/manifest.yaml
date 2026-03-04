@@ -15,3 +15,12 @@ schedules:
     repo: chequer-io/querypie-mono
     payload:
       base_branch: develop
+      mode: write
+
+  - name: weekly-test-merge
+    cron: "0 9 * * 1"
+    task_type: test-merge
+    repo: chequer-io/querypie-mono
+    payload:
+      base_branch: develop
+      mode: merge
