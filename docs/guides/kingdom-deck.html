@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kingdom</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2a;
+    --text: #e8e8ed;
+    --text-dim: #8888a0;
+    --accent: #6c63ff;
+    --accent-glow: rgba(108, 99, 255, 0.15);
+    --gold: #f0c040;
+    --green: #4ade80;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --orange: #fb923c;
+  }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .deck {
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .slide.exit {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+
+  /* Typography */
+  h1 { font-size: 3.2rem; font-weight: 900; line-height: 1.3; }
+  h2 { font-size: 2.2rem; font-weight: 700; line-height: 1.4; margin-bottom: 32px; }
+  h3 { font-size: 1.4rem; font-weight: 500; color: var(--text-dim); margin-bottom: 12px; }
+  p { font-size: 1.2rem; line-height: 1.8; color: var(--text-dim); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .accent { color: var(--accent); }
+  .gold { color: var(--gold); }
+  .green { color: var(--green); }
+  .dim { color: var(--text-dim); }
+  .small { font-size: 0.9rem; }
+
+  .tag {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Layout helpers */
+  .center { text-align: center; }
+  .left { text-align: left; align-items: flex-start; }
+  .gap-8 { gap: 8px; }
+  .gap-16 { gap: 16px; }
+  .gap-24 { gap: 24px; }
+  .gap-40 { gap: 40px; }
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mt-40 { margin-top: 40px; }
+  .w-full { width: 100%; max-width: 960px; }
+
+  .row {
+    display: flex;
+    gap: 24px;
+    width: 100%;
+    max-width: 960px;
+  }
+
+  .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+  }
+
+  .card-sm {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+
+  /* Flow arrow */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .flow-item {
+    flex: 1;
+    text-align: center;
+    padding: 24px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    position: relative;
+  }
+
+  .flow-arrow {
+    font-size: 1.6rem;
+    color: var(--text-dim);
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  .flow-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .flow-label {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .flow-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* Role grid */
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .role-icon { font-size: 2.2rem; margin-bottom: 10px; }
+  .role-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+  .role-desc { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+
+  .role-card.king { border-color: var(--gold); box-shadow: 0 0 30px rgba(240, 192, 64, 0.08); }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%;
+    max-width: 800px;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .compare-table th, .compare-table td {
+    padding: 16px 24px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 1rem;
+  }
+
+  .compare-table th {
+    background: var(--surface);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .compare-table td:first-child {
+    font-weight: 500;
+    color: var(--text-dim);
+    width: 120px;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table .highlight { color: var(--accent); font-weight: 600; }
+
+  /* Stacked layers */
+  .layer-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .layer-num {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--accent);
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  .layer-title { font-weight: 700; font-size: 1.05rem; }
+  .layer-sub { font-size: 0.88rem; color: var(--text-dim); margin-top: 4px; }
+
+  /* Quote */
+  .quote {
+    font-size: 1.6rem;
+    font-weight: 500;
+    line-height: 1.7;
+    position: relative;
+    padding-left: 28px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* Pill list */
+  .pill-list {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pill {
+    padding: 10px 22px;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    background: var(--accent-glow);
+    border: 1px solid rgba(108, 99, 255, 0.3);
+    color: var(--accent);
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* Slide counter */
+  .slide-counter {
+    position: fixed;
+    bottom: 28px;
+    right: 40px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    z-index: 100;
+  }
+
+  /* Nav hint */
+  .nav-hint {
+    position: fixed;
+    bottom: 28px;
+    left: 40px;
+    font-size: 0.8rem;
+    color: rgba(136, 136, 160, 0.4);
+    z-index: 100;
+  }
+
+  /* Code block */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.92rem;
+    line-height: 1.8;
+    text-align: left;
+    width: 100%;
+    max-width: 700px;
+    color: var(--text-dim);
+  }
+
+  .code-block .comment { color: #555570; }
+  .code-block .keyword { color: var(--accent); }
+  .code-block .string { color: var(--green); }
+
+  /* Animated border glow for highlight cards */
+  .glow {
+    box-shadow: 0 0 40px var(--accent-glow);
+    border-color: rgba(108, 99, 255, 0.3);
+  }
+
+  /* Fragments */
+  .fragment {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .fragment.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .fragment.d1 { transition-delay: 0.15s; }
+  .fragment.d2 { transition-delay: 0.3s; }
+  .fragment.d3 { transition-delay: 0.45s; }
+  .fragment.d4 { transition-delay: 0.6s; }
+  .fragment.d5 { transition-delay: 0.75s; }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+<div class="slide-counter" id="counter"></div>
+<div class="nav-hint">← → or Space</div>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 0: Title -->
+  <div class="slide center active" data-fragments="0">
+    <div class="tag">Internal Sharing &middot; 2025.03.05</div>
+    <h1>
+      <span class="gold">Kingdom</span>
+    </h1>
+    <p class="mt-16" style="font-size: 1.4rem; color: var(--text);">
+      빈 컴퓨터 한 대에 정착하는 AI 동료
+    </p>
+    <p class="mt-24 dim small">eddy</p>
+  </div>
+
+  <!-- Slide 1: One-liner -->
+  <div class="slide center">
+    <h3>Core Concept</h3>
+    <div class="quote">
+      AI를 <span class="accent">도구로 쓰는</span> 게 아니라<br>
+      팀에 <span class="gold">채용</span>한 겁니다.
+    </div>
+  </div>
+
+  <!-- Slide 2: 3 traits -->
+  <div class="slide center" data-fragments="3">
+    <h2>무엇이 다른가</h2>
+    <div class="row gap-24 fragment d1">
+      <div class="card" style="flex:1; text-align:center;">
+        <div style="font-size:2.4rem; margin-bottom:12px;">👀</div>
+        <div style="font-weight:700; margin-bottom:8px;">스스로 감지한다</div>
+        <p class="small">물어봐야 대답하는 챗봇이 아님.<br>출근하면 이미 일하고 있음.</p>
+      </div>
+      <div class="card fragment d2" style="flex:1; text-align:center;">
+        <div style="font-size:2.4rem; margin-bottom:12px;">🙋</div>
+        <div style="font-weight:700; margin-bottom:8px;">모르면 물어본다</div>
+        <p class="small">판단이 안 서면 Slack DM으로<br>사람에게 질문. 혼자 추측 안 함.</p>
+      </div>
+      <div class="card fragment d3" style="flex:1; text-align:center;">
+        <div style="font-size:2.4rem; margin-bottom:12px;">📈</div>
+        <div style="font-weight:700; margin-bottom:8px;">일하면서 배운다</div>
+        <p class="small">경험을 메모리에 축적.<br>같은 실수를 반복하지 않음.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Event → Task → Message -->
+  <div class="slide center">
+    <h2>일이 흘러가는 방식</h2>
+    <div class="flow">
+      <div class="flow-item">
+        <div class="flow-icon">📨</div>
+        <div class="flow-label">Event</div>
+        <div class="flow-desc">무슨 일이 생겼는지<br>감지한다</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-icon">📋</div>
+        <div class="flow-label">Task</div>
+        <div class="flow-desc">누가 뭘 할지<br>판단한다</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-icon">⚡</div>
+        <div class="flow-label">Execute</div>
+        <div class="flow-desc">Claude Code가<br>직접 수행한다</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-icon">💬</div>
+        <div class="flow-label">Message</div>
+        <div class="flow-desc">Slack으로<br>결과를 전달한다</div>
+      </div>
+    </div>
+    <p class="mt-24 small dim">각 단계가 독립적 &mdash; 하나가 고장나도 나머지는 동작</p>
+  </div>
+
+  <!-- Slide 4: Roles -->
+  <div class="slide center">
+    <h2>역할 체계</h2>
+    <div class="role-grid">
+      <div class="role-card">
+        <div class="role-icon">🏰</div>
+        <div class="role-name">파수꾼</div>
+        <div class="role-desc">GitHub &middot; Jira를<br>주기적으로 감시</div>
+      </div>
+      <div class="role-card king">
+        <div class="role-icon">👑</div>
+        <div class="role-name" style="color:var(--gold)">왕</div>
+        <div class="role-desc">보고를 받고<br>장군에게 배정</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">⚔️</div>
+        <div class="role-name">장군</div>
+        <div class="role-desc">도메인 전문가<br>작전 수립</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🛡️</div>
+        <div class="role-name">병사</div>
+        <div class="role-desc">Claude Code로<br>실제 작업 수행</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">📜</div>
+        <div class="role-name">사절</div>
+        <div class="role-desc">Slack으로<br>사람과 소통</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🏛️</div>
+        <div class="role-name">내관</div>
+        <div class="role-desc">리소스 관리<br>시스템 유지</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Real examples -->
+  <div class="slide center" data-fragments="3">
+    <h2>실제 동작 예시</h2>
+    <div class="layer-stack">
+      <div class="layer fragment d1">
+        <div style="font-size:1.6rem;">🔔</div>
+        <div>
+          <div class="layer-title">PR #423 리뷰 요청</div>
+          <div class="layer-sub">파수꾼이 GitHub에서 감지 → 왕이 gen-pr 장군에게 배정 → Claude Code가 diff를 분석하고 리뷰 코멘트 작성</div>
+        </div>
+      </div>
+      <div class="layer fragment d2">
+        <div style="font-size:1.6rem;">🎫</div>
+        <div>
+          <div class="layer-title">Jira 티켓이 나에게 할당됨</div>
+          <div class="layer-sub">파수꾼이 Jira에서 감지 → 왕이 gen-jira 장군에게 배정 → 티켓 분석 후 Slack DM으로 요약 전달</div>
+        </div>
+      </div>
+      <div class="layer fragment d3">
+        <div style="font-size:1.6rem;">☀️</div>
+        <div>
+          <div class="layer-title">매일 아침 9시</div>
+          <div class="layer-sub">스케줄 트리거 → gen-briefing 장군 → 팀 현황을 정리해서 Slack 채널에 브리핑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Claude Code -->
+  <div class="slide center">
+    <h2>Claude Code의 역할</h2>
+    <p style="margin-bottom: 32px;">Kingdom의 <span class="accent" style="font-weight:700;">손과 두뇌</span></p>
+    <div class="code-block">
+      <span class="comment"># 사람이 하는 코드 리뷰와 동일한 과정을</span><br>
+      <span class="comment"># Claude Code가 도구를 써서 수행한다</span><br><br>
+      <span class="keyword">claude</span> <span class="string">-p</span> <span class="dim">"PR #423를 리뷰해줘"</span><br><br>
+      &nbsp;&nbsp;📖 코드를 읽고 이해한다<br>
+      &nbsp;&nbsp;✏️ &nbsp;리뷰 코멘트를 작성한다<br>
+      &nbsp;&nbsp;🧪 테스트를 돌린다<br>
+      &nbsp;&nbsp;💬 결과를 보고한다
+    </div>
+    <p class="mt-24 small dim"><code class="mono" style="color:var(--accent);">-p</code> 모드: 사람 없이 프롬프트만 받아 자율 실행</p>
+  </div>
+
+  <!-- Slide 7: 3 layers of CC -->
+  <div class="slide center" data-fragments="3">
+    <h2>Claude Code 활용 3계층</h2>
+    <div class="layer-stack">
+      <div class="layer glow fragment d1">
+        <div class="layer-num">1</div>
+        <div>
+          <div class="layer-title">실행 엔진 <span class="dim small">&mdash; 병사</span></div>
+          <div class="layer-sub">파일을 읽고, 코드를 수정하고, 테스트를 돌리는 실제 작업 수행</div>
+        </div>
+      </div>
+      <div class="layer fragment d2">
+        <div class="layer-num">2</div>
+        <div>
+          <div class="layer-title">플러그인 시스템 <span class="dim small">&mdash; 장군의 무기</span></div>
+          <div class="layer-sub">friday(PR 리뷰), sunday(Jira 대응) 등 전문 플러그인으로 능력 확장</div>
+        </div>
+      </div>
+      <div class="layer fragment d3">
+        <div class="layer-num">3</div>
+        <div>
+          <div class="layer-title">Soul 시스템 <span class="dim small">&mdash; 업무 매뉴얼</span></div>
+          <div class="layer-sub">CLAUDE.md로 팀 컨텍스트 주입. 우리 팀을 이해한 상태에서 일을 시작</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: Comparison -->
+  <div class="slide center">
+    <h2>AI 도구 vs Kingdom</h2>
+    <table class="compare-table">
+      <tr>
+        <th></th>
+        <th>일반 AI 도구</th>
+        <th>Kingdom</th>
+      </tr>
+      <tr>
+        <td>시작</td>
+        <td>사람이 질문</td>
+        <td class="highlight">이벤트가 자동 트리거</td>
+      </tr>
+      <tr>
+        <td>실행</td>
+        <td>답변을 사람이 적용</td>
+        <td class="highlight">Claude Code가 직접 수행</td>
+      </tr>
+      <tr>
+        <td>맥락</td>
+        <td>매번 설명</td>
+        <td class="highlight">Soul 시스템으로 항상 기억</td>
+      </tr>
+      <tr>
+        <td>확장</td>
+        <td>프롬프트 엔지니어링</td>
+        <td class="highlight">장군 패키지 추가</td>
+      </tr>
+      <tr>
+        <td>소통</td>
+        <td>화면 안에서만</td>
+        <td class="highlight">Slack으로 팀과 대화</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Slide 9: Extensibility -->
+  <div class="slide center">
+    <h2>장군을 추가하면<br><span class="accent">새로운 일</span>을 할 수 있다</h2>
+    <div class="pill-list mt-24">
+      <div class="pill">PR 리뷰</div>
+      <div class="pill">Jira 대응</div>
+      <div class="pill">데일리 브리핑</div>
+      <div class="pill">테스트 자동 작성</div>
+      <div class="pill">PR 캐치업 뉴스</div>
+      <div class="pill">+ 새 장군</div>
+    </div>
+    <p class="mt-40 dim" style="font-size:1.1rem;">
+      시스템을 건드리지 않고, <strong style="color:var(--text)">역할만 늘리면 된다</strong>
+    </p>
+  </div>
+
+  <!-- Slide 10: Closing -->
+  <div class="slide center">
+    <h1 style="font-size: 2.4rem; line-height: 1.6;">
+      출근하면 이미 일하고 있는<br>
+      <span class="gold">AI 동료</span>
+    </h1>
+    <p class="mt-24" style="font-size: 1.1rem; color: var(--text-dim);">
+      모르면 물어보고, 일하면서 배우고, Slack으로 소통합니다.
+    </p>
+    <div class="mt-40 dim small">Kingdom &middot; eddy</div>
+  </div>
+
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const progress = document.getElementById('progress');
+  const counter = document.getElementById('counter');
+  let current = 0;
+  let fragmentIndex = 0;
+
+  function getMaxFragments(slide) {
+    return parseInt(slide.dataset.fragments || '0');
+  }
+
+  function updateFragments(slide, upTo) {
+    const fragments = slide.querySelectorAll('.fragment');
+    fragments.forEach((f, i) => {
+      if (i < upTo) f.classList.add('visible');
+      else f.classList.remove('visible');
+    });
+  }
+
+  function showSlide(index) {
+    slides.forEach((s, i) => {
+      s.classList.remove('active', 'exit');
+      if (i < index) s.classList.add('exit');
+    });
+    slides[index].classList.add('active');
+
+    const maxFrag = getMaxFragments(slides[index]);
+    if (index !== current) {
+      fragmentIndex = 0;
+      updateFragments(slides[index], 0);
+    }
+
+    current = index;
+    progress.style.width = ((index / (slides.length - 1)) * 100) + '%';
+    counter.textContent = (index + 1) + ' / ' + slides.length;
+  }
+
+  function next() {
+    const maxFrag = getMaxFragments(slides[current]);
+    if (fragmentIndex < maxFrag) {
+      fragmentIndex++;
+      updateFragments(slides[current], fragmentIndex);
+      return;
+    }
+    if (current < slides.length - 1) {
+      fragmentIndex = 0;
+      showSlide(current + 1);
+    }
+  }
+
+  function prev() {
+    const maxFrag = getMaxFragments(slides[current]);
+    if (fragmentIndex > 0) {
+      fragmentIndex--;
+      updateFragments(slides[current], fragmentIndex);
+      return;
+    }
+    if (current > 0) {
+      showSlide(current - 1);
+      const prevMax = getMaxFragments(slides[current]);
+      fragmentIndex = prevMax;
+      updateFragments(slides[current], fragmentIndex);
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      next();
+    } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+      e.preventDefault();
+      prev();
+    }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    const diff = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(diff) > 50) {
+      if (diff < 0) next();
+      else prev();
+    }
+  });
+
+  // Click to advance
+  document.addEventListener('click', (e) => {
+    if (e.clientX > window.innerWidth / 2) next();
+    else prev();
+  });
+
+  showSlide(0);
+</script>
+
+</body>
+</html>
