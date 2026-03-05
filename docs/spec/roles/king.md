@@ -304,10 +304,9 @@ process_pending_events() {
 
     # ── 새 작업 경로 ──
 
-    # 1. 리소스 + 토큰 확인
+    # 1. 리소스 확인
     local health=$(get_resource_health)
-    local token_status=$(get_token_status)
-    if ! can_accept_task "$health" "$priority" "$token_status"; then
+    if ! can_accept_task "$health" "$priority"; then
       # 보류: pending에 그대로 둠, 다음 주기에 재시도
       continue
     fi
@@ -908,11 +907,10 @@ check_general_schedules() {
       local task_type=$(echo "$sched_json" | jq -r '.task_type')
       local payload=$(echo "$sched_json" | jq '.payload')
 
-      # 리소스 + 토큰 확인
+      # 리소스 확인
       local health=$(get_resource_health)
-      local token_status=$(get_token_status)
-      if ! can_accept_task "$health" "normal" "$token_status"; then
-        log "[WARN] [king] Skipping schedule '$sched_name': resource $health, token $token_status"
+      if ! can_accept_task "$health" "normal"; then
+        log "[WARN] [king] Skipping schedule '$sched_name': resource $health"
         continue
       fi
 
@@ -1000,31 +998,11 @@ get_resource_health() {
   echo "$health"
 }
 
-# Read token status from resources.json
-get_token_status() {
-  local data=$(cat "$RESOURCES_FILE" 2>/dev/null || echo '{}')
-  echo "$data" | jq -r '.tokens.status // "ok"'
-}
-
-# health + priority + token_status에 따라 작업 수용 가능 여부 판단
+# health + priority에 따라 작업 수용 가능 여부 판단
 can_accept_task() {
   local health="$1"
   local priority="$2"
-  local token_status="$3"
 
-  # 토큰 예산 critical: high만 수용
-  if [[ "$token_status" == "critical" ]]; then
-    [ "$priority" = "high" ] && return 0
-    return 1
-  fi
-
-  # 토큰 예산 warning: high 또는 health=green일 때만 수용
-  if [[ "$token_status" == "warning" ]]; then
-    [[ "$priority" == "high" || "$health" == "green" ]] && return 0
-    return 1
-  fi
-
-  # 토큰 ok/unknown: 기존 health 기반 로직
   case "$health" in
     green)  return 0 ;;                           # 모든 작업 수용
     yellow) [ "$priority" = "high" ] && return 0   # high만 수용

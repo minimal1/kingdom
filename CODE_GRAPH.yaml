@@ -47,15 +47,14 @@ king:
         - "get_default_repo()"
         - "collect_and_sort_events()"
     - path: "bin/lib/king/resource-check.sh"
-      description: "리소스 + 토큰 상태 읽기 → 작업 수용 판단"
+      description: "리소스 상태 읽기 → 작업 수용 판단"
       functions:
         - "get_resource_health()"
-        - "get_token_status()"
-        - "can_accept_task(health, priority, token_status)"
+        - "can_accept_task(health, priority)"
   dependencies:
     - common           # lib/common.sh
     - general_packages # config/generals/*.yaml 매니페스트
-    - chamberlain      # state/resources.json (health + token 읽기)
+    - chamberlain      # state/resources.json (health 읽기)
     - envoy            # queue/messages/pending/ (메시지 생성)
   data_flow: "queue/events/pending/ → 라우팅 → queue/tasks/pending/ → state/results/*.json → queue/messages/pending/"
   state_files:
@@ -168,13 +167,6 @@ chamberlain:
         - "collect_metrics()"
         - "get_current_health(), evaluate_health()"
         - "update_resources_json()"
-    - path: "bin/lib/chamberlain/token-monitor.sh"
-      description: "Claude Code stats-cache.json → 일일 비용 추산 → 토큰 상태 평가"
-      functions:
-        - "collect_token_metrics()"
-        - "estimate_daily_cost()"
-        - "evaluate_token_status()"
-        - "detect_date_change()"
     - path: "bin/lib/chamberlain/session-checker.sh"
       description: "heartbeat 감시 + 죽은 역할 복구 + 고아 세션 정리"
       functions:
@@ -209,14 +201,12 @@ chamberlain:
     - "state/sessions.json"
     - "state/chamberlain/events-offset"
     - "state/chamberlain/daily-*"
-    - "state/last_token_date.txt"
     - "logs/analysis/stats.json"
   config: "config/chamberlain.yaml"
   schema: "schemas/chamberlain.schema.json"
   spec: "docs/spec/roles/chamberlain.md"
   tests:
     - "tests/lib/chamberlain/test_metrics_collector.sh"
-    - "tests/lib/chamberlain/test_token_monitor.sh"
     - "tests/lib/chamberlain/test_session_checker.sh"
     - "tests/lib/chamberlain/test_event_consumer.sh"
     - "tests/lib/chamberlain/test_log_rotation.sh"
@@ -470,7 +460,6 @@ test_mapping:
   general_common: "tests/lib/general/test_common.sh"
   prompt_builder: "tests/lib/general/test_prompt_builder.sh"
   metrics: "tests/lib/chamberlain/test_metrics_collector.sh"
-  token_monitor: "tests/lib/chamberlain/test_token_monitor.sh"
   sessions: "tests/lib/chamberlain/test_session_checker.sh"
   events: "tests/lib/chamberlain/test_event_consumer.sh"
   log_rotation: "tests/lib/chamberlain/test_log_rotation.sh"
