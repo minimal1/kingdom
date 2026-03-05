@@ -418,6 +418,9 @@ check_task_results() {
       failed)
         handle_failure "$task_id" "$result"
         ;;
+      killed)
+        handle_killed "$task_id" "$result"
+        ;;
       needs_human)
         handle_needs_human "$task_id" "$result"
         ;;
@@ -561,6 +564,46 @@ handle_failure() {
   fi
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
+}
+
+handle_killed() {
+  local task_id="$1"
+  local result="$2"
+  local error
+  error=$(echo "$result" | jq -r '.error // "unknown"')
+
+  local task_file="$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
+  local task
+  task=$(cat "$task_file" 2>/dev/null)
+  local general
+  general=$(echo "$task" | jq -r '.target_general')
+  local retry_count
+  retry_count=$(echo "$task" | jq -r '.retry_count // 0')
+
+  local max_retries
+  max_retries=$(get_config "king" "retry.max_attempts" "2")
+
+  if (( retry_count < max_retries )); then
+    # Re-queue: in_progress/ → pending/ with incremented retry_count
+    local updated_task
+    updated_task=$(echo "$task" | jq --argjson rc "$((retry_count + 1))" \
+      '.retry_count = $rc | .status = "pending"')
+    echo "$updated_task" > "${task_file}.tmp"
+    mv "${task_file}.tmp" "$BASE_DIR/queue/tasks/pending/${task_id}.json"
+    rm -f "$task_file"
+
+    # Clean up result files for this task
+    rm -f "$BASE_DIR/state/results/${task_id}-raw.json"
+    rm -f "$BASE_DIR/state/results/${task_id}-soldier-id"
+    rm -f "$BASE_DIR/state/results/${task_id}-session-id"
+    rm -f "$BASE_DIR/state/results/${task_id}.json"
+
+    log "[RETRY] [king] Task re-queued: $task_id ($general) retry=$((retry_count + 1))/$max_retries — $error"
+  else
+    # Max retries exceeded → fail permanently
+    handle_failure "$task_id" "$result"
+    log "[ERROR] [king] Task killed after max retries: $task_id ($general) — $error"
+  fi
 }
 
 handle_needs_human() {

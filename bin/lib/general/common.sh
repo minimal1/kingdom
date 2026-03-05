@@ -231,31 +231,52 @@ wait_for_soldier() {
   local raw_file="$2"
   local timeout=${3:-1800}
   local waited=0
+  local health_check_interval=10
+
+  local soldier_id=""
+  local soldier_id_file="$BASE_DIR/state/results/${task_id}-soldier-id"
+  if [ -f "$soldier_id_file" ]; then
+    soldier_id=$(cat "$soldier_id_file")
+  fi
 
   while [ ! -f "$raw_file" ] && (( waited < timeout )); do
     sleep 1
     waited=$((waited + 1))
+
+    # Periodic health check: detect killed soldier early
+    if (( waited % health_check_interval == 0 )) && [ -n "$soldier_id" ]; then
+      if ! tmux has-session -t "$soldier_id" 2>/dev/null; then
+        log "[WARN] [$GENERAL_DOMAIN] Soldier session dead: $soldier_id (task: $task_id, waited: ${waited}s)"
+        break
+      fi
+    fi
   done
 
-  # Timeout handling
-  if (( waited >= timeout )) && [ ! -f "$raw_file" ]; then
-    log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${timeout}s)"
+  # Dead soldier or timeout — write result if no output
+  if [ ! -f "$raw_file" ]; then
+    local result_status="failed"
+    local reason="Timeout after ${timeout} seconds"
 
-    local soldier_id_file="$BASE_DIR/state/results/${task_id}-soldier-id"
-    if [ -f "$soldier_id_file" ]; then
-      local soldier_id
-      soldier_id=$(cat "$soldier_id_file")
-      if tmux has-session -t "$soldier_id" 2>/dev/null; then
-        tmux kill-session -t "$soldier_id"
-        log "[SYSTEM] [$GENERAL_DOMAIN] Killed soldier session: $soldier_id"
-      fi
+    if (( waited < timeout )); then
+      # Soldier died before timeout → retryable
+      result_status="killed"
+      reason="Soldier session died after ${waited} seconds"
+    else
+      log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${timeout}s)"
+    fi
+
+    # Kill soldier if still alive (timeout case)
+    if [ -n "$soldier_id" ] && tmux has-session -t "$soldier_id" 2>/dev/null; then
+      tmux kill-session -t "$soldier_id"
+      log "[SYSTEM] [$GENERAL_DOMAIN] Killed soldier session: $soldier_id"
     fi
 
     jq -n \
       --arg task_id "$task_id" \
-      --arg error "Timeout after ${timeout} seconds" \
+      --arg status "$result_status" \
+      --arg error "$reason" \
       --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '{task_id: $task_id, status: "failed", error: $error, completed_at: $ts}' \
+      '{task_id: $task_id, status: $status, error: $error, completed_at: $ts}' \
       > "$raw_file"
   fi
 }
