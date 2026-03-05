@@ -22,11 +22,11 @@ git fetch origin {{payload.base_branch}}
 `test/auto-writer/*` 패턴의 브랜치가 remote에 이미 존재하면 checkout 후 rebase, 없으면 오늘 날짜로 새로 생성한다.
 
 ```bash
-EXISTING=$(git branch -r --list "origin/test/auto-writer/*" | head -1 | sed 's|origin/||' | xargs)
+EXISTING=$(git ls-remote --heads origin 'test/auto-writer/*' | head -1 | sed 's|.*refs/heads/||')
 if [ -n "$EXISTING" ]; then
   BRANCH="$EXISTING"
-  git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" "origin/$BRANCH"
-  git pull origin "$BRANCH"
+  git fetch origin "$BRANCH"
+  git checkout -b "$BRANCH" "origin/$BRANCH"
   git rebase "origin/{{payload.base_branch}}"
 else
   BRANCH="test/auto-writer/$(date +%Y%m%d)"
@@ -100,6 +100,8 @@ PR_NUMBER=$(gh pr list --search "head:test/auto-writer/" --base "{{payload.base_
 PR이 없으면 "머지할 PR 없음"으로 보고하고 종료.
 
 ### Step 2. Ready for Review + Auto-merge
+
+squash merge 후 브랜치 자동 삭제는 GitHub 레포 설정(Automatically delete head branches)에 의존한다. 이 설정이 켜져 있어야 다음 주기에 새 브랜치가 정상 생성된다.
 
 ```bash
 gh pr ready "$PR_NUMBER" --repo "{{REPO}}"
