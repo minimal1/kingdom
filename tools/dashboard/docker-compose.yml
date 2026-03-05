@@ -1,0 +1,8 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "9000:9000"
+    volumes:
+      - /opt/kingdom/state/dashboard.json:/data/dashboard.json:ro
+    restart: unless-stopped

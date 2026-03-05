@@ -570,7 +570,34 @@ echo "Tasks running:  $(ls /opt/kingdom/queue/tasks/in_progress/ 2>/dev/null | w
 echo "Messages out:   $(ls /opt/kingdom/queue/messages/pending/ 2>/dev/null | wc -l)"
 ```
 
-### 7.4 수동 이벤트 주입 (테스트)
+### 7.4 대시보드
+
+Kingdom의 상태를 2D 맵으로 시각화하는 웹 대시보드. Docker로 구동한다.
+
+```bash
+# Docker 설치 (Amazon Linux)
+sudo yum install -y docker && sudo systemctl enable --now docker
+
+# 대시보드 이미지 빌드 (setup.sh Step 7에서 자동 실행)
+docker build -t kingdom-dashboard /opt/kingdom/tools/dashboard
+
+# start.sh가 자동 실행하지만, 수동 실행도 가능
+docker run -d --name kingdom-dashboard \
+  -p 9000:9000 \
+  -v /opt/kingdom/state/dashboard.json:/data/dashboard.json:ro \
+  --restart unless-stopped \
+  kingdom-dashboard
+
+# 접속: http://<서버IP>:9000
+# 중지: docker stop kingdom-dashboard && docker rm kingdom-dashboard
+```
+
+> `start.sh`가 대시보드 컨테이너를 자동 기동하고, `stop.sh`가 자동 중지한다.
+> 데이터는 내관(chamberlain)이 30초마다 `state/dashboard.json`으로 수집한다.
+
+상세: [tools/dashboard/README.md](../../tools/dashboard/README.md)
+
+### 7.5 수동 이벤트 주입 (테스트)
 
 Sentinel을 거치지 않고 직접 이벤트를 주입해서 파이프라인 검증:
 
@@ -611,17 +638,21 @@ tail -f /opt/kingdom/logs/system.log | grep -E '\[king\]|\[gen-pr\]'
 # 2. 소스 업데이트
 cd /tmp/kingdom-src && git pull
 
-# 3. 실행 파일 + 설정 덮어쓰기
+# 3. 실행 파일 + 설정 + 도구 덮어쓰기
 cp -r bin /opt/kingdom/
 cp -r config /opt/kingdom/
+cp -r tools /opt/kingdom/
 chmod +x /opt/kingdom/bin/*.sh
 
-# 4. 장군 재설치
+# 4. 대시보드 이미지 재빌드 (Docker가 있을 경우)
+docker build -t kingdom-dashboard /opt/kingdom/tools/dashboard 2>/dev/null || true
+
+# 5. 장군 재설치
 for pkg in generals/gen-*; do
   /opt/kingdom/bin/install-general.sh "$pkg" --force
 done
 
-# 5. 재시작
+# 6. 재시작
 /opt/kingdom/bin/start.sh
 ```
 

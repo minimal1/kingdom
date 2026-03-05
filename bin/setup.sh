@@ -15,7 +15,7 @@ RED='\033[31m'
 CYAN='\033[36m'
 RESET='\033[0m'
 
-step()  { printf "\n${BOLD}Step %s/7 ─ %s${RESET}\n" "$1" "$2"; }
+step()  { printf "\n${BOLD}Step %s/8 ─ %s${RESET}\n" "$1" "$2"; }
 ok()    { printf "  ${GREEN}[OK]${RESET}   %s\n" "$1"; }
 warn()  { printf "  ${YELLOW}[SKIP]${RESET} %s\n" "$1"; }
 fail()  { printf "  ${RED}[FAIL]${RESET} %s\n" "$1"; }
@@ -108,6 +108,7 @@ fi
 cp -r "$SOURCE_DIR/bin" "$DEST/"
 cp -r "$SOURCE_DIR/config" "$DEST/"
 cp -r "$SOURCE_DIR/schemas" "$DEST/"
+cp -r "$SOURCE_DIR/tools" "$DEST/"
 chmod +x "$DEST"/bin/*.sh 2>/dev/null || true
 chmod +x "$DEST"/bin/generals/*.sh 2>/dev/null || true
 
@@ -418,9 +419,28 @@ else
   record "장군: ${GENERALS_INSTALLED}개 설치, ${GENERALS_FAILED}개 실패"
 fi
 
-# ─── Step 7: 검증 ─────────────────────────────────────────
+# ─── Step 7: 대시보드 ───────────────────────────────────────
 
-step 7 "검증"
+step 7 "대시보드"
+
+if command -v docker &>/dev/null; then
+  info "Docker 감지 — 대시보드 컨테이너를 빌드합니다."
+  if docker build -t kingdom-dashboard "$DEST/tools/dashboard" &>/dev/null; then
+    ok "대시보드 이미지 빌드 완료 (kingdom-dashboard)"
+    record "대시보드: Docker 이미지 빌드됨"
+  else
+    fail "대시보드 이미지 빌드 실패"
+    record "대시보드: 빌드 실패"
+  fi
+else
+  warn "Docker 미설치 — 대시보드 건너뜀"
+  info "설치 후: docker build -t kingdom-dashboard $DEST/tools/dashboard"
+  record "대시보드: Docker 미설치 (건너뜀)"
+fi
+
+# ─── Step 8: 검증 ─────────────────────────────────────────
+
+step 8 "검증"
 
 # .env 파일이 있으면 환경변수로 로드
 if [[ -f "$DEST/.env" ]]; then

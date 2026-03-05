@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kingdom Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2a;
+    --text: #e8e8ed;
+    --text-dim: #8888a0;
+    --accent: #6c63ff;
+    --accent-glow: rgba(108, 99, 255, 0.15);
+    --gold: #f0c040;
+    --green: #4ade80;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --orange: #fb923c;
+  }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ── System Bar ── */
+  .system-bar {
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 24px;
+    font-size: 0.85rem;
+  }
+
+  .system-bar .title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--gold);
+    margin-right: 16px;
+  }
+
+  .health-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .health-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .health-yellow { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+  .health-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .health-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .health-unknown { background: var(--text-dim); }
+
+  .gauge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+  }
+  .gauge-bar {
+    width: 60px; height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .gauge-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease, background 0.5s;
+  }
+
+  .timestamp {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  /* ── Castle Map ── */
+  .castle {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    grid-template-rows: 1fr 1fr 1fr;
+    height: calc(100vh - 48px);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .zone {
+    background: var(--surface);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .zone-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Zone positions */
+  .zone-sentinel   { grid-column: 1; grid-row: 1; }
+  .zone-king       { grid-column: 2; grid-row: 1; }
+  .zone-envoy      { grid-column: 3; grid-row: 1; }
+  .zone-chamberlain{ grid-column: 1; grid-row: 2 / 4; }
+  .zone-generals   { grid-column: 2; grid-row: 2; }
+  .zone-soldiers   { grid-column: 2; grid-row: 3; }
+  .zone-events     { grid-column: 3; grid-row: 2 / 4; }
+
+  /* ── Character ── */
+  .character {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.3s ease, filter 0.5s;
+  }
+
+  .character .emoji {
+    font-size: 2.4rem;
+    line-height: 1;
+    position: relative;
+  }
+
+  .character .name {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .character.alive .emoji {
+    animation: idle-bounce 2s ease-in-out infinite;
+  }
+
+  .character.dead {
+    filter: grayscale(1) opacity(0.5);
+  }
+
+  .character.dead .emoji::after {
+    content: '💀';
+    position: absolute;
+    font-size: 0.8rem;
+    top: -4px;
+    right: -8px;
+  }
+
+  /* Badge */
+  .badge {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+  }
+  .badge.urgent { background: var(--red); }
+  .badge:empty { display: none; }
+
+  /* ── Animations ── */
+  @keyframes idle-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes hammer {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg); }
+    50% { transform: rotate(10deg); }
+  }
+
+  @keyframes patrol {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(20px); }
+    50% { transform: translateX(0); }
+    75% { transform: translateX(-20px); }
+    100% { transform: translateX(0); }
+  }
+
+  @keyframes send-msg {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(0.5); }
+  }
+
+  @keyframes lookAround {
+    0%, 40%, 100% { transform: scaleX(1); }
+    20% { transform: scaleX(-1); }
+    60% { transform: scaleX(-1); }
+    80% { transform: scaleX(1); }
+  }
+
+  .working .emoji {
+    animation: hammer 0.6s ease-in-out infinite !important;
+  }
+
+  .patrolling .emoji {
+    animation: patrol 4s ease-in-out infinite !important;
+  }
+
+  .looking .emoji {
+    animation: lookAround 3s ease-in-out infinite !important;
+  }
+
+  /* ── Item floating ── */
+  .float-item {
+    position: fixed;
+    font-size: 1.2rem;
+    z-index: 100;
+    pointer-events: none;
+    transition: all 1.5s ease;
+    opacity: 1;
+  }
+  .float-item.arrived {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  /* ── King Zone (Queue Overview) ── */
+  .queue-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .queue-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .queue-card .count {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .queue-card .label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ── General Cards ── */
+  .general-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .general-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.3s;
+  }
+
+  .general-card.active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .general-type {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .general-type.event { color: var(--blue); border-color: var(--blue); }
+  .general-type.schedule { color: var(--orange); border-color: var(--orange); }
+  .general-type.manual { color: var(--text-dim); }
+
+  /* ── Soldier Cards ── */
+  .soldier-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    overflow-y: auto;
+    max-height: calc(100% - 40px);
+  }
+
+  .soldier-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .soldier-card .timer {
+    margin-left: auto;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+  }
+
+  .soldier-card .general-tag {
+    background: var(--accent-glow);
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.6rem;
+  }
+
+  /* ── Event Feed ── */
+  .event-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    overflow-y: auto;
+    max-height: calc(100% - 40px);
+    font-size: 0.7rem;
+  }
+
+  .event-item {
+    padding: 6px 8px;
+    border-left: 2px solid var(--border);
+    color: var(--text-dim);
+    line-height: 1.3;
+  }
+  .event-item .event-type {
+    color: var(--blue);
+    font-weight: 500;
+  }
+  .event-item .event-time {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  /* ── Chamberlain Zone ── */
+  .resource-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .resource-item {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .resource-item .res-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+  }
+
+  .resource-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .resource-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s ease, background 0.5s;
+  }
+
+  /* ── Envoy Zone ── */
+  .msg-stats {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .msg-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .msg-stat .val {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .msg-stat .val.warn { color: var(--orange); }
+  .msg-stat .val.error { color: var(--red); }
+
+  /* ── Empty State ── */
+  .empty {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    opacity: 0.5;
+    padding: 12px 0;
+    text-align: center;
+  }
+
+  /* ── Connection Status ── */
+  .conn-status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .conn-status.ok { color: var(--green); }
+  .conn-status.err { color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- System Bar -->
+<div class="system-bar">
+  <span class="title">Kingdom</span>
+  <span id="health-indicator"><span class="health-dot health-unknown"></span> <span class="mono">--</span></span>
+  <span class="gauge">CPU <span class="gauge-bar"><span class="gauge-fill" id="cpu-gauge"></span></span> <span class="mono" id="cpu-val">--%</span></span>
+  <span class="gauge">MEM <span class="gauge-bar"><span class="gauge-fill" id="mem-gauge"></span></span> <span class="mono" id="mem-val">--%</span></span>
+  <span class="gauge">DISK <span class="gauge-bar"><span class="gauge-fill" id="disk-gauge"></span></span> <span class="mono" id="disk-val">--%</span></span>
+  <span class="timestamp mono" id="ts">--</span>
+  <span class="conn-status" id="conn">--</span>
+</div>
+
+<!-- Castle Map -->
+<div class="castle">
+
+  <!-- Sentinel (좌상) -->
+  <div class="zone zone-sentinel">
+    <div class="zone-label">🔭 감시탑 · Sentinel</div>
+    <div class="character" id="char-sentinel">
+      <div class="emoji" style="position:relative;">🔭<span class="badge" id="badge-events"></span></div>
+      <div class="name">파수꾼</div>
+    </div>
+  </div>
+
+  <!-- King (중앙상) -->
+  <div class="zone zone-king">
+    <div class="zone-label">👑 왕의 방 · Queue Overview</div>
+    <div style="display:flex;align-items:flex-start;gap:20px;">
+      <div class="character" id="char-king">
+        <div class="emoji" style="position:relative;">👑<span class="badge" id="badge-tasks"></span></div>
+        <div class="name">왕</div>
+      </div>
+      <div class="queue-grid" style="flex:1;" id="queue-grid">
+        <div class="queue-card">
+          <div class="count" id="q-events" style="color:var(--blue);">0</div>
+          <div class="label">📜 이벤트</div>
+        </div>
+        <div class="queue-card">
+          <div class="count" id="q-tasks" style="color:var(--gold);">0</div>
+          <div class="label">📋 태스크</div>
+        </div>
+        <div class="queue-card">
+          <div class="count" id="q-active" style="color:var(--green);">0</div>
+          <div class="label">⚔️ 진행중</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Envoy (우상) -->
+  <div class="zone zone-envoy">
+    <div class="zone-label">📯 통신탑 · Envoy</div>
+    <div class="character" id="char-envoy">
+      <div class="emoji">📯</div>
+      <div class="name">사절</div>
+    </div>
+    <div class="msg-stats" id="msg-stats">
+      <div class="msg-stat"><span>대기</span><span class="val" id="msg-pending">0</span></div>
+      <div class="msg-stat"><span>실패</span><span class="val" id="msg-failed">0</span></div>
+    </div>
+  </div>
+
+  <!-- Chamberlain (좌 2-3행) -->
+  <div class="zone zone-chamberlain">
+    <div class="zone-label">🏰 관리실 · Chamberlain</div>
+    <div class="character" id="char-chamberlain">
+      <div class="emoji">🏰</div>
+      <div class="name">내관</div>
+    </div>
+    <div class="resource-list" id="resource-list">
+      <div class="resource-item">
+        <div class="res-label"><span>CPU</span><span class="mono" id="res-cpu">--</span></div>
+        <div class="resource-bar"><div class="resource-fill" id="res-cpu-bar"></div></div>
+      </div>
+      <div class="resource-item">
+        <div class="res-label"><span>Memory</span><span class="mono" id="res-mem">--</span></div>
+        <div class="resource-bar"><div class="resource-fill" id="res-mem-bar"></div></div>
+      </div>
+      <div class="resource-item">
+        <div class="res-label"><span>Disk</span><span class="mono" id="res-disk">--</span></div>
+        <div class="resource-bar"><div class="resource-fill" id="res-disk-bar"></div></div>
+      </div>
+      <div class="resource-item" style="margin-top:8px;">
+        <div class="res-label"><span>Load</span><span class="mono" id="res-load">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generals (중앙) -->
+  <div class="zone zone-generals">
+    <div class="zone-label">⚔️ 장군 막사 · Generals</div>
+    <div class="general-list" id="general-list">
+      <div class="empty">장군 데이터 대기중...</div>
+    </div>
+  </div>
+
+  <!-- Soldiers (중앙하) -->
+  <div class="zone zone-soldiers">
+    <div class="zone-label">🛡️ 훈련장 · Soldiers <span class="mono" id="soldier-count" style="color:var(--accent);">(0)</span></div>
+    <div class="soldier-list" id="soldier-list">
+      <div class="empty">대기중인 병사 없음</div>
+    </div>
+  </div>
+
+  <!-- Events (우 2-3행) -->
+  <div class="zone zone-events">
+    <div class="zone-label">📜 이벤트 로그</div>
+    <div class="event-feed" id="event-feed">
+      <div class="empty">이벤트 없음</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──
+let prevState = null;
+let floatItems = [];
+
+// Docker/Nginx: /state/dashboard.json, python dev: ../../state/dashboard.json
+const DATA_URL = window.location.port === '9000'
+  ? '/state/dashboard.json'
+  : '../../state/dashboard.json';
+const POLL_INTERVAL = 5000;
+
+// ── Helpers ──
+function gaugeColor(pct) {
+  if (pct >= 90) return 'var(--red)';
+  if (pct >= 80) return 'var(--orange)';
+  if (pct >= 60) return 'var(--gold)';
+  return 'var(--green)';
+}
+
+function setGauge(id, pct) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = Math.min(100, pct) + '%';
+  el.style.background = gaugeColor(pct);
+}
+
+function formatElapsed(sec) {
+  if (sec < 0) return '--:--';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatTime(iso) {
+  if (!iso) return '--';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return '--'; }
+}
+
+function setCharState(id, alive, extraClass) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('alive', alive);
+  el.classList.toggle('dead', !alive);
+  // Remove all action classes
+  el.classList.remove('working', 'patrolling', 'looking');
+  if (extraClass && alive) {
+    el.classList.add(extraClass);
+  }
+}
+
+// ── Floating item animation ──
+function spawnFloat(emoji, fromEl, toEl) {
+  if (!fromEl || !toEl) return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+
+  const item = document.createElement('div');
+  item.className = 'float-item';
+  item.textContent = emoji;
+  item.style.left = fromRect.left + fromRect.width / 2 - 10 + 'px';
+  item.style.top = fromRect.top + 'px';
+  document.body.appendChild(item);
+
+  requestAnimationFrame(() => {
+    item.style.left = toRect.left + toRect.width / 2 - 10 + 'px';
+    item.style.top = toRect.top + 'px';
+    item.classList.add('arrived');
+  });
+
+  setTimeout(() => item.remove(), 1600);
+}
+
+// ── Render ──
+function render(data) {
+  const prev = prevState;
+
+  // System bar
+  const h = data.system.health || 'unknown';
+  const dotEl = document.querySelector('#health-indicator .health-dot');
+  dotEl.className = 'health-dot health-' + h;
+  document.querySelector('#health-indicator .mono').textContent = h.toUpperCase();
+
+  const cpu = Math.round(data.system.cpu_percent);
+  const mem = Math.round(data.system.memory_percent);
+  const disk = Math.round(data.system.disk_percent);
+
+  setGauge('cpu-gauge', cpu);
+  setGauge('mem-gauge', mem);
+  setGauge('disk-gauge', disk);
+  document.getElementById('cpu-val').textContent = cpu + '%';
+  document.getElementById('mem-val').textContent = mem + '%';
+  document.getElementById('disk-val').textContent = disk + '%';
+  document.getElementById('ts').textContent = formatTime(data.collected_at);
+
+  // Roles
+  const roles = data.roles || {};
+  const q = data.queue || {};
+  const soldiers = data.soldiers || [];
+
+  // Sentinel: looking when events pending
+  const sentinelAlive = roles.sentinel?.alive ?? false;
+  const sentinelAction = q.events_pending > 0 ? 'looking' : null;
+  setCharState('char-sentinel', sentinelAlive, sentinelAction);
+
+  // King: working when tasks pending
+  const kingAlive = roles.king?.alive ?? false;
+  const kingAction = (q.tasks_pending > 0 || q.events_pending > 0) ? 'working' : null;
+  setCharState('char-king', kingAlive, kingAction);
+
+  // Envoy
+  const envoyAlive = roles.envoy?.alive ?? false;
+  const envoyAction = q.messages_pending > 0 ? 'working' : null;
+  setCharState('char-envoy', envoyAlive, envoyAction);
+
+  // Chamberlain: always patrolling
+  const chambAlive = roles.chamberlain?.alive ?? false;
+  setCharState('char-chamberlain', chambAlive, chambAlive ? 'patrolling' : null);
+
+  // Badges
+  const badgeEvents = document.getElementById('badge-events');
+  const badgeTasks = document.getElementById('badge-tasks');
+  badgeEvents.textContent = q.events_pending > 0 ? q.events_pending : '';
+  badgeTasks.textContent = q.tasks_pending > 0 ? q.tasks_pending : '';
+  if (q.events_pending > 3) badgeEvents.classList.add('urgent');
+  else badgeEvents.classList.remove('urgent');
+
+  // Queue cards
+  document.getElementById('q-events').textContent = q.events_pending || 0;
+  document.getElementById('q-tasks').textContent = q.tasks_pending || 0;
+  document.getElementById('q-active').textContent = q.tasks_active || 0;
+
+  // Messages
+  const msgPending = document.getElementById('msg-pending');
+  const msgFailed = document.getElementById('msg-failed');
+  msgPending.textContent = q.messages_pending || 0;
+  msgFailed.textContent = q.messages_failed || 0;
+  msgPending.classList.toggle('warn', q.messages_pending > 0);
+  msgFailed.classList.toggle('error', q.messages_failed > 0);
+
+  // Chamberlain resources
+  document.getElementById('res-cpu').textContent = cpu + '%';
+  document.getElementById('res-mem').textContent = mem + '%';
+  document.getElementById('res-disk').textContent = disk + '%';
+  document.getElementById('res-load').textContent = data.system.load_avg || '--';
+
+  const resCpuBar = document.getElementById('res-cpu-bar');
+  const resMemBar = document.getElementById('res-mem-bar');
+  const resDiskBar = document.getElementById('res-disk-bar');
+  resCpuBar.style.width = cpu + '%'; resCpuBar.style.background = gaugeColor(cpu);
+  resMemBar.style.width = mem + '%'; resMemBar.style.background = gaugeColor(mem);
+  resDiskBar.style.width = disk + '%'; resDiskBar.style.background = gaugeColor(disk);
+
+  // Generals
+  const genList = document.getElementById('general-list');
+  const generals = data.generals || [];
+  const activeGenerals = new Set(soldiers.map(s => s.general).filter(Boolean));
+
+  if (generals.length === 0) {
+    genList.innerHTML = '<div class="empty">설치된 장군 없음</div>';
+  } else {
+    genList.innerHTML = generals.map(g => {
+      const isActive = activeGenerals.has(g.name);
+      return `<div class="general-card ${isActive ? 'active' : ''}">
+        <span>⚔️</span>
+        <span>${g.name}</span>
+        <span class="general-type ${g.type}">${g.type}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Soldiers
+  const soldierList = document.getElementById('soldier-list');
+  document.getElementById('soldier-count').textContent = `(${soldiers.length})`;
+
+  if (soldiers.length === 0) {
+    soldierList.innerHTML = '<div class="empty">대기중인 병사 없음</div>';
+  } else {
+    soldierList.innerHTML = soldiers.map(s => {
+      const elapsed = s.elapsed_s != null ? s.elapsed_s : '--';
+      return `<div class="soldier-card">
+        <span>🛡️</span>
+        <span class="general-tag">${s.general || '?'}</span>
+        <span style="color:var(--text-dim)">${s.task_id || '?'}</span>
+        <span class="timer">${typeof elapsed === 'number' ? formatElapsed(elapsed) : elapsed}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Events
+  const eventFeed = document.getElementById('event-feed');
+  const events = data.recent_events || [];
+
+  if (events.length === 0) {
+    eventFeed.innerHTML = '<div class="empty">이벤트 없음</div>';
+  } else {
+    eventFeed.innerHTML = events.slice().reverse().map(e => {
+      const type = e.type || e.event || '--';
+      const ts = formatTime(e.ts || e.created_at || e.timestamp);
+      return `<div class="event-item">
+        <span class="event-type">${type}</span><br>
+        <span class="event-time">${ts}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Float animations on state transitions
+  if (prev) {
+    const pq = prev.queue || {};
+    // New events: sentinel → king
+    if (q.events_pending > (pq.events_pending || 0)) {
+      spawnFloat('📜', document.getElementById('char-sentinel'), document.getElementById('char-king'));
+    }
+    // New tasks: king → generals zone
+    if (q.tasks_pending > (pq.tasks_pending || 0)) {
+      spawnFloat('📋', document.getElementById('char-king'), document.querySelector('.zone-generals'));
+    }
+    // New messages: envoy sends
+    if (q.messages_pending > (pq.messages_pending || 0)) {
+      spawnFloat('✉️', document.getElementById('char-envoy'), null);
+    }
+  }
+
+  prevState = JSON.parse(JSON.stringify(data));
+}
+
+// ── Soldier timer live update ──
+function tickSoldierTimers() {
+  if (!prevState || !prevState.soldiers) return;
+  prevState.soldiers.forEach(s => {
+    if (typeof s.elapsed_s === 'number') s.elapsed_s++;
+  });
+  const cards = document.querySelectorAll('.soldier-card .timer');
+  prevState.soldiers.forEach((s, i) => {
+    if (cards[i] && typeof s.elapsed_s === 'number') {
+      cards[i].textContent = formatElapsed(s.elapsed_s);
+    }
+  });
+}
+
+// ── Poll ──
+async function fetchData() {
+  const conn = document.getElementById('conn');
+  try {
+    const resp = await fetch(DATA_URL + '?t=' + Date.now());
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    conn.textContent = 'LIVE';
+    conn.className = 'conn-status ok mono';
+    render(data);
+  } catch (e) {
+    conn.textContent = 'OFFLINE';
+    conn.className = 'conn-status err mono';
+  }
+}
+
+// ── Demo data for development ──
+function loadDemo() {
+  const demo = {
+    collected_at: new Date().toISOString(),
+    system: { health: 'green', cpu_percent: 23, memory_percent: 45, disk_percent: 62, load_avg: '1.2,0.8,0.6' },
+    roles: {
+      king: { alive: true, heartbeat_age_s: 5 },
+      sentinel: { alive: true, heartbeat_age_s: 3 },
+      envoy: { alive: true, heartbeat_age_s: 8 },
+      chamberlain: { alive: true, heartbeat_age_s: 2 }
+    },
+    generals: [
+      { name: 'gen-pr', description: 'PR 리뷰', type: 'event' },
+      { name: 'gen-briefing', description: '데일리 브리핑', type: 'manual' },
+      { name: 'gen-herald', description: 'DM 대응', type: 'event' },
+      { name: 'gen-catchup', description: '캐치업 리포트', type: 'schedule' },
+      { name: 'gen-jira', description: 'Jira 티켓 처리', type: 'event' },
+      { name: 'gen-test-writer', description: '테스트 자동 작성', type: 'schedule' }
+    ],
+    queue: { events_pending: 2, tasks_pending: 1, tasks_active: 1, messages_pending: 0, messages_failed: 0 },
+    soldiers: [
+      { task_id: 'task-20260305-001', general: 'gen-pr', started_at: '2026-03-05T10:00:00Z', elapsed_s: 180 }
+    ],
+    recent_events: [
+      { type: 'github.pr.review_requested', ts: '2026-03-05T10:02:00Z' },
+      { type: 'jira.ticket.assigned', ts: '2026-03-05T09:55:00Z' },
+      { type: 'slack.channel.message', ts: '2026-03-05T09:50:00Z' }
+    ]
+  };
+  render(demo);
+}
+
+// ── Init ──
+(async function init() {
+  // Try live data first, fallback to demo
+  try {
+    const resp = await fetch(DATA_URL + '?t=' + Date.now());
+    if (resp.ok) {
+      const data = await resp.json();
+      document.getElementById('conn').textContent = 'LIVE';
+      document.getElementById('conn').className = 'conn-status ok mono';
+      render(data);
+    } else {
+      loadDemo();
+    }
+  } catch {
+    loadDemo();
+  }
+
+  // Poll loop
+  setInterval(fetchData, POLL_INTERVAL);
+
+  // Tick soldier timers every second
+  setInterval(tickSoldierTimers, 1000);
+})();
+</script>
+</body>
+</html>

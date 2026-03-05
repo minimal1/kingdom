@@ -58,5 +58,12 @@ for name in "${ALL_SESSIONS[@]}"; do
   fi
 done
 
+# Stop dashboard container
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^kingdom-dashboard$'; then
+  docker stop kingdom-dashboard &>/dev/null || true
+  docker rm kingdom-dashboard &>/dev/null || true
+  log "[SYSTEM] [stop] Dashboard stopped"
+fi
+
 log "[SYSTEM] [stop] Kingdom stopped."
 echo "Kingdom stopped."

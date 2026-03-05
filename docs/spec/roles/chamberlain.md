@@ -22,6 +22,7 @@
 - `state/resources.json` 갱신 (왕이 리소스 기반 작업 수용 판단에 사용)
 - 이상 감지 시 사절에게 알림 요청
 - 경량 자동 복구 (필수 세션 재시작, 로그 로테이션, 만료 파일 정리)
+- 대시보드 데이터 수집 (`bin/dashboard-collect.sh` → `state/dashboard.json`)
 
 ## 하지 않는 것
 
@@ -81,6 +82,9 @@ while $RUNNING; do
 
   # ── 7. 정기 작업 (로그 로테이션, 만료 파일 정리) ──
   run_periodic_tasks
+
+  # ── 8. 대시보드 스냅샷 ──
+  "$BASE_DIR/bin/dashboard-collect.sh" 2>/dev/null || true
 
   sleep "$INTERVAL"
 done
@@ -879,6 +883,7 @@ events_rotation:
 
 ```
 bin/chamberlain.sh                          # 메인 모니터링 loop
+bin/dashboard-collect.sh                    # 대시보드 데이터 수집 (→ state/dashboard.json)
 bin/lib/chamberlain/
 ├── metrics-collector.sh                    # collect_metrics, evaluate_health,
 │                                           # update_resources_json
@@ -903,3 +908,4 @@ bin/lib/chamberlain/
 - [roles/king.md](king.md) — 왕 (resources.json 소비자, health 기반 작업 수용 판단)
 - [roles/soldier.md](soldier.md) — 병사 (sessions.json 생명주기)
 - [roles/envoy.md](envoy.md) — 사절 (알림 메시지 소비자)
+- [tools/dashboard/README.md](../../../tools/dashboard/README.md) — 대시보드 (dashboard.json 소비자)

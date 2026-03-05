@@ -43,6 +43,21 @@ for manifest in "$BASE_DIR/config/generals/"*.yaml; do
   fi
 done
 
+# Start dashboard container (if Docker available)
+if command -v docker &>/dev/null; then
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^kingdom-dashboard$'; then
+    docker run -d --name kingdom-dashboard \
+      -p 9000:9000 \
+      -v "$BASE_DIR/state/dashboard.json:/data/dashboard.json:ro" \
+      --restart unless-stopped \
+      kingdom-dashboard 2>/dev/null \
+      && log "[SYSTEM] [start] Dashboard started on port 9000" \
+      || log "[WARN] [start] Dashboard container failed to start"
+  else
+    log "[SYSTEM] [start] Dashboard already running"
+  fi
+fi
+
 log "[SYSTEM] [start] Kingdom started."
 echo "Kingdom started. Use 'bin/status.sh' to check."
 

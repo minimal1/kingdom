@@ -49,5 +49,8 @@ while $RUNNING; do
   # 7. Periodic tasks (log rotation, cleanup, report)
   run_periodic_tasks
 
+  # 8. Dashboard snapshot
+  "$BASE_DIR/bin/dashboard-collect.sh" 2>/dev/null || true
+
   sleep "$INTERVAL"
 done
