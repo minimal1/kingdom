@@ -444,6 +444,78 @@
   }
   .conn-status.ok { color: var(--green); }
   .conn-status.err { color: var(--red); }
+
+  /* ── Tooltip ── */
+  .tooltip-wrap {
+    position: relative;
+    cursor: default;
+  }
+
+  .tooltip {
+    display: none;
+    position: absolute;
+    z-index: 200;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 8px);
+    background: #1a1a28;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--border);
+  }
+
+  .tooltip-wrap:hover .tooltip {
+    display: block;
+  }
+
+  .tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .tooltip .tt-label { color: var(--text-dim); }
+  .tooltip .tt-val { color: var(--text); font-weight: 500; }
+
+  /* Tooltip on right side for left-column elements */
+  .zone-sentinel .tooltip,
+  .zone-chamberlain .tooltip {
+    left: 0;
+    transform: none;
+  }
+  .zone-sentinel .tooltip::after,
+  .zone-chamberlain .tooltip::after {
+    left: 20px;
+    transform: none;
+  }
+
+  /* Tooltip on left side for right-column elements */
+  .zone-envoy .tooltip,
+  .zone-events .tooltip {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  .zone-envoy .tooltip::after,
+  .zone-events .tooltip::after {
+    left: auto;
+    right: 20px;
+    transform: none;
+  }
 </style>
 </head>
 <body>
@@ -465,7 +537,8 @@
   <!-- Sentinel (좌상) -->
   <div class="zone zone-sentinel">
     <div class="zone-label">🔭 감시탑 · Sentinel</div>
-    <div class="character" id="char-sentinel">
+    <div class="character tooltip-wrap" id="char-sentinel">
+      <div class="tooltip" id="tt-sentinel">...</div>
       <div class="emoji" style="position:relative;">🔭<span class="badge" id="badge-events"></span></div>
       <div class="name">파수꾼</div>
     </div>
@@ -475,7 +548,8 @@
   <div class="zone zone-king">
     <div class="zone-label">👑 왕의 방 · Queue Overview</div>
     <div style="display:flex;align-items:flex-start;gap:20px;">
-      <div class="character" id="char-king">
+      <div class="character tooltip-wrap" id="char-king">
+        <div class="tooltip" id="tt-king">...</div>
         <div class="emoji" style="position:relative;">👑<span class="badge" id="badge-tasks"></span></div>
         <div class="name">왕</div>
       </div>
@@ -499,7 +573,8 @@
   <!-- Envoy (우상) -->
   <div class="zone zone-envoy">
     <div class="zone-label">📯 통신탑 · Envoy</div>
-    <div class="character" id="char-envoy">
+    <div class="character tooltip-wrap" id="char-envoy">
+      <div class="tooltip" id="tt-envoy">...</div>
       <div class="emoji">📯</div>
       <div class="name">사절</div>
     </div>
@@ -512,7 +587,8 @@
   <!-- Chamberlain (좌 2-3행) -->
   <div class="zone zone-chamberlain">
     <div class="zone-label">🏰 관리실 · Chamberlain</div>
-    <div class="character" id="char-chamberlain">
+    <div class="character tooltip-wrap" id="char-chamberlain">
+      <div class="tooltip" id="tt-chamberlain">...</div>
       <div class="emoji">🏰</div>
       <div class="name">내관</div>
     </div>
@@ -607,10 +683,61 @@ function setCharState(id, alive, extraClass) {
   if (!el) return;
   el.classList.toggle('alive', alive);
   el.classList.toggle('dead', !alive);
-  // Remove all action classes
   el.classList.remove('working', 'patrolling', 'looking');
   if (extraClass && alive) {
     el.classList.add(extraClass);
+  }
+}
+
+function elapsedFromStarted(startedAt) {
+  if (!startedAt) return -1;
+  try {
+    return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  } catch { return -1; }
+}
+
+function updateTooltips(data) {
+  const roles = data.roles || {};
+  const q = data.queue || {};
+
+  const ttSentinel = document.getElementById('tt-sentinel');
+  if (ttSentinel) {
+    const r = roles.sentinel || {};
+    ttSentinel.innerHTML = `
+      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
+      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
+      <div class="tt-row"><span class="tt-label">대기 이벤트</span><span class="tt-val">${q.events_pending || 0}</span></div>`;
+  }
+
+  const ttKing = document.getElementById('tt-king');
+  if (ttKing) {
+    const r = roles.king || {};
+    ttKing.innerHTML = `
+      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
+      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
+      <div class="tt-row"><span class="tt-label">대기 태스크</span><span class="tt-val">${q.tasks_pending || 0}</span></div>
+      <div class="tt-row"><span class="tt-label">진행중</span><span class="tt-val">${q.tasks_active || 0}</span></div>`;
+  }
+
+  const ttEnvoy = document.getElementById('tt-envoy');
+  if (ttEnvoy) {
+    const r = roles.envoy || {};
+    ttEnvoy.innerHTML = `
+      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
+      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
+      <div class="tt-row"><span class="tt-label">대기 메시지</span><span class="tt-val">${q.messages_pending || 0}</span></div>
+      <div class="tt-row"><span class="tt-label">실패</span><span class="tt-val">${q.messages_failed || 0}</span></div>`;
+  }
+
+  const ttChamb = document.getElementById('tt-chamberlain');
+  if (ttChamb) {
+    const r = roles.chamberlain || {};
+    const sys = data.system || {};
+    ttChamb.innerHTML = `
+      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
+      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
+      <div class="tt-row"><span class="tt-label">Health</span><span class="tt-val">${sys.health || 'unknown'}</span></div>
+      <div class="tt-row"><span class="tt-label">Load</span><span class="tt-val">${sys.load_avg || '--'}</span></div>`;
   }
 }
 
@@ -726,7 +853,14 @@ function render(data) {
   } else {
     genList.innerHTML = generals.map(g => {
       const isActive = activeGenerals.has(g.name);
-      return `<div class="general-card ${isActive ? 'active' : ''}">
+      const desc = g.description || '';
+      return `<div class="general-card tooltip-wrap ${isActive ? 'active' : ''}">
+        <div class="tooltip">
+          <div class="tt-row"><span class="tt-label">이름</span><span class="tt-val">${g.name}</span></div>
+          <div class="tt-row"><span class="tt-label">설명</span><span class="tt-val">${desc}</span></div>
+          <div class="tt-row"><span class="tt-label">타입</span><span class="tt-val">${g.type}</span></div>
+          <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${isActive ? '작업중' : '대기'}</span></div>
+        </div>
         <span>⚔️</span>
         <span>${g.name}</span>
         <span class="general-type ${g.type}">${g.type}</span>
@@ -734,7 +868,7 @@ function render(data) {
     }).join('');
   }
 
-  // Soldiers
+  // Soldiers — timer based on started_at (no server elapsed_s, no jumps)
   const soldierList = document.getElementById('soldier-list');
   document.getElementById('soldier-count').textContent = `(${soldiers.length})`;
 
@@ -742,12 +876,19 @@ function render(data) {
     soldierList.innerHTML = '<div class="empty">대기중인 병사 없음</div>';
   } else {
     soldierList.innerHTML = soldiers.map(s => {
-      const elapsed = s.elapsed_s != null ? s.elapsed_s : '--';
-      return `<div class="soldier-card">
+      const elapsed = elapsedFromStarted(s.started_at);
+      const generalName = s.general || '(알 수 없음)';
+      return `<div class="soldier-card tooltip-wrap">
+        <div class="tooltip">
+          <div class="tt-row"><span class="tt-label">Task</span><span class="tt-val">${s.task_id || '?'}</span></div>
+          <div class="tt-row"><span class="tt-label">장군</span><span class="tt-val">${generalName}</span></div>
+          <div class="tt-row"><span class="tt-label">시작</span><span class="tt-val">${formatTime(s.started_at)}</span></div>
+          <div class="tt-row"><span class="tt-label">Soldier</span><span class="tt-val">${s.id || '?'}</span></div>
+        </div>
         <span>🛡️</span>
-        <span class="general-tag">${s.general || '?'}</span>
+        <span class="general-tag">${generalName}</span>
         <span style="color:var(--text-dim)">${s.task_id || '?'}</span>
-        <span class="timer">${typeof elapsed === 'number' ? formatElapsed(elapsed) : elapsed}</span>
+        <span class="timer" data-started="${s.started_at || ''}">${formatElapsed(elapsed)}</span>
       </div>`;
     }).join('');
   }
@@ -786,19 +927,21 @@ function render(data) {
     }
   }
 
+  // Tooltips
+  updateTooltips(data);
+
   prevState = JSON.parse(JSON.stringify(data));
 }
 
-// ── Soldier timer live update ──
+// ── Soldier timer live update (started_at 기반, 점프 없음) ──
 function tickSoldierTimers() {
-  if (!prevState || !prevState.soldiers) return;
-  prevState.soldiers.forEach(s => {
-    if (typeof s.elapsed_s === 'number') s.elapsed_s++;
-  });
-  const cards = document.querySelectorAll('.soldier-card .timer');
-  prevState.soldiers.forEach((s, i) => {
-    if (cards[i] && typeof s.elapsed_s === 'number') {
-      cards[i].textContent = formatElapsed(s.elapsed_s);
+  const timers = document.querySelectorAll('.soldier-card .timer[data-started]');
+  timers.forEach(el => {
+    const started = el.getAttribute('data-started');
+    if (!started) return;
+    const elapsed = elapsedFromStarted(started);
+    if (elapsed >= 0) {
+      el.textContent = formatElapsed(elapsed);
     }
   });
 }
@@ -840,7 +983,7 @@ function loadDemo() {
     ],
     queue: { events_pending: 2, tasks_pending: 1, tasks_active: 1, messages_pending: 0, messages_failed: 0 },
     soldiers: [
-      { task_id: 'task-20260305-001', general: 'gen-pr', started_at: '2026-03-05T10:00:00Z', elapsed_s: 180 }
+      { task_id: 'task-20260305-001', general: 'gen-pr', started_at: new Date(Date.now() - 180000).toISOString() }
     ],
     recent_events: [
       { type: 'github.pr.review_requested', ts: '2026-03-05T10:02:00Z' },

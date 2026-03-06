@@ -123,16 +123,29 @@ collect_queue() {
 
 collect_soldiers() {
   local sessions_file="$BASE_DIR/state/sessions.json"
-  if [ -f "$sessions_file" ]; then
-    # sessions.json의 각 엔트리에 elapsed_s 추가
-    jq --argjson now "$NOW" '
-      [ .[] | . + {
-        elapsed_s: ($now - ((.started_at // "1970-01-01T00:00:00Z") | fromdateiso8601 // 0))
-      }]
-    ' "$sessions_file" 2>/dev/null || echo '[]'
-  else
+  if [ ! -f "$sessions_file" ]; then
     echo '[]'
+    return
   fi
+
+  # in_progress 태스크에서 task_id → target_general 매핑 구축
+  local general_map='{}'
+  for task_file in "$BASE_DIR/queue/tasks/in_progress/"*.json; do
+    [ -f "$task_file" ] || continue
+    local tid tgen
+    tid=$(jq -r '.id // ""' "$task_file" 2>/dev/null) || continue
+    tgen=$(jq -r '.target_general // ""' "$task_file" 2>/dev/null) || continue
+    if [ -n "$tid" ] && [ -n "$tgen" ]; then
+      general_map=$(echo "$general_map" | jq --arg k "$tid" --arg v "$tgen" '. + {($k): $v}')
+    fi
+  done
+
+  # sessions.json + general 매핑 + started_at 보존 (elapsed는 클라이언트 계산)
+  jq --argjson gmap "$general_map" '
+    [ .[] | . + {
+      general: ($gmap[.task_id] // null)
+    }]
+  ' "$sessions_file" 2>/dev/null || echo '[]'
 }
 
 # --- Recent Events ---
