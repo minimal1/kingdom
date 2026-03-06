@@ -24,7 +24,7 @@ king:
         - "dispatch_new_task()"
         - "process_thread_reply()"
         - "check_task_results()"
-        - "handle_success(), handle_failure(), handle_needs_human(), handle_skipped()"
+        - "handle_success(), handle_failure(), handle_killed(), handle_needs_human(), handle_skipped()"
         - "complete_task()"
         - "cron_matches(), _cron_field_matches()"
         - "already_triggered(), mark_triggered()"

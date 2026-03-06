@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "task_id": { "type": "string", "pattern": "^task-[0-9]{8}-[0-9]{3}$" },
-    "status": { "enum": ["success", "failed", "needs_human", "skipped"] },
+    "status": { "enum": ["success", "failed", "killed", "needs_human", "skipped"] },
     "summary": { "type": "string" },
     "reason": { "type": "string" },
     "error": { "type": "string" },

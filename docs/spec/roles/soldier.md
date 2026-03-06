@@ -241,23 +241,38 @@ echo "$SOLDIER_ID" > "$BASE_DIR/state/results/${TASK_ID}-soldier-id"
 }
 ```
 
+### killed
+
+병사가 아닌 장군의 `wait_for_soldier`가 생성. 병사 tmux 세션이 외부에서 강제 종료된 경우.
+
+```json
+{
+  "task_id": "task-20260305-079",
+  "status": "killed",
+  "error": "Soldier session died after 10 seconds",
+  "completed_at": "2026-03-05T16:18:56Z"
+}
+```
+
+> 왕의 `handle_killed()`가 `retry.max_attempts` 이내면 task를 `pending/`으로 되돌려 재시도한다.
+
 ### 필드 참조표
 
-| 필드 | success | failed | needs_human | skipped | 참조하는 주체 |
-|------|---------|--------|-------------|---------|-------------|
-| `task_id` | 필수 | 필수 | 필수 | 필수 | 장군, 왕 |
-| `soldier_id` | 필수 | 선택 | 선택 | 선택 | 로깅용 |
-| `status` | 필수 | 필수 | 필수 | 필수 | 장군 재시도 루프 |
-| `summary` | 필수 | 필수 | 필수 | 필수 | 왕 → 사절 알림 |
-| `reason` | - | - | - | 선택 | 왕 (건너뛴 이유 로깅) |
-| `error` | - | 필수 | - | - | 장군 재시도 판단, 왕 에스컬레이션 |
-| `question` | - | - | 필수 | - | 왕 → 사절 → 사람 |
-| `details` | 선택 | - | - | - | 로깅, 메트릭 |
-| `metrics` | 선택 | - | - | - | 내관 메트릭 수집 |
-| `memory_updates` | 선택 | - | - | - | 장군 `update_memory` |
-| `completed_at` | 필수 | 필수 | 필수 | 필수 | 로깅, 메트릭 |
+| 필드 | success | failed | killed | needs_human | skipped | 참조하는 주체 |
+|------|---------|--------|--------|-------------|---------|-------------|
+| `task_id` | 필수 | 필수 | 필수 | 필수 | 필수 | 장군, 왕 |
+| `soldier_id` | 필수 | 선택 | - | 선택 | 선택 | 로깅용 |
+| `status` | 필수 | 필수 | 필수 | 필수 | 필수 | 장군 재시도 루프, 왕 |
+| `summary` | 필수 | 필수 | - | 필수 | 필수 | 왕 → 사절 알림 |
+| `reason` | - | - | - | - | 선택 | 왕 (건너뛴 이유 로깅) |
+| `error` | - | 필수 | 필수 | - | - | 장군 재시도 판단, 왕 에스컬레이션 |
+| `question` | - | - | - | 필수 | - | 왕 → 사절 → 사람 |
+| `details` | 선택 | - | - | - | - | 로깅, 메트릭 |
+| `metrics` | 선택 | - | - | - | - | 내관 메트릭 수집 |
+| `memory_updates` | 선택 | - | - | - | - | 장군 `update_memory` |
+| `completed_at` | 필수 | 필수 | 필수 | 필수 | 필수 | 로깅, 메트릭 |
 
-> **결과 파일 작성 주체**: 정상 시 병사가 Write 도구로, timeout 시 장군의 `wait_for_soldier`가 직접 생성. 상세: [roles/general.md — wait_for_soldier](general.md#spawn_soldier--wait_for_soldier)
+> **결과 파일 작성 주체**: 정상 시 병사가 Write 도구로, timeout/killed 시 장군의 `wait_for_soldier`가 직접 생성. 상세: [roles/general.md — wait_for_soldier](general.md#spawn_soldier--wait_for_soldier)
 
 ## 제한사항
 

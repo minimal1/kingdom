@@ -539,6 +539,7 @@ state/results/{task-id}.json
 │ status 분기           │
 ├─ success             │──→ 완료 처리 (아래) [+ proclamation if present]
 ├─ failed              │──→ 에스컬레이션 (장군이 재시도 소진 후) [+ proclamation if present]
+├─ killed              │──→ 재시도 (retry_count < max) 또는 영구 실패
 ├─ needs_human         │──→ 사절에게 human_input_request
 ├─ skipped             │──→ 완료 처리 + 사절에게 ⏭️ 알림 [+ proclamation if present]
 └──────────────────────┘
@@ -592,6 +593,9 @@ check_task_results() {
         ;;
       failed)
         handle_failure "$task_id" "$result"
+        ;;
+      killed)
+        handle_killed "$task_id" "$result"
         ;;
       needs_human)
         handle_needs_human "$task_id" "$result"
@@ -671,6 +675,7 @@ handle_success() {
 ### 실패 처리
 
 > **재시도는 장군 전담**. 왕에게 도달하는 failed는 장군이 max retry를 소진한 최종 실패이다.
+> 단, `killed` 상태(병사 강제 kill)는 왕이 직접 재시도를 관리한다 — 아래 참조.
 
 ```bash
 handle_failure() {
@@ -699,6 +704,36 @@ handle_failure() {
   fi
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
+}
+```
+
+### killed 처리
+
+> 병사가 강제 kill되면 `wait_for_soldier`가 10초 이내에 tmux 세션 죽음을 감지하고 `status: "killed"`를 기록한다. 왕은 `retry.max_attempts` 이내면 task를 `pending/`으로 되돌려 재시도한다.
+
+```bash
+handle_killed() {
+  local task_id="$1"
+  local result="$2"
+  local error=$(echo "$result" | jq -r '.error // "unknown"')
+
+  local task_file="$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
+  local task=$(cat "$task_file" 2>/dev/null)
+  local general=$(echo "$task" | jq -r '.target_general')
+  local retry_count=$(echo "$task" | jq -r '.retry_count // 0')
+  local max_retries=$(get_config "king" "retry.max_attempts" "2")
+
+  if (( retry_count < max_retries )); then
+    # in_progress/ → pending/ (retry_count 증가)
+    echo "$task" | jq --argjson rc "$((retry_count + 1))" \
+      '.retry_count = $rc | .status = "pending"' > "$BASE_DIR/queue/tasks/pending/${task_id}.json"
+    rm -f "$task_file"
+    # result 파일 정리
+    rm -f "$BASE_DIR/state/results/${task_id}"{-raw.json,-soldier-id,-session-id,.json}
+    log "[RETRY] [king] Task re-queued: $task_id ($general) retry=$((retry_count + 1))/$max_retries"
+  else
+    handle_failure "$task_id" "$result"  # 영구 실패로 위임
+  fi
 }
 ```
 

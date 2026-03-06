@@ -38,6 +38,7 @@
 ```
 
 > **재시도는 장군 전담**. 왕은 장군이 보고한 최종 결과(success/failed/needs_human/skipped)만 처리한다.
+> 단, `killed`(병사 강제 kill)는 왕이 직접 재시도를 관리한다 — `handle_killed()` 참조.
 
 ---
 
@@ -300,32 +301,46 @@ wait_for_soldier() {
   local raw_file="$2"
   local timeout=${3:-1800}  # 기본 30분
   local waited=0
+  local health_check_interval=10
+
+  local soldier_id=""
+  local soldier_id_file="$BASE_DIR/state/results/${task_id}-soldier-id"
+  [ -f "$soldier_id_file" ] && soldier_id=$(cat "$soldier_id_file")
 
   while [ ! -f "$raw_file" ] && (( waited < timeout )); do
-    sleep 5
-    waited=$((waited + 5))
-  done
+    sleep 1
+    waited=$((waited + 1))
 
-  # 타임아웃 처리
-  if (( waited >= timeout )); then
-    log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${timeout}s)"
-
-    # tmux 세션 강제 종료
-    local soldier_id_file="$BASE_DIR/state/results/${task_id}-soldier-id"
-    if [ -f "$soldier_id_file" ]; then
-      local soldier_id=$(cat "$soldier_id_file")
-      if tmux has-session -t "$soldier_id" 2>/dev/null; then
-        tmux kill-session -t "$soldier_id"
-        log "[SYSTEM] [$GENERAL_DOMAIN] Killed soldier session: $soldier_id"
+    # 10초 간격으로 tmux 세션 생존 확인 — 강제 kill 조기 감지
+    if (( waited % health_check_interval == 0 )) && [ -n "$soldier_id" ]; then
+      if ! tmux has-session -t "$soldier_id" 2>/dev/null; then
+        log "[WARN] [$GENERAL_DOMAIN] Soldier session dead: $soldier_id (task: $task_id)"
+        break
       fi
     fi
+  done
 
-    # 실패 결과 생성
+  # 결과 파일이 없으면 실패/killed 결과 생성
+  if [ ! -f "$raw_file" ]; then
+    local result_status="failed"
+    local reason="Timeout after ${timeout} seconds"
+
+    if (( waited < timeout )); then
+      result_status="killed"  # 병사 세션 죽음 → 왕이 재시도 관리
+      reason="Soldier session died after ${waited} seconds"
+    else
+      log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${timeout}s)"
+    fi
+
+    # timeout인 경우 살아있는 세션 정리
+    if [ -n "$soldier_id" ] && tmux has-session -t "$soldier_id" 2>/dev/null; then
+      tmux kill-session -t "$soldier_id"
+    fi
+
     jq -n \
-      --arg task_id "$task_id" \
-      --arg error "Timeout after ${timeout} seconds" \
-      --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '{task_id: $task_id, status: "failed", error: $error, completed_at: $ts}' \
+      --arg task_id "$task_id" --arg status "$result_status" \
+      --arg error "$reason" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '{task_id: $task_id, status: $status, error: $error, completed_at: $ts}' \
       > "$raw_file"
   fi
 }
@@ -339,7 +354,7 @@ wait_for_soldier() {
 > ```json
 > {
 >   "task_id": "string (필수)",
->   "status": "success | failed | needs_human | skipped (필수)",
+>   "status": "success | failed | killed | needs_human | skipped (필수)",
 >   "summary": "string (필수)",
 >   "reason": "string (선택, skipped 시 건너뛴 이유)",
 >   "error": "string (선택, 실패 시)",

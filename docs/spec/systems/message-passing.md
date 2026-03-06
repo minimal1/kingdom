@@ -83,6 +83,7 @@ queue/tasks/
 ```
 pending → in_progress → completed
                      ↘ failed → completed
+                     ↘ killed → pending (왕이 재시도) 또는 failed (max_retries 초과)
                      ↘ needs_human → completed (왕이 즉시 complete_task, reply_context로 재개)
                      ↘ skipped → completed (재시도 없이 즉시 완료)
 ```
@@ -97,7 +98,7 @@ pending → in_progress → completed
   "payload": { },
   "priority": "normal | high | low",
   "created_at": "ISO8601",
-  "status": "pending | in_progress | completed | failed | needs_human | skipped"
+  "status": "pending | in_progress | completed | failed | killed | needs_human | skipped"
 }
 ```
 
