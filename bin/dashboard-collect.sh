@@ -196,17 +196,20 @@ collect_sentinel() {
 # --- Envoy detail ---
 
 collect_envoy() {
-  local cfg="$BASE_DIR/config/envoy.yaml"
-  local channel=""
-  if [ -f "$cfg" ]; then
-    channel=$(yq eval '.slack.default_channel // ""' "$cfg" 2>/dev/null) || channel=""
-  fi
-
   local threads=0 awaiting=0 convos=0
   local state_dir="$BASE_DIR/state/envoy"
+  local ip_dir="$BASE_DIR/queue/tasks/in_progress"
 
-  if [ -f "$state_dir/thread-mappings.json" ]; then
-    threads=$(jq 'length' "$state_dir/thread-mappings.json" 2>/dev/null) || threads=0
+  # active_threads: thread-mappings 중 in_progress 태스크가 있는 것만 카운트
+  if [ -f "$state_dir/thread-mappings.json" ] && [ -d "$ip_dir" ]; then
+    threads=$(
+      jq -r 'keys[]' "$state_dir/thread-mappings.json" 2>/dev/null | while read -r tid; do
+        if [ -f "$ip_dir/${tid}.json" ]; then
+          echo "1"
+        fi
+      done | wc -l | tr -d ' '
+    )
+    threads=${threads:-0}
   fi
   if [ -f "$state_dir/awaiting-responses.json" ]; then
     awaiting=$(jq 'length' "$state_dir/awaiting-responses.json" 2>/dev/null) || awaiting=0
@@ -215,8 +218,8 @@ collect_envoy() {
     convos=$(jq 'length' "$state_dir/conversation-threads.json" 2>/dev/null) || convos=0
   fi
 
-  printf '{"channel":"%s","active_threads":%d,"awaiting_responses":%d,"conversations":%d}' \
-    "$channel" "$threads" "$awaiting" "$convos"
+  printf '{"active_threads":%d,"awaiting_responses":%d,"conversations":%d}' \
+    "$threads" "$awaiting" "$convos"
 }
 
 # --- King detail ---
