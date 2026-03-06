@@ -4,5 +4,5 @@ services:
     ports:
       - "9000:9000"
     volumes:
-      - /opt/kingdom/state/dashboard.json:/data/dashboard.json:ro
+      - /opt/kingdom/state:/data/state:ro
     restart: unless-stopped

@@ -10,11 +10,6 @@ OUTPUT="$BASE_DIR/state/dashboard.json"
 TMP_OUTPUT="${OUTPUT}.tmp"
 NOW=$(date +%s)
 
-# Guard: Docker volume mount creates a directory if file was missing at mount time
-if [ -d "$OUTPUT" ]; then
-  rm -rf "$OUTPUT"
-fi
-
 # --- System ---
 
 collect_system() {
