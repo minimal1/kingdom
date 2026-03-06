@@ -224,50 +224,51 @@ collect_envoy() {
 
 # --- King detail ---
 
-collect_king() {
-  # 최근 완료 태스크 5개
-  local completed_dir="$BASE_DIR/queue/tasks/completed"
-  local completed="[]"
-  if [ -d "$completed_dir" ]; then
-    completed=$(
-      ls -t "$completed_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
-        jq -c '{id: .id, type: .type, general: .target_general}' "$f" 2>/dev/null || true
-      done | jq -sc '[ .[] | . + {completed_at: null} ]' 2>/dev/null
-    ) || completed="[]"
-    # mtime 기반 completed_at 추가
-    if [ "$completed" != "[]" ] && [ -n "$completed" ]; then
-      completed=$(
-        ls -t "$completed_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
-          local mt
-          mt=$(get_mtime "$f" 2>/dev/null || echo 0)
-          local ts=""
-          if [ "$mt" -gt 0 ] 2>/dev/null; then
-            ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
-          fi
-          jq -c --arg ts "$ts" '{id: .id, type: .type, general: .target_general, completed_at: $ts}' "$f" 2>/dev/null || true
-        done | jq -sc '.' 2>/dev/null
-      ) || completed="[]"
-    fi
+collect_king_files() {
+  # $1=dir, $2=jq_filter — 최근 5개 파일을 jq로 변환
+  local dir="$1" filter="$2"
+  local files
+  files=$(find "$dir" -maxdepth 1 -name '*.json' -type f -print 2>/dev/null | head -20)
+  if [ -z "$files" ]; then
+    echo '[]'
+    return
   fi
-  [ -z "$completed" ] && completed="[]"
+  # mtime 역순 정렬 후 상위 5개
+  local sorted
+  sorted=$(echo "$files" | while read -r f; do
+    local mt
+    mt=$(get_mtime "$f" 2>/dev/null || echo 0)
+    printf '%s\t%s\n' "$mt" "$f"
+  done | sort -rn | head -5)
 
-  # 최근 디스패치 이벤트 5개
-  local dispatched_dir="$BASE_DIR/queue/events/dispatched"
-  local dispatched="[]"
-  if [ -d "$dispatched_dir" ]; then
-    dispatched=$(
-      ls -t "$dispatched_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
-        local mt
-        mt=$(get_mtime "$f" 2>/dev/null || echo 0)
-        local ts=""
-        if [ "$mt" -gt 0 ] 2>/dev/null; then
-          ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
-        fi
-        jq -c --arg ts "$ts" '{id: .id, type: .type, dispatched_at: $ts}' "$f" 2>/dev/null || true
-      done | jq -sc '.' 2>/dev/null
-    ) || dispatched="[]"
+  local result="["
+  local first="true"
+  echo "$sorted" | while read -r line; do
+    local mt="${line%%	*}"
+    local f="${line#*	}"
+    [ -f "$f" ] || continue
+    local ts=""
+    if [ "$mt" -gt 0 ] 2>/dev/null; then
+      ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
+    fi
+    jq -c --arg ts "$ts" "$filter" "$f" 2>/dev/null || true
+  done | jq -sc '.' 2>/dev/null || echo '[]'
+}
+
+collect_king() {
+  local completed="[]" dispatched="[]"
+
+  local completed_dir="$BASE_DIR/queue/tasks/completed"
+  if [ -d "$completed_dir" ]; then
+    completed=$(collect_king_files "$completed_dir" \
+      '{id: .id, type: .type, general: .target_general, completed_at: $ts}')
   fi
-  [ -z "$dispatched" ] && dispatched="[]"
+
+  local dispatched_dir="$BASE_DIR/queue/events/dispatched"
+  if [ -d "$dispatched_dir" ]; then
+    dispatched=$(collect_king_files "$dispatched_dir" \
+      '{id: .id, type: .type, dispatched_at: $ts}')
+  fi
 
   printf '{"recent_completed":%s,"recent_dispatched":%s}' "$completed" "$dispatched"
 }
