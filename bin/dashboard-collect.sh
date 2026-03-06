@@ -149,6 +149,126 @@ collect_soldiers() {
   ' "$sessions_file" 2>/dev/null || echo '[]'
 }
 
+# --- Sentinel detail ---
+
+collect_sentinel() {
+  local cfg="$BASE_DIR/config/sentinel.yaml"
+  if [ ! -f "$cfg" ]; then
+    echo '{"watchers":[]}'
+    return
+  fi
+
+  local first="true"
+  printf '{"watchers":['
+
+  # polling 하위 키 = watcher 이름
+  local names
+  names=$(yq eval '.polling | keys | .[]' "$cfg" 2>/dev/null) || true
+  for name in $names; do
+    local interval
+    interval=$(yq eval ".polling.${name}.interval_seconds // 0" "$cfg" 2>/dev/null) || interval=0
+
+    # state 파일에서 mtime → last_check_at
+    local last_check=""
+    for sf in "$BASE_DIR/state/sentinel/${name}"*.json; do
+      if [ -f "$sf" ]; then
+        local mt
+        mt=$(get_mtime "$sf" 2>/dev/null || echo 0)
+        if [ "$mt" -gt 0 ] 2>/dev/null; then
+          last_check=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
+        fi
+        break
+      fi
+    done
+
+    if [ "$first" = "true" ]; then
+      first="false"
+    else
+      printf ','
+    fi
+    printf '{"name":"%s","interval_seconds":%d,"last_check_at":"%s"}' \
+      "$name" "$interval" "$last_check"
+  done
+
+  printf ']}'
+}
+
+# --- Envoy detail ---
+
+collect_envoy() {
+  local cfg="$BASE_DIR/config/envoy.yaml"
+  local channel=""
+  if [ -f "$cfg" ]; then
+    channel=$(yq eval '.slack.default_channel // ""' "$cfg" 2>/dev/null) || channel=""
+  fi
+
+  local threads=0 awaiting=0 convos=0
+  local state_dir="$BASE_DIR/state/envoy"
+
+  if [ -f "$state_dir/thread-mappings.json" ]; then
+    threads=$(jq 'length' "$state_dir/thread-mappings.json" 2>/dev/null) || threads=0
+  fi
+  if [ -f "$state_dir/awaiting-responses.json" ]; then
+    awaiting=$(jq 'length' "$state_dir/awaiting-responses.json" 2>/dev/null) || awaiting=0
+  fi
+  if [ -f "$state_dir/conversation-threads.json" ]; then
+    convos=$(jq 'length' "$state_dir/conversation-threads.json" 2>/dev/null) || convos=0
+  fi
+
+  printf '{"channel":"%s","active_threads":%d,"awaiting_responses":%d,"conversations":%d}' \
+    "$channel" "$threads" "$awaiting" "$convos"
+}
+
+# --- King detail ---
+
+collect_king() {
+  # 최근 완료 태스크 5개
+  local completed_dir="$BASE_DIR/queue/tasks/completed"
+  local completed="[]"
+  if [ -d "$completed_dir" ]; then
+    completed=$(
+      ls -t "$completed_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
+        jq -c '{id: .id, type: .type, general: .target_general}' "$f" 2>/dev/null || true
+      done | jq -sc '[ .[] | . + {completed_at: null} ]' 2>/dev/null
+    ) || completed="[]"
+    # mtime 기반 completed_at 추가
+    if [ "$completed" != "[]" ] && [ -n "$completed" ]; then
+      completed=$(
+        ls -t "$completed_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
+          local mt
+          mt=$(get_mtime "$f" 2>/dev/null || echo 0)
+          local ts=""
+          if [ "$mt" -gt 0 ] 2>/dev/null; then
+            ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
+          fi
+          jq -c --arg ts "$ts" '{id: .id, type: .type, general: .target_general, completed_at: $ts}' "$f" 2>/dev/null || true
+        done | jq -sc '.' 2>/dev/null
+      ) || completed="[]"
+    fi
+  fi
+  [ -z "$completed" ] && completed="[]"
+
+  # 최근 디스패치 이벤트 5개
+  local dispatched_dir="$BASE_DIR/queue/events/dispatched"
+  local dispatched="[]"
+  if [ -d "$dispatched_dir" ]; then
+    dispatched=$(
+      ls -t "$dispatched_dir"/*.json 2>/dev/null | head -5 | while read -r f; do
+        local mt
+        mt=$(get_mtime "$f" 2>/dev/null || echo 0)
+        local ts=""
+        if [ "$mt" -gt 0 ] 2>/dev/null; then
+          ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
+        fi
+        jq -c --arg ts "$ts" '{id: .id, type: .type, dispatched_at: $ts}' "$f" 2>/dev/null || true
+      done | jq -sc '.' 2>/dev/null
+    ) || dispatched="[]"
+  fi
+  [ -z "$dispatched" ] && dispatched="[]"
+
+  printf '{"recent_completed":%s,"recent_dispatched":%s}' "$completed" "$dispatched"
+}
+
 # --- Recent Events ---
 
 collect_recent_events() {
@@ -169,6 +289,9 @@ generals_json=$(collect_generals)
 queue_json=$(collect_queue)
 soldiers_json=$(collect_soldiers)
 events_json=$(collect_recent_events)
+sentinel_json=$(collect_sentinel)
+envoy_json=$(collect_envoy)
+king_json=$(collect_king)
 
 jq -n \
   --arg ts "$collected_at" \
@@ -178,6 +301,9 @@ jq -n \
   --argjson q "$queue_json" \
   --argjson sol "$soldiers_json" \
   --argjson evt "$events_json" \
+  --argjson sen "$sentinel_json" \
+  --argjson env "$envoy_json" \
+  --argjson king "$king_json" \
   '{
     collected_at: $ts,
     system: $sys,
@@ -185,7 +311,10 @@ jq -n \
     generals: $gens,
     queue: $q,
     soldiers: $sol,
-    recent_events: $evt
+    recent_events: $evt,
+    sentinel: $sen,
+    envoy: $env,
+    king: $king
   }' > "$TMP_OUTPUT"
 
 mv "$TMP_OUTPUT" "$OUTPUT"

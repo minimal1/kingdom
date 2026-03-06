@@ -79,10 +79,12 @@
     background: var(--border);
     border-radius: 3px;
     overflow: hidden;
+    display: inline-block;
   }
   .gauge-fill {
     height: 100%;
     border-radius: 3px;
+    min-width: 2px;
     transition: width 0.8s ease, background 0.5s;
   }
 
@@ -429,6 +431,100 @@
   .msg-stat .val.warn { color: var(--orange); }
   .msg-stat .val.error { color: var(--red); }
 
+  /* ── Watcher list (Sentinel) ── */
+  .watcher-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+    font-size: 0.7rem;
+  }
+
+  .watcher-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-dim);
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .watcher-item .w-name {
+    color: var(--text);
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  .watcher-item .w-interval {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+
+  .watcher-item .w-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--accent);
+  }
+
+  /* ── Envoy detail ── */
+  .envoy-detail {
+    margin-top: 12px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .envoy-channel {
+    color: var(--blue);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .envoy-threads {
+    display: flex;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .envoy-threads span .num {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  /* ── King recent feed ── */
+  .king-feed {
+    margin-top: 10px;
+    font-size: 0.65rem;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .king-feed-title {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .king-feed-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .king-feed-item .kf-icon { flex-shrink: 0; }
+  .king-feed-item .kf-general { color: var(--accent); min-width: 70px; }
+  .king-feed-item .kf-id { color: var(--text-dim); opacity: 0.7; }
+  .king-feed-item .kf-time { margin-left: auto; font-size: 0.6rem; }
+
   /* ── Empty State ── */
   .empty {
     color: var(--text-dim);
@@ -518,6 +614,7 @@
       <div class="emoji" style="position:relative;">🔭<span class="badge" id="badge-events"></span></div>
       <div class="name">파수꾼</div>
     </div>
+    <div class="watcher-list" id="watcher-list"></div>
   </div>
 
   <!-- King (중앙상) -->
@@ -543,6 +640,7 @@
         </div>
       </div>
     </div>
+    <div class="king-feed" id="king-feed"></div>
   </div>
 
   <!-- Envoy (우상) -->
@@ -552,6 +650,7 @@
       <div class="emoji">📯</div>
       <div class="name">사절</div>
     </div>
+    <div class="envoy-detail" id="envoy-detail"></div>
     <div class="msg-stats" id="msg-stats">
       <div class="msg-stat"><span>대기</span><span class="val" id="msg-pending">0</span></div>
       <div class="msg-stat"><span>실패</span><span class="val" id="msg-failed">0</span></div>
@@ -782,6 +881,74 @@ function render(data) {
   resMemBar.style.width = mem + '%'; resMemBar.style.background = gaugeColor(mem);
   resDiskBar.style.width = disk + '%'; resDiskBar.style.background = gaugeColor(disk);
 
+  // Sentinel watchers
+  const watcherList = document.getElementById('watcher-list');
+  const sentinelData = data.sentinel || {};
+  const watchers = sentinelData.watchers || [];
+  if (watchers.length > 0) {
+    watcherList.innerHTML = watchers.map(w => {
+      const time = w.last_check_at ? formatTime(w.last_check_at) : '--';
+      return `<div class="watcher-item">
+        <span class="w-name">${w.name}</span>
+        <span class="w-interval">${w.interval_seconds}초</span>
+        <span class="w-time">${time}</span>
+      </div>`;
+    }).join('');
+  } else {
+    watcherList.innerHTML = '';
+  }
+
+  // Envoy detail
+  const envoyDetail = document.getElementById('envoy-detail');
+  const envoyData = data.envoy || {};
+  if (envoyData.channel) {
+    envoyDetail.innerHTML = `
+      <div class="envoy-channel">#${envoyData.channel}</div>
+      <div class="envoy-threads">
+        <span>스레드 <span class="num">${envoyData.active_threads || 0}</span></span>
+        <span>대기 <span class="num">${envoyData.awaiting_responses || 0}</span></span>
+        <span>대화 <span class="num">${envoyData.conversations || 0}</span></span>
+      </div>`;
+  } else {
+    envoyDetail.innerHTML = '';
+  }
+
+  // King recent feed
+  const kingFeed = document.getElementById('king-feed');
+  const kingData = data.king || {};
+  const recentCompleted = kingData.recent_completed || [];
+  const recentDispatched = kingData.recent_dispatched || [];
+  let kingHtml = '';
+  if (recentCompleted.length > 0) {
+    kingHtml += '<div class="king-feed-title">최근 처리</div>';
+    kingHtml += recentCompleted.map(t => {
+      const gen = t.general || '?';
+      const id = t.id || '?';
+      const shortId = id.length > 15 ? id.slice(-10) : id;
+      const time = t.completed_at ? formatTime(t.completed_at) : '--';
+      return `<div class="king-feed-item">
+        <span class="kf-icon">✅</span>
+        <span class="kf-general">${gen}</span>
+        <span class="kf-id">${shortId}</span>
+        <span class="kf-time">${time}</span>
+      </div>`;
+    }).join('');
+  }
+  if (recentDispatched.length > 0) {
+    kingHtml += '<div class="king-feed-title" style="margin-top:6px;">최근 디스패치</div>';
+    kingHtml += recentDispatched.map(e => {
+      const type = e.type || '?';
+      const shortType = type.length > 20 ? '…' + type.slice(-18) : type;
+      const time = e.dispatched_at ? formatTime(e.dispatched_at) : '--';
+      return `<div class="king-feed-item">
+        <span class="kf-icon">📤</span>
+        <span class="kf-general">${shortType}</span>
+        <span class="kf-time">${time}</span>
+      </div>`;
+    }).join('');
+  }
+  kingFeed.innerHTML = kingHtml;
+
   // Generals
   const genList = document.getElementById('general-list');
   const generals = data.generals || [];
@@ -912,6 +1079,27 @@ function loadDemo() {
       { name: 'gen-jira', description: 'Jira 티켓 처리', type: 'event' },
       { name: 'gen-test-writer', description: '테스트 자동 작성', type: 'schedule' }
     ],
+    sentinel: {
+      watchers: [
+        { name: 'github', interval_seconds: 60, last_check_at: new Date(Date.now() - 5000).toISOString() },
+        { name: 'jira', interval_seconds: 300, last_check_at: new Date(Date.now() - 120000).toISOString() }
+      ]
+    },
+    envoy: {
+      channel: 'dev-eddy',
+      active_threads: 2,
+      awaiting_responses: 1,
+      conversations: 0
+    },
+    king: {
+      recent_completed: [
+        { id: 'task-20260305-001', type: 'github.pr.review_requested', general: 'gen-pr', completed_at: new Date(Date.now() - 60000).toISOString() },
+        { id: 'task-20260305-002', type: 'jira.ticket.assigned', general: 'gen-jira', completed_at: new Date(Date.now() - 300000).toISOString() }
+      ],
+      recent_dispatched: [
+        { id: 'evt-20260305-003', type: 'github.pr.review_requested', dispatched_at: new Date(Date.now() - 30000).toISOString() }
+      ]
+    },
     queue: { events_pending: 2, tasks_pending: 1, tasks_active: 1, messages_pending: 0, messages_failed: 0 },
     soldiers: [
       { task_id: 'task-20260305-001', general: 'gen-pr', task_type: 'github.pr.review_requested', started_at: new Date(Date.now() - 180000).toISOString(), payload: { repo: 'querypie/acp', pr_number: 1234, subject_title: 'feat: add OAuth2 support' } }
