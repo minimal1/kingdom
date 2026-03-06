@@ -334,10 +334,10 @@ general_packages:
       has_claude_md: true  # generals/gen-herald/general-claude.md
     gen-catchup:
       path: "generals/gen-catchup/"
-      description: "일간 PR 캐치업 요약 → Slack Canvas 게시"
+      description: "일간 PR 캐치업 요약 → repo별 수집 + Slack Canvas 게시 + 팀 공유"
       subscribes: []
-      schedules: ["daily-catchup"]
-      cc_plugins: ["friday@qp-plugin"]
+      schedules: ["catchup-repo-a", "catchup-repo-b", "catchup-repo-c", "catchup-share"]
+      cc_plugins: []
       timeout: 900
       has_claude_md: true  # generals/gen-catchup/general-claude.md
     gen-test-writer:

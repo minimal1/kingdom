@@ -1,26 +1,57 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-catchup
-description: "일간 PR 캐치업 요약 — pr-catchup 스킬로 분석 후 Slack Canvas에 게시"
+description: "일간 PR 캐치업 요약 — repo별 수집 + Slack Canvas 게시 + 팀 공유"
 timeout_seconds: 900
 
-cc_plugins:
-  - friday@qp-plugin
+cc_plugins: []
 
 subscribes: []
 
 schedules:
-  - name: daily-catchup
+  - name: catchup-repo-a
     cron: "0 0 * * *"
     task_type: catchup
+    repo: "TODO_REPO_A"
     payload:
+      mode: collect
+      branch: "TODO_BRANCH_A"
+      period_days: 1
+      canvas_id: "TODO_CANVAS_ID_A"
+      workspace_id: "TODO_WORKSPACE_ID"
+
+  - name: catchup-repo-b
+    cron: "0 0 * * *"
+    task_type: catchup
+    repo: "TODO_REPO_B"
+    payload:
+      mode: collect
+      branch: "TODO_BRANCH_B"
+      period_days: 1
+      canvas_id: "TODO_CANVAS_ID_B"
+      workspace_id: "TODO_WORKSPACE_ID"
+
+  - name: catchup-repo-c
+    cron: "0 0 * * *"
+    task_type: catchup
+    repo: "TODO_REPO_C"
+    payload:
+      mode: collect
+      branch: "TODO_BRANCH_C"
+      period_days: 1
+      canvas_id: "TODO_CANVAS_ID_C"
+      workspace_id: "TODO_WORKSPACE_ID"
+
+  - name: catchup-share
+    cron: "30 0 * * *"
+    task_type: catchup
+    payload:
+      mode: share
       share_channel: "TODO_SHARE_CHANNEL_ID"
       workspace_id: "TODO_WORKSPACE_ID"
-      repos:
-        - repo: "TODO_REPO_A"
-          branch: "TODO_BRANCH_A"
-          period_days: 1
-          canvas_id: "TODO_CANVAS_ID_A"
-        - repo: "TODO_REPO_B"
-          branch: "TODO_BRANCH_B"
-          period_days: 1
-          canvas_id: "TODO_CANVAS_ID_B"
+      canvases:
+        - canvas_id: "TODO_CANVAS_ID_A"
+          repo_name: "TODO_REPO_A_NAME"
+        - canvas_id: "TODO_CANVAS_ID_B"
+          repo_name: "TODO_REPO_B_NAME"
+        - canvas_id: "TODO_CANVAS_ID_C"
+          repo_name: "TODO_REPO_C_NAME"
