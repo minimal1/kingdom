@@ -128,22 +128,23 @@ collect_soldiers() {
     return
   fi
 
-  # in_progress 태스크에서 task_id → target_general 매핑 구축
-  local general_map='{}'
+  # in_progress 태스크에서 task_id → {general, task_type, payload} 매핑 구축
+  local task_meta='{}'
   for task_file in "$BASE_DIR/queue/tasks/in_progress/"*.json; do
     [ -f "$task_file" ] || continue
-    local tid tgen
+    local tid
     tid=$(jq -r '.id // ""' "$task_file" 2>/dev/null) || continue
-    tgen=$(jq -r '.target_general // ""' "$task_file" 2>/dev/null) || continue
-    if [ -n "$tid" ] && [ -n "$tgen" ]; then
-      general_map=$(echo "$general_map" | jq --arg k "$tid" --arg v "$tgen" '. + {($k): $v}')
+    if [ -n "$tid" ]; then
+      task_meta=$(echo "$task_meta" | jq --arg k "$tid" --argjson v "$(jq '{general: .target_general, task_type: .type, payload: .payload}' "$task_file" 2>/dev/null)" '. + {($k): $v}')
     fi
   done
 
-  # sessions.json + general 매핑 + started_at 보존 (elapsed는 클라이언트 계산)
-  jq --argjson gmap "$general_map" '
+  # sessions.json + task 메타데이터 병합
+  jq --argjson tmap "$task_meta" '
     [ .[] | . + {
-      general: ($gmap[.task_id] // null)
+      general: ($tmap[.task_id].general // null),
+      task_type: ($tmap[.task_id].task_type // null),
+      payload: ($tmap[.task_id].payload // null)
     }]
   ' "$sessions_file" 2>/dev/null || echo '[]'
 }

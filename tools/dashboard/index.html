@@ -659,6 +659,17 @@ function setCharState(id, alive, extraClass) {
   }
 }
 
+function formatPayload(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  return Object.entries(payload)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => {
+      const val = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      const short = val.length > 40 ? val.slice(0, 37) + '...' : val;
+      return `<div class="tt-row"><span class="tt-label">${k}</span><span class="tt-val">${short}</span></div>`;
+    }).join('');
+}
+
 function elapsedFromStarted(startedAt) {
   if (!startedAt) return -1;
   try {
@@ -798,10 +809,12 @@ function render(data) {
     soldierList.innerHTML = soldiers.map(s => {
       const elapsed = elapsedFromStarted(s.started_at);
       const generalName = s.general || '(알 수 없음)';
+      const payloadRows = formatPayload(s.payload);
       return `<div class="soldier-card tooltip-wrap">
         <div class="tooltip">
+          ${s.task_type ? `<div class="tt-row"><span class="tt-label">type</span><span class="tt-val">${s.task_type}</span></div>` : ''}
+          ${payloadRows}
           <div class="tt-row"><span class="tt-label">시작</span><span class="tt-val">${formatTime(s.started_at)}</span></div>
-          ${s.id ? `<div class="tt-row"><span class="tt-label">Session</span><span class="tt-val">${s.id}</span></div>` : ''}
         </div>
         <span>🛡️</span>
         <span class="general-tag">${generalName}</span>
@@ -898,7 +911,7 @@ function loadDemo() {
     ],
     queue: { events_pending: 2, tasks_pending: 1, tasks_active: 1, messages_pending: 0, messages_failed: 0 },
     soldiers: [
-      { task_id: 'task-20260305-001', general: 'gen-pr', started_at: new Date(Date.now() - 180000).toISOString() }
+      { task_id: 'task-20260305-001', general: 'gen-pr', task_type: 'github.pr.review_requested', started_at: new Date(Date.now() - 180000).toISOString(), payload: { repo: 'querypie/acp', pr_number: 1234, subject_title: 'feat: add OAuth2 support' } }
     ],
     recent_events: [
       { type: 'github.pr.review_requested', ts: '2026-03-05T10:02:00Z' },
