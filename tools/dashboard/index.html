@@ -106,7 +106,6 @@
     background: var(--surface);
     padding: 16px;
     position: relative;
-    overflow: hidden;
   }
 
   .zone-label {
@@ -491,31 +490,6 @@
   .tooltip .tt-label { color: var(--text-dim); }
   .tooltip .tt-val { color: var(--text); font-weight: 500; }
 
-  /* Tooltip on right side for left-column elements */
-  .zone-sentinel .tooltip,
-  .zone-chamberlain .tooltip {
-    left: 0;
-    transform: none;
-  }
-  .zone-sentinel .tooltip::after,
-  .zone-chamberlain .tooltip::after {
-    left: 20px;
-    transform: none;
-  }
-
-  /* Tooltip on left side for right-column elements */
-  .zone-envoy .tooltip,
-  .zone-events .tooltip {
-    left: auto;
-    right: 0;
-    transform: none;
-  }
-  .zone-envoy .tooltip::after,
-  .zone-events .tooltip::after {
-    left: auto;
-    right: 20px;
-    transform: none;
-  }
 </style>
 </head>
 <body>
@@ -537,8 +511,7 @@
   <!-- Sentinel (좌상) -->
   <div class="zone zone-sentinel">
     <div class="zone-label">🔭 감시탑 · Sentinel</div>
-    <div class="character tooltip-wrap" id="char-sentinel">
-      <div class="tooltip" id="tt-sentinel">...</div>
+    <div class="character" id="char-sentinel">
       <div class="emoji" style="position:relative;">🔭<span class="badge" id="badge-events"></span></div>
       <div class="name">파수꾼</div>
     </div>
@@ -548,8 +521,7 @@
   <div class="zone zone-king">
     <div class="zone-label">👑 왕의 방 · Queue Overview</div>
     <div style="display:flex;align-items:flex-start;gap:20px;">
-      <div class="character tooltip-wrap" id="char-king">
-        <div class="tooltip" id="tt-king">...</div>
+      <div class="character" id="char-king">
         <div class="emoji" style="position:relative;">👑<span class="badge" id="badge-tasks"></span></div>
         <div class="name">왕</div>
       </div>
@@ -573,8 +545,7 @@
   <!-- Envoy (우상) -->
   <div class="zone zone-envoy">
     <div class="zone-label">📯 통신탑 · Envoy</div>
-    <div class="character tooltip-wrap" id="char-envoy">
-      <div class="tooltip" id="tt-envoy">...</div>
+    <div class="character" id="char-envoy">
       <div class="emoji">📯</div>
       <div class="name">사절</div>
     </div>
@@ -587,8 +558,7 @@
   <!-- Chamberlain (좌 2-3행) -->
   <div class="zone zone-chamberlain">
     <div class="zone-label">🏰 관리실 · Chamberlain</div>
-    <div class="character tooltip-wrap" id="char-chamberlain">
-      <div class="tooltip" id="tt-chamberlain">...</div>
+    <div class="character" id="char-chamberlain">
       <div class="emoji">🏰</div>
       <div class="name">내관</div>
     </div>
@@ -694,51 +664,6 @@ function elapsedFromStarted(startedAt) {
   try {
     return Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
   } catch { return -1; }
-}
-
-function updateTooltips(data) {
-  const roles = data.roles || {};
-  const q = data.queue || {};
-
-  const ttSentinel = document.getElementById('tt-sentinel');
-  if (ttSentinel) {
-    const r = roles.sentinel || {};
-    ttSentinel.innerHTML = `
-      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
-      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
-      <div class="tt-row"><span class="tt-label">대기 이벤트</span><span class="tt-val">${q.events_pending || 0}</span></div>`;
-  }
-
-  const ttKing = document.getElementById('tt-king');
-  if (ttKing) {
-    const r = roles.king || {};
-    ttKing.innerHTML = `
-      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
-      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
-      <div class="tt-row"><span class="tt-label">대기 태스크</span><span class="tt-val">${q.tasks_pending || 0}</span></div>
-      <div class="tt-row"><span class="tt-label">진행중</span><span class="tt-val">${q.tasks_active || 0}</span></div>`;
-  }
-
-  const ttEnvoy = document.getElementById('tt-envoy');
-  if (ttEnvoy) {
-    const r = roles.envoy || {};
-    ttEnvoy.innerHTML = `
-      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
-      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
-      <div class="tt-row"><span class="tt-label">대기 메시지</span><span class="tt-val">${q.messages_pending || 0}</span></div>
-      <div class="tt-row"><span class="tt-label">실패</span><span class="tt-val">${q.messages_failed || 0}</span></div>`;
-  }
-
-  const ttChamb = document.getElementById('tt-chamberlain');
-  if (ttChamb) {
-    const r = roles.chamberlain || {};
-    const sys = data.system || {};
-    ttChamb.innerHTML = `
-      <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${r.alive ? '활성' : '비활성'}</span></div>
-      <div class="tt-row"><span class="tt-label">Heartbeat</span><span class="tt-val">${r.heartbeat_age_s >= 0 ? r.heartbeat_age_s + 's ago' : 'N/A'}</span></div>
-      <div class="tt-row"><span class="tt-label">Health</span><span class="tt-val">${sys.health || 'unknown'}</span></div>
-      <div class="tt-row"><span class="tt-label">Load</span><span class="tt-val">${sys.load_avg || '--'}</span></div>`;
-  }
 }
 
 // ── Floating item animation ──
@@ -855,12 +780,7 @@ function render(data) {
       const isActive = activeGenerals.has(g.name);
       const desc = g.description || '';
       return `<div class="general-card tooltip-wrap ${isActive ? 'active' : ''}">
-        <div class="tooltip">
-          <div class="tt-row"><span class="tt-label">이름</span><span class="tt-val">${g.name}</span></div>
-          <div class="tt-row"><span class="tt-label">설명</span><span class="tt-val">${desc}</span></div>
-          <div class="tt-row"><span class="tt-label">타입</span><span class="tt-val">${g.type}</span></div>
-          <div class="tt-row"><span class="tt-label">상태</span><span class="tt-val">${isActive ? '작업중' : '대기'}</span></div>
-        </div>
+        ${desc ? `<div class="tooltip">${desc}</div>` : ''}
         <span>⚔️</span>
         <span>${g.name}</span>
         <span class="general-type ${g.type}">${g.type}</span>
@@ -880,10 +800,8 @@ function render(data) {
       const generalName = s.general || '(알 수 없음)';
       return `<div class="soldier-card tooltip-wrap">
         <div class="tooltip">
-          <div class="tt-row"><span class="tt-label">Task</span><span class="tt-val">${s.task_id || '?'}</span></div>
-          <div class="tt-row"><span class="tt-label">장군</span><span class="tt-val">${generalName}</span></div>
           <div class="tt-row"><span class="tt-label">시작</span><span class="tt-val">${formatTime(s.started_at)}</span></div>
-          <div class="tt-row"><span class="tt-label">Soldier</span><span class="tt-val">${s.id || '?'}</span></div>
+          ${s.id ? `<div class="tt-row"><span class="tt-label">Session</span><span class="tt-val">${s.id}</span></div>` : ''}
         </div>
         <span>🛡️</span>
         <span class="general-tag">${generalName}</span>
@@ -926,9 +844,6 @@ function render(data) {
       spawnFloat('✉️', document.getElementById('char-envoy'), null);
     }
   }
-
-  // Tooltips
-  updateTooltips(data);
 
   prevState = JSON.parse(JSON.stringify(data));
 }
