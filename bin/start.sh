@@ -46,6 +46,11 @@ done
 # Start dashboard container (if Docker available)
 if command -v docker &>/dev/null; then
   if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^kingdom-dashboard$'; then
+    # Seed dashboard.json before mount — Docker creates a directory if file is missing
+    if [ ! -f "$BASE_DIR/state/dashboard.json" ]; then
+      echo '{"collected_at":"","system":{"health":"unknown","cpu_percent":0,"memory_percent":0,"disk_percent":0,"load_avg":"0,0,0"},"roles":{},"generals":[],"queue":{"events_pending":0,"tasks_pending":0,"tasks_active":0,"messages_pending":0,"messages_failed":0},"soldiers":[],"recent_events":[]}' \
+        > "$BASE_DIR/state/dashboard.json"
+    fi
     docker run -d --name kingdom-dashboard \
       -p 9000:9000 \
       -v "$BASE_DIR/state/dashboard.json:/data/dashboard.json:ro" \
