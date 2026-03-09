@@ -908,11 +908,11 @@ function render(data) {
     envoyDetail.innerHTML = '';
   }
 
-  // King recent feed
+  // King recent feed — completed tasks + dispatched events
   const kingFeed = document.getElementById('king-feed');
   const kingData = data.king || {};
-  const recentCompleted = kingData.recent_completed || [];
-  const recentDispatched = kingData.recent_dispatched || [];
+  const recentCompleted = (kingData.recent_completed || []).filter(Boolean);
+  const recentDispatched = (kingData.recent_dispatched || []).filter(Boolean);
   let kingHtml = '';
   if (recentCompleted.length > 0) {
     kingHtml += '<div class="king-feed-title">최근 처리</div>';
@@ -942,9 +942,12 @@ function render(data) {
       </div>`;
     }).join('');
   }
+  if (!kingHtml) {
+    kingHtml = '<div class="empty" style="font-size:0.65rem;">최근 처리 기록 없음</div>';
+  }
   kingFeed.innerHTML = kingHtml;
 
-  // Generals
+  // Generals — active first, then alphabetically
   const genList = document.getElementById('general-list');
   const generals = data.generals || [];
   const activeGenerals = new Set(soldiers.map(s => s.general).filter(Boolean));
@@ -952,7 +955,13 @@ function render(data) {
   if (generals.length === 0) {
     genList.innerHTML = '<div class="empty">설치된 장군 없음</div>';
   } else {
-    genList.innerHTML = generals.map(g => {
+    const sorted = [...generals].sort((a, b) => {
+      const aActive = activeGenerals.has(a.name) ? 0 : 1;
+      const bActive = activeGenerals.has(b.name) ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return a.name.localeCompare(b.name);
+    });
+    genList.innerHTML = sorted.map(g => {
       const isActive = activeGenerals.has(g.name);
       const desc = g.description || '';
       return `<div class="general-card tooltip-wrap ${isActive ? 'active' : ''}">

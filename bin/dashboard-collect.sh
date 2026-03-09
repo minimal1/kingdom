@@ -233,26 +233,27 @@ collect_king_files() {
     echo '[]'
     return
   fi
-  # mtime 역순 정렬 후 상위 5개
-  local sorted
-  sorted=$(echo "$files" | while read -r f; do
+  # mtime 역순 정렬 후 상위 5개 → JSON 배열
+  local result
+  result=$(echo "$files" | while read -r f; do
+    [ -f "$f" ] || continue
     local mt
     mt=$(get_mtime "$f" 2>/dev/null || echo 0)
     printf '%s\t%s\n' "$mt" "$f"
-  done | sort -rn | head -5)
-
-  local result="["
-  local first="true"
-  echo "$sorted" | while read -r line; do
-    local mt="${line%%	*}"
-    local f="${line#*	}"
+  done | sort -rn | head -5 | while IFS='	' read -r mt f; do
     [ -f "$f" ] || continue
     local ts=""
     if [ "$mt" -gt 0 ] 2>/dev/null; then
       ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
     fi
     jq -c --arg ts "$ts" "$filter" "$f" 2>/dev/null || true
-  done | jq -sc '.' 2>/dev/null || echo '[]'
+  done | jq -sc '.' 2>/dev/null)
+
+  if [ -z "$result" ] || [ "$result" = "null" ]; then
+    echo '[]'
+  else
+    echo "$result"
+  fi
 }
 
 collect_king() {
