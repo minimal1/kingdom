@@ -53,6 +53,7 @@ schemas/ → config/ → docs/spec/ → bin/ (+ bin/lib/) → tests/
 | gen-jira | `generals/gen-jira/manifest.yaml` | `generals/gen-jira/prompt.md` | `generals/gen-jira/install.sh` | `architecture.md`, `event-types.md` |
 | gen-catchup | `generals/gen-catchup/manifest.yaml` | `generals/gen-catchup/prompt.md` | `generals/gen-catchup/install.sh` | `architecture.md` |
 | gen-test-writer | `generals/gen-test-writer/manifest.yaml` | `generals/gen-test-writer/prompt.md` | `generals/gen-test-writer/install.sh` | `architecture.md` |
+| gen-doctor | `generals/gen-doctor/manifest.yaml` | `generals/gen-doctor/prompt.md` | `generals/gen-doctor/install.sh` | `architecture.md` |
 
 공통 schema: `schemas/general-manifest.schema.json`
 공통 spec: `docs/spec/roles/general.md`

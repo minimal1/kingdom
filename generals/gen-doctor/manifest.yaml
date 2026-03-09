@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-doctor
+description: "실패 태스크 진단 — task_id로 원인 추적, 최근 실패 목록 조회"
+timeout_seconds: 120
+
+cc_plugins: []
+
+subscribes: []
+
+schedules: []
