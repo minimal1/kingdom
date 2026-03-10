@@ -394,6 +394,13 @@
     font-size: 0.6rem;
     opacity: 0.6;
   }
+  .task-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+    margin-top: 1px;
+  }
   .task-detail {
     display: none;
     margin-top: 4px;
@@ -980,6 +987,8 @@ function render(data) {
       const status = t.status || 'unknown';
       const icon = STATUS_ICONS[status] || STATUS_ICONS.unknown;
       const general = escapeHtml(t.general) || '?';
+      const taskId = escapeHtml(t.id) || '';
+      const shortId = taskId.length > 15 ? taskId.slice(-10) : taskId;
       const time = t.completed_at ? formatTime(t.completed_at) : '--';
       const summary = escapeHtml(t.summary);
       const error = escapeHtml(t.error);
@@ -990,6 +999,7 @@ function render(data) {
           <span class="task-general">${general}</span>
           <span class="task-time">${time}</span>
         </div>
+        <div class="task-id">${shortId}</div>
         ${hasDetail ? `<div class="task-detail">
           ${summary ? `<div><span class="detail-label">요약:</span> ${summary}</div>` : ''}
           ${error ? `<div class="detail-error"><span class="detail-label">오류:</span> ${error}</div>` : ''}
