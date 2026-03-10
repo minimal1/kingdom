@@ -99,25 +99,25 @@ MEMORY
 GLOBAL_SETTINGS="$HOME/.claude/settings.json"
 HOOK_CMD="$BASE_DIR/bin/lib/soldier/stop-hook.sh"
 if [ -f "$GLOBAL_SETTINGS" ]; then
-  # 이미 등록되어 있는지 확인
-  if ! jq -e '.hooks.Stop[]? | select(.command == "'"$HOOK_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
-    # Stop hook 배열에 추가 (hooks 객체가 없으면 생성)
+  # 이미 등록되어 있는지 확인 (matcher+hooks 구조에서 command 검색)
+  if ! jq -e '.hooks.Stop[]?.hooks[]? | select(.command == "'"$HOOK_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
+    # Stop hook 배열에 추가 (matcher: "" = 모든 Stop 이벤트에 매치)
     tmp_settings="${GLOBAL_SETTINGS}.tmp"
     jq --arg cmd "$HOOK_CMD" '
       .hooks //= {} |
       .hooks.Stop //= [] |
-      .hooks.Stop += [{"type": "command", "command": $cmd}]
+      .hooks.Stop += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]
     ' "$GLOBAL_SETTINGS" > "$tmp_settings" && mv "$tmp_settings" "$GLOBAL_SETTINGS"
     echo "  Hook:      Stop hook registered in ~/.claude/settings.json"
   fi
   # PostToolUse heartbeat hook 등록
   HEARTBEAT_CMD="$BASE_DIR/bin/lib/soldier/heartbeat-hook.sh"
-  if ! jq -e '.hooks.PostToolUse[]? | select(.command == "'"$HEARTBEAT_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
+  if ! jq -e '.hooks.PostToolUse[]?.hooks[]? | select(.command == "'"$HEARTBEAT_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
     tmp_settings="${GLOBAL_SETTINGS}.tmp"
     jq --arg cmd "$HEARTBEAT_CMD" '
       .hooks //= {} |
       .hooks.PostToolUse //= [] |
-      .hooks.PostToolUse += [{"type": "command", "command": $cmd}]
+      .hooks.PostToolUse += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]
     ' "$GLOBAL_SETTINGS" > "$tmp_settings" && mv "$tmp_settings" "$GLOBAL_SETTINGS"
     echo "  Hook:      PostToolUse heartbeat hook registered"
   fi
