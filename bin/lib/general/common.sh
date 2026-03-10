@@ -110,7 +110,12 @@ ensure_workspace() {
     fi
   fi
 
-  echo "$work_dir"
+  # repo가 있으면 repo 디렉토리 반환 (병사가 repo 안에서 바로 시작)
+  if [ -n "$repo" ]; then
+    echo "$work_dir/$(basename "$repo")"
+  else
+    echo "$work_dir"
+  fi
 }
 
 # --- Memory ---

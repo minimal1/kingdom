@@ -13,7 +13,6 @@
 ### Step 1. base 브랜치 최신화
 
 ```bash
-cd ./{{REPO_DIR}}
 git fetch origin {{payload.base_branch}}
 ```
 
@@ -93,7 +92,6 @@ git checkout {{payload.base_branch}}
 `test/auto-writer/*` 패턴의 열린 PR을 찾는다.
 
 ```bash
-cd ./{{REPO_DIR}}
 PR_NUMBER=$(gh pr list --search "head:test/auto-writer/" --base "{{payload.base_branch}}" --repo "{{REPO}}" --json number --jq '.[0].number')
 ```
 
