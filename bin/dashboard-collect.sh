@@ -222,31 +222,71 @@ collect_envoy() {
     "$threads" "$awaiting" "$convos"
 }
 
-# --- King detail ---
+# --- Task History ---
 
-collect_king_files() {
-  # $1=dir, $2=jq_filter — 최근 5개 파일을 jq로 변환
-  local dir="$1" filter="$2"
+collect_task_history() {
+  local completed_dir="$BASE_DIR/queue/tasks/completed"
+  local results_dir="$BASE_DIR/state/results"
+
+  if [ ! -d "$completed_dir" ]; then
+    echo '[]'
+    return
+  fi
+
+  # mtime 역순으로 최근 20개 completed task 파일 수집
   local files
-  files=$(find "$dir" -maxdepth 1 -name '*.json' -type f -print 2>/dev/null | head -20)
+  files=$(find "$completed_dir" -maxdepth 1 -name '*.json' -type f -print 2>/dev/null | head -40)
   if [ -z "$files" ]; then
     echo '[]'
     return
   fi
-  # mtime 역순 정렬 후 상위 5개 → JSON 배열
-  local result
-  result=$(echo "$files" | while read -r f; do
+
+  local sorted
+  sorted=$(echo "$files" | while read -r f; do
     [ -f "$f" ] || continue
     local mt
     mt=$(get_mtime "$f" 2>/dev/null || echo 0)
     printf '%s\t%s\n' "$mt" "$f"
-  done | sort -rn | head -5 | while IFS='	' read -r mt f; do
+  done | sort -rn | head -20)
+
+  if [ -z "$sorted" ]; then
+    echo '[]'
+    return
+  fi
+
+  local result
+  result=$(echo "$sorted" | while IFS='	' read -r mt f; do
     [ -f "$f" ] || continue
     local ts=""
     if [ "$mt" -gt 0 ] 2>/dev/null; then
       ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
     fi
-    jq -c --arg ts "$ts" "$filter" "$f" 2>/dev/null || true
+
+    # task 파일에서 기본 정보 추출
+    local task_id task_type target_general
+    task_id=$(jq -r '.id // ""' "$f" 2>/dev/null) || task_id=""
+    task_type=$(jq -r '.type // ""' "$f" 2>/dev/null) || task_type=""
+    target_general=$(jq -r '.target_general // ""' "$f" 2>/dev/null) || target_general=""
+
+    # result 파일 병합
+    local result_file="$results_dir/${task_id}.json"
+    local status="unknown" summary="" error=""
+    if [ -n "$task_id" ] && [ -f "$result_file" ]; then
+      status=$(jq -r '.status // "unknown"' "$result_file" 2>/dev/null) || status="unknown"
+      summary=$(jq -r '.summary // ""' "$result_file" 2>/dev/null) || summary=""
+      error=$(jq -r '.error // ""' "$result_file" 2>/dev/null) || error=""
+    fi
+
+    # jq로 안전한 JSON 생성
+    jq -nc \
+      --arg id "$task_id" \
+      --arg type "$task_type" \
+      --arg general "$target_general" \
+      --arg completed_at "$ts" \
+      --arg status "$status" \
+      --arg summary "$summary" \
+      --arg error "$error" \
+      '{id:$id, type:$type, general:$general, completed_at:$completed_at, status:$status, summary:$summary, error:$error}'
   done | jq -sc '.' 2>/dev/null)
 
   if [ -z "$result" ] || [ "$result" = "null" ]; then
@@ -254,24 +294,6 @@ collect_king_files() {
   else
     echo "$result"
   fi
-}
-
-collect_king() {
-  local completed="[]" dispatched="[]"
-
-  local completed_dir="$BASE_DIR/queue/tasks/completed"
-  if [ -d "$completed_dir" ]; then
-    completed=$(collect_king_files "$completed_dir" \
-      '{id: .id, type: .type, general: .target_general, completed_at: $ts}')
-  fi
-
-  local dispatched_dir="$BASE_DIR/queue/events/dispatched"
-  if [ -d "$dispatched_dir" ]; then
-    dispatched=$(collect_king_files "$dispatched_dir" \
-      '{id: .id, type: .type, dispatched_at: $ts}')
-  fi
-
-  printf '{"recent_completed":%s,"recent_dispatched":%s}' "$completed" "$dispatched"
 }
 
 # --- Recent Events ---
@@ -296,7 +318,7 @@ soldiers_json=$(collect_soldiers)
 events_json=$(collect_recent_events)
 sentinel_json=$(collect_sentinel)
 envoy_json=$(collect_envoy)
-king_json=$(collect_king)
+task_history_json=$(collect_task_history)
 
 jq -n \
   --arg ts "$collected_at" \
@@ -308,7 +330,7 @@ jq -n \
   --argjson evt "$events_json" \
   --argjson sen "$sentinel_json" \
   --argjson env "$envoy_json" \
-  --argjson king "$king_json" \
+  --argjson hist "$task_history_json" \
   '{
     collected_at: $ts,
     system: $sys,
@@ -319,7 +341,7 @@ jq -n \
     recent_events: $evt,
     sentinel: $sen,
     envoy: $env,
-    king: $king
+    task_history: $hist
   }' > "$TMP_OUTPUT"
 
 mv "$TMP_OUTPUT" "$OUTPUT"
