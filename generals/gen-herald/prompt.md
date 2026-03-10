@@ -21,18 +21,13 @@
 
 ## 2단계: 결과 보고
 
-`.kingdom-task.json` 파일을 읽고, result JSON을 작성한다.
 **summary에 사용자에게 보낼 응답 텍스트를 넣는다** — 왕이 이를 Slack 스레드 답글로 전송한다.
 
 ```bash
-TASK_FILE=".kingdom-task.json"
-TASK_ID=$(jq -r '.id' "$TASK_FILE")
-RESULT_DIR="$KINGDOM_BASE_DIR/state/results"
-
-jq -n --arg tid "$TASK_ID" --arg summary "(1단계에서 작성한 응답 텍스트)" '{
+jq -n --arg tid "$KINGDOM_TASK_ID" --arg summary "(1단계에서 작성한 응답 텍스트)" '{
   task_id: $tid,
   status: "success",
   summary: $summary,
   memory_updates: []
-}' > "$RESULT_DIR/${TASK_ID}.json"
+}' > "$KINGDOM_RESULT_PATH"
 ```

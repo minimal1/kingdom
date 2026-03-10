@@ -22,13 +22,6 @@ if ! command -v claude &> /dev/null; then
   exit 1
 fi
 
-# Write context file for soldier (CLAUDE.md instructs soldier to read this)
-jq -n \
-  --arg task_id "$TASK_ID" \
-  --arg result_path "$RAW_FILE" \
-  '{task_id: $task_id, result_path: $result_path}' \
-  > "$WORK_DIR/.kingdom-task.json"
-
 # Build Claude CLI command (resume mode vs new session)
 CLAUDE_ARGS="--dangerously-skip-permissions --output-format json"
 if [ -n "$RESUME_SESSION_ID" ]; then
@@ -39,8 +32,11 @@ fi
 # Session creation
 # stdout → JSON (session_id extraction), stderr → separate log
 # Soldier writes result via Write tool to -raw.json, stdout JSON is for session_id capture
+# Task context → env vars (파일 오염 없이 병사가 어디서든 접근 가능)
 if ! tmux new-session -d -s "$SOLDIER_ID" \
-  "export KINGDOM_BASE_DIR='$BASE_DIR' && \
+  "export KINGDOM_BASE_DIR='$BASE_DIR' \
+   KINGDOM_TASK_ID='$TASK_ID' \
+   KINGDOM_RESULT_PATH='$RAW_FILE' && \
    cd '$WORK_DIR' && eval claude -p $CLAUDE_ARGS \
     < '$PROMPT_FILE' \
     > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' 2>'$BASE_DIR/logs/sessions/${SOLDIER_ID}.err'; \

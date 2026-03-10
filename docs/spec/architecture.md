@@ -134,6 +134,7 @@
 4. **Briefing** (`gen-briefing`) — 시스템 상태 브리핑 (DM 요청)
 5. **Herald** (`gen-herald`) — 일상 대화 및 범용 DM 응대 (catch-all)
 6. **Test Writer** (`gen-test-writer`) — 30분 주기 테스트 자동 작성 → PR 오픈 (스케줄)
+7. **Doctor** (`gen-doctor`) — 실패 태스크 진단 (DM 요청)
 
 ## 참고 문서
 

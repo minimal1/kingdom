@@ -95,6 +95,38 @@ cat >> "$BASE_DIR/workspace/$NAME/CLAUDE.md" << MEMORY
 - \`../../memory/generals/${NAME}/\` 디렉토리의 모든 .md 파일을 읽어라
 MEMORY
 
+# Soldier Stop hook 등록 (글로벌 설정, 최초 1회)
+GLOBAL_SETTINGS="$HOME/.claude/settings.json"
+HOOK_CMD="$BASE_DIR/bin/lib/soldier/stop-hook.sh"
+if [ -f "$GLOBAL_SETTINGS" ]; then
+  # 이미 등록되어 있는지 확인
+  if ! jq -e '.hooks.Stop[]? | select(.command == "'"$HOOK_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
+    # Stop hook 배열에 추가 (hooks 객체가 없으면 생성)
+    tmp_settings="${GLOBAL_SETTINGS}.tmp"
+    jq --arg cmd "$HOOK_CMD" '
+      .hooks //= {} |
+      .hooks.Stop //= [] |
+      .hooks.Stop += [{"type": "command", "command": $cmd}]
+    ' "$GLOBAL_SETTINGS" > "$tmp_settings" && mv "$tmp_settings" "$GLOBAL_SETTINGS"
+    echo "  Hook:      Stop hook registered in ~/.claude/settings.json"
+  fi
+  # PostToolUse heartbeat hook 등록
+  HEARTBEAT_CMD="$BASE_DIR/bin/lib/soldier/heartbeat-hook.sh"
+  if ! jq -e '.hooks.PostToolUse[]? | select(.command == "'"$HEARTBEAT_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
+    tmp_settings="${GLOBAL_SETTINGS}.tmp"
+    jq --arg cmd "$HEARTBEAT_CMD" '
+      .hooks //= {} |
+      .hooks.PostToolUse //= [] |
+      .hooks.PostToolUse += [{"type": "command", "command": $cmd}]
+    ' "$GLOBAL_SETTINGS" > "$tmp_settings" && mv "$tmp_settings" "$GLOBAL_SETTINGS"
+    echo "  Hook:      PostToolUse heartbeat hook registered"
+  fi
+else
+  echo "  WARN: ~/.claude/settings.json not found. Add hooks manually:"
+  echo "         Stop: $HOOK_CMD"
+  echo "         PostToolUse: $BASE_DIR/bin/lib/soldier/heartbeat-hook.sh"
+fi
+
 echo "Installed general: $NAME"
 echo "  Manifest:  config/generals/${NAME}.yaml"
 echo "  Template:  config/generals/templates/${NAME}.md"

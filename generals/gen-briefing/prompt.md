@@ -118,20 +118,16 @@ tail -20 $KINGDOM_BASE_DIR/logs/system.log 2>/dev/null || echo "(no log)"
 
 ## 3단계: 결과 보고
 
-`.kingdom-task.json` 파일을 읽고, **summary에 브리핑 텍스트를 넣어** 결과를 보고한다.
+**summary에 브리핑 텍스트를 넣어** 결과를 보고한다.
 왕이 summary를 사절에게 전달하여 Slack 스레드 답글로 전송한다.
 
 ```bash
-TASK_FILE=".kingdom-task.json"
-TASK_ID=$(jq -r '.id' "$TASK_FILE")
-RESULT_DIR="$KINGDOM_BASE_DIR/state/results"
-
 BRIEFING="(2단계에서 작성한 브리핑 텍스트)"
 
-jq -n --arg tid "$TASK_ID" --arg summary "$BRIEFING" '{
+jq -n --arg tid "$KINGDOM_TASK_ID" --arg summary "$BRIEFING" '{
   task_id: $tid,
   status: "success",
   summary: $summary,
   memory_updates: []
-}' > "$RESULT_DIR/${TASK_ID}.json"
+}' > "$KINGDOM_RESULT_PATH"
 ```

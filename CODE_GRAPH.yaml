@@ -251,7 +251,11 @@ soldier:
   key_files:
     - path: "config/workspace-claude.md"
       description: "병사의 CLAUDE.md — 결과 JSON 스키마 지시"
-  data_flow: "프롬프트 파일 → claude -p [--resume SESSION_ID] → stdout JSON → session-id 캡처 → .kingdom-task.json 참조 → result.json"
+    - path: "bin/lib/soldier/stop-hook.sh"
+      description: "Stop hook — 결과 파일 미작성 시 block하여 LLM이 직접 결과 보고하도록 유도"
+    - path: "bin/lib/soldier/heartbeat-hook.sh"
+      description: "PostToolUse hook — 도구 호출마다 타임스탬프 기록 (생존 신호)"
+  data_flow: "프롬프트 파일 → claude -p [--resume SESSION_ID] → stdout JSON → session-id 캡처 → env vars(KINGDOM_TASK_ID, KINGDOM_RESULT_PATH) → result.json"
   spec: "docs/spec/roles/soldier.md"
   tests:
     - "tests/test_spawn_soldier.sh"

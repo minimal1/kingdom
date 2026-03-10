@@ -26,14 +26,16 @@ You work alongside human developers as a reliable, proactive team member.
 
 ## Result Reporting
 
-작업 완료 후, 반드시 결과 파일을 생성해야 합니다.
+**세션 종료 전 반드시 결과 파일을 생성해야 합니다.** 이것은 필수 의무이며, 이 단계 없이 종료하면 장군이 타임아웃 실패로 처리합니다.
 
-1. 현재 디렉토리의 `.kingdom-task.json`을 읽어 `task_id`와 `result_path`를 확인
-2. Write 도구로 `result_path`에 아래 형식의 JSON 파일을 생성
+1. 환경변수에서 작업 정보를 확인:
+   - `KINGDOM_TASK_ID`: 태스크 ID
+   - `KINGDOM_RESULT_PATH`: 결과 파일 경로
+2. Write 도구로 `$KINGDOM_RESULT_PATH`에 아래 형식의 JSON 파일을 생성
 
 ```json
 {
-  "task_id": "<.kingdom-task.json의 task_id>",
+  "task_id": "$KINGDOM_TASK_ID",
   "status": "success | failed | needs_human | skipped",
   "summary": "작업 결과 요약 (1~2문장)",
   "reason": "skipped 시 건너뛴 이유 (선택)",

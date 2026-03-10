@@ -14,8 +14,8 @@ setup() {
   assert_success
 }
 
-@test "workspace-claude: CLAUDE.md references .kingdom-task.json" {
-  run grep '.kingdom-task.json' "${BATS_TEST_DIRNAME}/../config/workspace-claude.md"
+@test "workspace-claude: CLAUDE.md references KINGDOM_TASK_ID env var" {
+  run grep 'KINGDOM_TASK_ID' "${BATS_TEST_DIRNAME}/../config/workspace-claude.md"
   assert_success
 }
 
