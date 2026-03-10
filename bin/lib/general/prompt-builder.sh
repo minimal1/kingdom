@@ -46,7 +46,14 @@ build_prompt() {
     [ -z "$line" ] && continue
     local key val
     key=$(echo "$line" | jq -r '.key')
-    val=$(echo "$line" | jq -r '.value // ""')
+    # 배열/객체는 compact JSON(한 줄)으로, 스칼라는 raw 값으로
+    val=$(echo "$line" | jq -r '
+      if (.value | type) == "array" or (.value | type) == "object"
+      then (.value | tojson)
+      else (.value // "" | tostring)
+      end')
+    # sed 치환 특수문자 이스케이프 (& → \&, \ → \\)
+    val=$(printf '%s' "$val" | sed -e 's|[\\&]|\\&|g')
     content=$(echo "$content" | sed "s|{{payload\\.${key}}}|${val}|g")
   done <<< "$(echo "$payload" | jq -c 'to_entries[]' 2>/dev/null || true)"
 
