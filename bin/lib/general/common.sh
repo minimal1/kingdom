@@ -244,6 +244,11 @@ wait_for_soldier() {
     soldier_id=$(cat "$soldier_id_file")
   fi
 
+  local heartbeat_file="$BASE_DIR/state/results/${task_id}-heartbeat"
+  local heartbeat_grace=30        # heartbeat가 이 초 이내면 "활동 중"
+  local hard_max=$((timeout * 2)) # 연장 상한: 원래 타임아웃의 2배
+  local extended=false
+
   while [ ! -f "$raw_file" ] && (( waited < timeout )); do
     sleep 1
     waited=$((waited + 1))
@@ -255,19 +260,43 @@ wait_for_soldier() {
         break
       fi
     fi
+
+    # Heartbeat-based timeout extension
+    if (( waited >= timeout )) && (( timeout < hard_max )); then
+      if [ -f "$heartbeat_file" ]; then
+        local hb_mtime now hb_age
+        hb_mtime=$(get_mtime "$heartbeat_file" 2>/dev/null || echo 0)
+        now=$(date +%s)
+        hb_age=$((now - hb_mtime))
+        if (( hb_age <= heartbeat_grace )); then
+          timeout=$((timeout + 60))
+          if (( timeout > hard_max )); then
+            timeout=$hard_max
+          fi
+          if [ "$extended" = false ]; then
+            log "[INFO] [$GENERAL_DOMAIN] Soldier still active (heartbeat ${hb_age}s ago), extending timeout (task: $task_id)"
+            extended=true
+          fi
+        fi
+      fi
+    fi
   done
 
   # Dead soldier or timeout — write result if no output
   if [ ! -f "$raw_file" ]; then
     local result_status="failed"
-    local reason="Timeout after ${timeout} seconds"
+    local reason="Timeout after ${waited} seconds"
+
+    if [ "$extended" = true ]; then
+      reason="Timeout after ${waited} seconds (extended from original, heartbeat stale)"
+    fi
 
     if (( waited < timeout )); then
       # Soldier died before timeout → retryable
       result_status="killed"
       reason="Soldier session died after ${waited} seconds"
     else
-      log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${timeout}s)"
+      log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${waited}s)"
     fi
 
     # Kill soldier if still alive (timeout case)
