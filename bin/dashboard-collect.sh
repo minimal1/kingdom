@@ -233,30 +233,19 @@ collect_task_history() {
     return
   fi
 
-  # mtime 역순으로 최근 20개 completed task 파일 수집
-  local files
-  files=$(find "$completed_dir" -maxdepth 1 -name '*.json' -type f -print 2>/dev/null | head -40)
-  if [ -z "$files" ]; then
-    echo '[]'
-    return
-  fi
-
+  # 파일명(task_id) 역순으로 최근 20개 completed task 파일 수집
   local sorted
-  sorted=$(echo "$files" | while read -r f; do
-    [ -f "$f" ] || continue
-    local mt
-    mt=$(get_mtime "$f" 2>/dev/null || echo 0)
-    printf '%s\t%s\n' "$mt" "$f"
-  done | sort -rn | head -20)
-
+  sorted=$(find "$completed_dir" -maxdepth 1 -name '*.json' -type f -print 2>/dev/null | sort -r | head -20)
   if [ -z "$sorted" ]; then
     echo '[]'
     return
   fi
 
   local result
-  result=$(echo "$sorted" | while IFS='	' read -r mt f; do
+  result=$(echo "$sorted" | while read -r f; do
     [ -f "$f" ] || continue
+    local mt
+    mt=$(get_mtime "$f" 2>/dev/null || echo 0)
     local ts=""
     if [ "$mt" -gt 0 ] 2>/dev/null; then
       ts=$(date -u -r "$mt" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || true
