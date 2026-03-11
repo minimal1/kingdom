@@ -792,6 +792,23 @@ EOF
   [ "$task_count" -eq 0 ]
 }
 
+@test "king: process_pending_events routes slack.app_mention to petition" {
+  cat > "$BASE_DIR/queue/events/pending/evt-mention-001.json" << 'EOF'
+{"id":"evt-mention-001","type":"slack.app_mention","source":"slack","priority":"normal","repo":null,"payload":{"text":"@kingdom 안녕","user_id":"U123","channel":"C456","message_ts":"1234567890.123456"}}
+EOF
+
+  process_pending_events
+
+  # 이벤트가 petitioning으로 이동
+  assert [ ! -f "$BASE_DIR/queue/events/pending/evt-mention-001.json" ]
+  assert [ -f "$BASE_DIR/queue/events/petitioning/evt-mention-001.json" ]
+
+  # 태스크가 생성되지 않음 (petition 단계이므로)
+  local task_count
+  task_count=$(ls "$BASE_DIR/queue/tasks/pending/"*.json 2>/dev/null | wc -l | tr -d ' ')
+  [ "$task_count" -eq 0 ]
+}
+
 @test "king: process_petition_results dispatches when general matched" {
   # petitioning에 이벤트 배치
   cat > "$BASE_DIR/queue/events/petitioning/evt-petition-002.json" << 'EOF'

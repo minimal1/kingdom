@@ -14,7 +14,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 
   # --- Graceful Shutdown ---
   RUNNING=true
-  trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
+  trap 'RUNNING=false; stop_heartbeat_daemon; rm -f /tmp/kingdom-wake-$$.fifo; log "[SYSTEM] [king] Shutting down..."; exit 0' SIGTERM SIGINT
 
   # --- Load General Manifests ---
   load_general_manifests
@@ -67,7 +67,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
       LAST_SCHEDULE_CHECK=$now
     fi
 
-    sleep "$LOOP_TICK"
+    sleep_or_wake "$LOOP_TICK" "$BASE_DIR/queue/events/pending"
   done
 
 fi

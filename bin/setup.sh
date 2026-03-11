@@ -118,6 +118,18 @@ if command -v yq &>/dev/null; then
 fi
 
 ok "소스 파일 복사 완료 → $DEST"
+
+# 소스 파일 복사 직후 — Node 의존성 설치 (package.json이 있으면)
+if [[ -f "$DEST/package.json" ]] && command -v node &>/dev/null; then
+  info "Node.js 의존성 설치 중..."
+  if (cd "$DEST" && npm install --production 2>/dev/null); then
+    ok "npm 의존성 설치 완료 (@slack/socket-mode, @slack/web-api)"
+  else
+    fail "npm install 실패"
+    info "수동 설치: cd $DEST && npm install --production"
+  fi
+fi
+
 record "설치 경로: $DEST"
 
 export KINGDOM_BASE_DIR="$DEST"
@@ -179,6 +191,13 @@ check_tool "gh"     "$PKG gh"
 check_tool "tmux"   "$PKG tmux"
 check_tool "bc"     "$PKG bc"
 check_tool "node"   "https://nodejs.org/ 또는 $PKG node"
+
+# fswatch (선택 의존성 — sleep_or_wake 즉시 깨움)
+if command -v fswatch &>/dev/null; then
+  ok "fswatch ($(fswatch --version 2>/dev/null | head -1 || echo 'installed'))"
+else
+  printf "  ${YELLOW}[SKIP]${RESET} %s\n" "fswatch 미설치 (선택: $PKG fswatch — sleep_or_wake 즉시 깨움 지원)"
+fi
 
 # claude: 특수 체크
 if command -v claude &>/dev/null; then
@@ -283,7 +302,7 @@ else
   warn "Jira 연동 건너뜀 (나중에 $DEST/.env에 설정 가능)"
 fi
 
-# Slack (선택)
+# Slack (Socket Mode 포함)
 echo ""
 if ask_yn "Slack 연동을 설정하시겠습니까?" "Y"; then
   SLACK_TOKEN_INPUT=$(ask_secret "Slack Bot 토큰 (xoxb-..., 입력이 표시되지 않습니다)")
@@ -295,9 +314,19 @@ if ask_yn "Slack 연동을 설정하시겠습니까?" "Y"; then
       mv "$ENV_FILE.tmp" "$ENV_FILE"
     fi
     echo "SLACK_BOT_TOKEN=$SLACK_TOKEN_INPUT" >> "$ENV_FILE"
-    ok "Slack 설정 저장 → .env"
+    ok "Slack Bot 토큰 저장"
   else
-    warn "Slack 토큰 미입력 — 건너뜀"
+    warn "Slack Bot 토큰 미입력 — 건너뜀"
+  fi
+
+  if ask_yn "Socket Mode를 사용하시겠습니까? (@멘션 수신용)" "Y"; then
+    SLACK_APP_TOKEN_INPUT=$(ask_secret "Slack App-Level 토큰 (xapp-..., 입력이 표시되지 않습니다)")
+    if [[ -n "$SLACK_APP_TOKEN_INPUT" ]]; then
+      update_env "SLACK_APP_TOKEN" "$SLACK_APP_TOKEN_INPUT"
+      ok "Slack App 토큰 저장"
+    else
+      warn "App 토큰 미입력 — Socket Mode 비활성화"
+    fi
   fi
 else
   warn "Slack 연동 건너뜀 (나중에 $DEST/.env에 설정 가능)"

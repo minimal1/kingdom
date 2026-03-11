@@ -47,18 +47,19 @@
 ```
         ┌──────────────────────┐               ┌──────────────────────┐
         │   External Events    │               │     Slack (사람)      │
-        │   GitHub · Jira      │               │   DM · 스레드 응답     │
+        │   GitHub · Jira      │               │  DM · @멘션 · 스레드   │
         └──────────┬───────────┘               └──────────┬───────────┘
                    │                                      │
-                   │ events (JSON)                        │ Slack Web API (curl)
+                   │ events (JSON)                        │ Socket Mode (WebSocket)
                    ▼                                      ▼
     ┌──────────────────────────────────────────────────────────────────┐
     │  🏰 EC2 Instance  (M5.xlarge)                                    │
     │                                                                   │
     │  ┌─────────────────────┐          ┌───────────────────┐          │
     │  │   tmux: sentinel    │          │  tmux: envoy      │          │
-    │  │   Polling Loop      │          │  Slack Web API    │ ← 사절   │
-    │  └────────┬────────────┘          └───────────────────┘          │
+    │  │   Polling Loop      │          │  Socket Mode +    │ ← 사절   │
+    │  └────────┬────────────┘          │  bridge.js (Node) │          │
+    │           │                       └───────────────────┘          │
     │           │ event.json          ↗ queue/messages/ 감시           │
     │  ┌────────▼────────────┐  ─────┘                                 │
     │  │   tmux: king        │  ← 왕 (Orchestrator)                    │

@@ -67,11 +67,25 @@ check_tool "tmux" "" "tmux -V"
 check_tool "bc"
 check_tool "node" "22.0" "node --version"
 
+# fswatch (optional — sleep_or_wake 즉시 깨움)
+if command -v fswatch &>/dev/null; then
+  check "fswatch" "ok" "$(fswatch --version 2>/dev/null | head -1 || echo 'installed')"
+else
+  printf "  [WARN] %-12s %s\n" "fswatch" "not found (optional: brew install fswatch)"
+fi
+
 # claude: 특수 체크 (--version 지원 안할 수 있음)
 if command -v claude &>/dev/null; then
   check "claude" "ok" "installed"
 else
   check "claude" "fail" "not found"
+fi
+
+# Node modules (Socket Mode bridge)
+if [[ -d "$KINGDOM_BASE_DIR/node_modules/@slack/socket-mode" ]]; then
+  check "node_modules" "ok" "@slack/socket-mode installed"
+else
+  printf "  [WARN] %-12s %s\n" "node_modules" "@slack/socket-mode not found (run: cd $KINGDOM_BASE_DIR && npm install)"
 fi
 
 echo "======================================="
@@ -124,6 +138,13 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
   fi
 else
   check "Slack" "fail" "SLACK_BOT_TOKEN not set"
+fi
+
+# Slack App Token (Socket Mode)
+if [[ -n "${SLACK_APP_TOKEN:-}" ]]; then
+  check "Slack App" "ok" "SLACK_APP_TOKEN set"
+else
+  printf "  [WARN] %-12s %s\n" "Slack App" "SLACK_APP_TOKEN not set (optional: Socket Mode용)"
 fi
 
 echo "======================================="

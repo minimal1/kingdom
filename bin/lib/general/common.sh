@@ -389,7 +389,7 @@ main_loop() {
   retry_backoff=$(get_config "generals/$GENERAL_DOMAIN" "retry.backoff_seconds" 60)
 
   RUNNING=true
-  trap 'RUNNING=false; stop_heartbeat_daemon; log "[SYSTEM] [$GENERAL_DOMAIN] Shutting down..."; exit 0' SIGTERM SIGINT
+  trap 'RUNNING=false; stop_heartbeat_daemon; rm -f /tmp/kingdom-wake-$$.fifo; log "[SYSTEM] [$GENERAL_DOMAIN] Shutting down..."; exit 0' SIGTERM SIGINT
 
   log "[SYSTEM] [$GENERAL_DOMAIN] Started."
 
@@ -400,7 +400,7 @@ main_loop() {
     local task_file
     task_file=$(pick_next_task "$GENERAL_DOMAIN")
     if [ -z "$task_file" ]; then
-      sleep 10
+      sleep_or_wake 10 "$BASE_DIR/queue/tasks/pending"
       continue
     fi
 
@@ -513,6 +513,6 @@ main_loop() {
         "$final_result"
     fi
 
-    sleep 5
+    sleep_or_wake 5 "$BASE_DIR/queue/tasks/pending"
   done
 }

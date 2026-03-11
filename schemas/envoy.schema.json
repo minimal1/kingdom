@@ -26,6 +26,24 @@
         }
       }
     },
+    "socket_mode": {
+      "type": "object",
+      "description": "Slack Socket Mode 설정 (브릿지 기반 실시간 수신)",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Socket Mode 활성화 여부",
+          "default": false
+        },
+        "app_token_env": {
+          "type": "string",
+          "description": "Slack App-Level Token 환경변수명 (xapp-...)",
+          "default": "SLACK_APP_TOKEN",
+          "examples": ["SLACK_APP_TOKEN"]
+        }
+      }
+    },
     "intervals": {
       "type": "object",
       "description": "메인 루프 폴링 주기 (초)",

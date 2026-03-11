@@ -7,5 +7,6 @@ cc_plugins: []
 
 subscribes:
   - slack.channel.message
+  - slack.app_mention
 
 schedules: []

@@ -110,19 +110,24 @@ sentinel:
     - "tests/lib/sentinel/test_watcher_common.sh"
 
 envoy:
-  description: "Slack 양방향 소통 전담 — 아웃바운드 메시지 + 사람 응답 수집"
+  description: "Slack 양방향 소통 전담 — Socket Mode (bridge.js) + 아웃바운드 메시지 + 사람 응답 수집"
   entry_point: "bin/envoy.sh"
   key_files:
-    - path: "bin/lib/envoy/slack-api.sh"
-      description: "Slack Web API curl 래퍼"
+    - path: "bin/lib/envoy/bridge.js"
+      description: "Socket Mode WebSocket 브릿지 (Node.js) — 인바운드 수신 + 아웃바운드 Web API 호출"
       functions:
-        - "slack_api()"
-        - "send_message()"
-        - "send_thread_reply()"
-        - "read_channel_messages()"
-        - "read_thread_replies()"
-        - "add_reaction(channel, timestamp, emoji)"
-        - "remove_reaction(channel, timestamp, emoji)"
+        - "Inbound: message/app_mention/thread_reply → socket-inbox/ 파일 생성"
+        - "Outbound: outbox/ 파일 감시 → Web API 호출 → outbox-results/ 기록"
+    - path: "bin/lib/envoy/slack-api.sh"
+      description: "Slack API 래퍼 — Socket Mode 시 outbox 기반, 레거시 시 curl 직접"
+      functions:
+        - "send_message() — outbox/curl 분기"
+        - "send_thread_reply() — outbox/curl 분기"
+        - "read_channel_messages() — curl 전용 (레거시)"
+        - "read_thread_replies() — curl 전용 (레거시)"
+        - "add_reaction() — outbox/curl 분기"
+        - "remove_reaction() — outbox/curl 분기"
+        - "_outbox_send() — outbox 파일 생성 + 결과 대기"
     - path: "bin/lib/envoy/thread-manager.sh"
       description: "task_id ↔ thread_ts 매핑 + awaiting 응답 관리"
       functions:
@@ -132,8 +137,11 @@ envoy:
   dependencies:
     - common
   entry_functions:
+    - "start_bridge(), stop_bridge(), check_bridge_health() — bridge.js 생명주기"
+    - "check_socket_inbox() — socket-inbox/ 파일 처리 (message/app_mention/thread_reply)"
+    - "expire_conversations() — conversation-threads.json TTL 만료 정리"
     - "update_source_reactions(msg, final_emoji) — source_ref 기반 원본 DM 리액션 업데이트"
-  data_flow: "queue/messages/pending/ → Slack API → sent/ | failed/"
+  data_flow: "Socket Mode WebSocket → socket-inbox/ → 이벤트 emit | queue/messages/pending/ → outbox/ → bridge.js → Slack API → outbox-results/ → sent/ | failed/"
   message_types:
     - "thread_start    — 작업 시작 (스레드 생성)"
     - "thread_update   — 진행 상황 (스레드 답글)"
@@ -142,6 +150,7 @@ envoy:
     - "notification    — 완료/실패 알림"
   inbound_events:
     - "slack.channel.message — DM 새 메시지"
+    - "slack.app_mention     — 채널 @멘션 (Socket Mode)"
     - "slack.thread.reply    — 스레드 응답 (needs_human + 대화 통합)"
   state_files:
     - "state/envoy/thread-mappings.json"
@@ -149,6 +158,10 @@ envoy:
     - "state/envoy/conversation-threads.json"
     - "state/envoy/last-channel-check-ts"
     - "state/envoy/heartbeat"
+    - "state/envoy/socket-inbox/      — Socket Mode 인바운드 이벤트"
+    - "state/envoy/outbox/            — 아웃바운드 요청"
+    - "state/envoy/outbox-results/    — 아웃바운드 결과"
+    - "state/envoy/bridge-health      — bridge.js 생존 확인"
   config: "config/envoy.yaml"
   schema: "schemas/envoy.schema.json"
   spec: "docs/spec/roles/envoy.md"
@@ -275,6 +288,7 @@ common:
     - "update_heartbeat(), start_heartbeat_daemon(), stop_heartbeat_daemon()"
     - "emit_event(), emit_internal_event()"
     - "portable_date(), get_mtime(), portable_flock()"
+    - "sleep_or_wake(timeout, watch_dir) — fswatch 기반 즉시 깨움 (fallback: sleep)"
   tests:
     - "tests/lib/test_common.sh"
 
@@ -336,7 +350,7 @@ general_packages:
     gen-herald:
       path: "generals/gen-herald/"
       description: "일상 대화 및 범용 DM 응대 (catch-all)"
-      subscribes: ["slack.channel.message"]
+      subscribes: ["slack.channel.message", "slack.app_mention"]
       schedules: []
       cc_plugins: []
       timeout: 120

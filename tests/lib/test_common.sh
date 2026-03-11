@@ -220,6 +220,90 @@ EOF
 
 # --- portable_flock ---
 
+# --- sleep_or_wake ---
+
+@test "common: sleep_or_wake falls back to sleep without fswatch" {
+  # fswatch를 못 찾도록 PATH 제한
+  local original_path="$PATH"
+  PATH="/usr/bin:/bin"
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 1 "$BASE_DIR/queue/events/pending"
+  end=$(date +%s)
+  elapsed=$((end - start))
+  PATH="$original_path"
+  # 최소 1초는 걸려야 함 (sleep fallback)
+  assert [ "$elapsed" -ge 1 ]
+}
+
+@test "common: sleep_or_wake falls back when watch_dir missing" {
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 1 "$BASE_DIR/nonexistent_dir"
+  end=$(date +%s)
+  elapsed=$((end - start))
+  assert [ "$elapsed" -ge 1 ]
+}
+
+@test "common: sleep_or_wake wakes on file creation" {
+  if ! command -v fswatch &>/dev/null; then
+    skip "fswatch not installed"
+  fi
+
+  local watch_dir="$BASE_DIR/queue/events/pending"
+  mkdir -p "$watch_dir"
+
+  # 백그라운드에서 0.5초 후 파일 생성
+  (sleep 0.5 && touch "$watch_dir/test-wake.json") &
+  local bg_pid=$!
+
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 10 "$watch_dir"
+  end=$(date +%s)
+  elapsed=$((end - start))
+
+  wait "$bg_pid" 2>/dev/null || true
+  rm -f "$watch_dir/test-wake.json"
+
+  # 10초보다 훨씬 빨리 깨어나야 함 (파일 생성으로 인해)
+  assert [ "$elapsed" -lt 5 ]
+}
+
+@test "common: sleep_or_wake respects timeout" {
+  if ! command -v fswatch &>/dev/null; then
+    skip "fswatch not installed"
+  fi
+
+  local watch_dir="$BASE_DIR/queue/events/pending"
+  mkdir -p "$watch_dir"
+
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 2 "$watch_dir"
+  end=$(date +%s)
+  elapsed=$((end - start))
+
+  # 파일 안 만들었으므로 타임아웃까지 대기 (최소 2초)
+  assert [ "$elapsed" -ge 2 ]
+}
+
+@test "common: sleep_or_wake cleans up fifo" {
+  if ! command -v fswatch &>/dev/null; then
+    skip "fswatch not installed"
+  fi
+
+  local watch_dir="$BASE_DIR/queue/events/pending"
+  mkdir -p "$watch_dir"
+
+  sleep_or_wake 1 "$watch_dir"
+
+  # FIFO가 정리되었는지 확인
+  local fifo_count
+  fifo_count=$(ls /tmp/kingdom-wake-$$.fifo 2>/dev/null | wc -l | tr -d ' ')
+  assert [ "$fifo_count" -eq 0 ]
+}
+
 @test "common: portable_flock executes command" {
   local lockfile="$BASE_DIR/test.lock"
   local outfile="$BASE_DIR/flock_out"

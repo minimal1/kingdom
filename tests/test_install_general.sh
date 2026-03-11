@@ -5,6 +5,11 @@ setup() {
   load 'test_helper'
   setup_kingdom_env
 
+  # Isolate HOME to prevent writing to real ~/.claude/settings.json
+  ORIGINAL_HOME="$HOME"
+  export HOME="$(mktemp -d)"
+  mkdir -p "$HOME/.claude"
+
   # install-general.sh needs common.sh at runtime
   mkdir -p "$BASE_DIR/bin/lib"
   cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$BASE_DIR/bin/lib/"
@@ -29,6 +34,10 @@ EOF
 teardown() {
   teardown_kingdom_env
   [ -n "$TEST_PKG" ] && rm -rf "$TEST_PKG"
+  if [ -n "$ORIGINAL_HOME" ]; then
+    rm -rf "$HOME"
+    export HOME="$ORIGINAL_HOME"
+  fi
 }
 
 # --- install-general.sh ---
@@ -166,10 +175,6 @@ EOF
 # --- CC Plugin warning ---
 
 @test "install: warns when plugin not in global settings" {
-  # Override HOME for settings isolation
-  local ORIG_HOME="$HOME"
-  export HOME="$(mktemp -d)"
-  mkdir -p "$HOME/.claude"
   echo '{"enabledPlugins":{"other-plugin@marketplace":true}}' > "$HOME/.claude/settings.json"
 
   local plugin_pkg="$(mktemp -d)"
@@ -187,14 +192,10 @@ EOF
   assert_success
   assert_output --partial "WARN: Plugin 'my-plugin' not in global settings"
 
-  rm -rf "$plugin_pkg" "$HOME"
-  export HOME="$ORIG_HOME"
+  rm -rf "$plugin_pkg"
 }
 
 @test "install: no warning when plugin is in global settings" {
-  local ORIG_HOME="$HOME"
-  export HOME="$(mktemp -d)"
-  mkdir -p "$HOME/.claude"
   echo '{"enabledPlugins":{"my-plugin@qp-plugin":true}}' > "$HOME/.claude/settings.json"
 
   local plugin_pkg="$(mktemp -d)"
@@ -212,8 +213,7 @@ EOF
   assert_success
   refute_output --partial "WARN"
 
-  rm -rf "$plugin_pkg" "$HOME"
-  export HOME="$ORIG_HOME"
+  rm -rf "$plugin_pkg"
 }
 
 # --- uninstall-general.sh ---

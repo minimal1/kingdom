@@ -8,10 +8,10 @@
 |------|-----|
 | 영문 코드명 | `envoy` |
 | tmux 세션 | `envoy` |
-| 실행 형태 | Bash 스크립트 (단일 polling loop) |
+| 실행 형태 | Bash 스크립트 + Node.js bridge (Socket Mode) |
 | 수명 | 상주 (Always-on) |
 | 리소스 | 경량 (대부분 sleep 상태) |
-| 소통 채널 | Slack Web API (curl) |
+| 소통 채널 | Slack Socket Mode (WebSocket) + Web API |
 
 ## 책임
 
@@ -69,6 +69,29 @@ DM 대화 (또는 채널)
 ---
 
 ## Slack API 접근
+
+### Socket Mode 아키텍처
+
+```
+┌─── Envoy 영역 ──────────────────────────────────────┐
+│                                                       │
+│  [bridge.js]  ←WebSocket─  Slack (Socket Mode)       │
+│       │                                               │
+│       └──JSON write──→  state/envoy/socket-inbox/    │
+│                              │                        │
+│  [envoy.sh]                  │                        │
+│    ├─ check_socket_inbox()  ←┘  (sleep_or_wake 감지) │
+│    ├─ expire_conversations()    (주기적 TTL 정리)     │
+│    ├─ check_bridge_health()     (브릿지 생존 확인)    │
+│    └─ process_outbound_queue()  (outbox 기반 발송)    │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+```
+
+Socket Mode가 활성화되면 (`config/envoy.yaml`의 `socket_mode.enabled: true`):
+- **인바운드**: bridge.js가 WebSocket으로 실시간 수신 → `socket-inbox/` 파일 생성 → envoy.sh가 소비
+- **아웃바운드**: envoy.sh가 `outbox/` 파일 생성 → bridge.js가 Web API 호출 → `outbox-results/` 기록
+- 레거시 폴링 함수 (`check_channel_messages`, `check_awaiting_responses`, `check_conversation_threads`)는 비활성화
 
 | 항목 | 값 |
 |------|-----|
@@ -528,6 +551,10 @@ state/envoy/
 ├── thread-mappings.json         # { "task-001": { "thread_ts": "...", "channel": "..." } }
 ├── awaiting-responses.json      # [ { "task_id": "...", "thread_ts": "...", "reply_context": {...}, "asked_at": "..." } ]
 ├── conversation-threads.json    # { "1234.5678": { "task_id": "...", "channel": "...", "last_reply_ts": "...", "expires_at": "...", "reply_context": {...} } }
+├── socket-inbox/                # Socket Mode 인바운드 이벤트 (bridge.js → envoy.sh)
+├── outbox/                      # 아웃바운드 요청 (envoy.sh → bridge.js)
+├── outbox-results/              # 아웃바운드 결과 (bridge.js → envoy.sh)
+├── bridge-health                # bridge.js 생존 확인 (10초마다 touch)
 └── last-channel-check-ts        # DM 채널 마지막 확인 ts (숫자)
 ```
 
@@ -718,6 +745,7 @@ process_outbound_queue() {
 | Type | 발생 조건 | Priority |
 |------|----------|----------|
 | `slack.channel.message` | DM 새 top-level 메시지 | normal |
+| `slack.app_mention` | 채널에서 @멘션 (Socket Mode) | normal |
 | `slack.thread.reply` | 스레드 사람 응답 (needs_human + 대화 통합) | high |
 
 ### 아웃바운드 메시지 타입 (시스템 → Slack)
@@ -809,6 +837,10 @@ intervals:
   channel_check_seconds: 30             # DM 새 메시지 감지
   conversation_check_seconds: 15        # 대화 스레드 후속 응답 확인
   conversation_ttl_seconds: 3600        # 대화 스레드 추적 만료 (1시간)
+
+socket_mode:
+  enabled: true
+  app_token_env: "SLACK_APP_TOKEN"
 ```
 
 ## 장애 대응
@@ -834,6 +866,21 @@ intervals:
 | 환경변수 | `SLACK_BOT_TOKEN` |
 | 토큰 형식 | Bot User OAuth Token (`xoxb-...`) |
 | 발급 | https://api.slack.com/apps → OAuth & Permissions → Install to Workspace |
+
+### Slack App Token (Socket Mode)
+
+| 항목 | 값 |
+|------|-----|
+| 환경변수 | `SLACK_APP_TOKEN` |
+| 토큰 형식 | App-Level Token (`xapp-...`) |
+| 발급 | https://api.slack.com/apps → Basic Information → App-Level Tokens → Generate Token (`connections:write` 스코프) |
+
+### Socket Mode 이벤트 구독
+
+| 이벤트 | 용도 |
+|--------|------|
+| `message.im` | DM 메시지 수신 |
+| `app_mention` | 채널에서 @멘션 수신 |
 
 ### 필요 Bot Token Scopes
 
@@ -869,8 +916,9 @@ intervals:
 
 ```
 bin/
-├── envoy.sh                             # 메인 polling loop
+├── envoy.sh                             # 메인 polling loop + Socket Mode 분기
 └── lib/envoy/
-    ├── slack-api.sh                     # Slack API 공통 함수 (send, read)
+    ├── bridge.js                        # Socket Mode WebSocket 브릿지 (Node.js)
+    ├── slack-api.sh                     # Slack API 함수 (outbox/curl 분기)
     └── thread-manager.sh                # 스레드 매핑, awaiting 관리
 ```

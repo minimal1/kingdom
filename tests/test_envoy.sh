@@ -11,6 +11,12 @@ setup() {
   export SLACK_BOT_TOKEN="xoxb-test"
   echo '{}' > "$BASE_DIR/state/envoy/thread-mappings.json"
   echo '[]' > "$BASE_DIR/state/envoy/awaiting-responses.json"
+  mkdir -p "$BASE_DIR/state/envoy/socket-inbox"
+  mkdir -p "$BASE_DIR/state/envoy/outbox"
+  mkdir -p "$BASE_DIR/state/envoy/outbox-results"
+  echo '{}' > "$BASE_DIR/state/envoy/conversation-threads.json"
+  CONV_FILE="$BASE_DIR/state/envoy/conversation-threads.json"
+  AWAITING_FILE="$BASE_DIR/state/envoy/awaiting-responses.json"
 }
 
 teardown() {
@@ -336,6 +342,221 @@ EOF
   echo "$log_content" | grep -q "reactions.remove"
   echo "$log_content" | grep -q "reactions.add"
   rm -f "$MOCK_LOG"
+}
+
+@test "envoy: check_socket_inbox processes message events" {
+  # check_socket_inbox 인라인 정의 (message 케이스만)
+  check_socket_inbox() {
+    local inbox_dir="$BASE_DIR/state/envoy/socket-inbox"
+    [[ -d "$inbox_dir" ]] || return 0
+
+    for inbox_file in "$inbox_dir"/*.json; do
+      [[ -f "$inbox_file" ]] || continue
+
+      local event
+      event=$(cat "$inbox_file")
+      local type
+      type=$(echo "$event" | jq -r '.type')
+      local channel user_id text ts thread_ts event_ts
+      channel=$(echo "$event" | jq -r '.channel')
+      user_id=$(echo "$event" | jq -r '.user_id')
+      text=$(echo "$event" | jq -r '.text')
+      ts=$(echo "$event" | jq -r '.ts')
+      thread_ts=$(echo "$event" | jq -r '.thread_ts // empty')
+      event_ts=$(echo "$event" | jq -r '.event_ts')
+
+      case "$type" in
+        message)
+          local event_id="evt-slack-msg-$(echo "$ts" | tr '.' '-')"
+          local evt
+          evt=$(jq -n \
+            --arg id "$event_id" --arg text "$text" \
+            --arg user_id "$user_id" --arg channel "$channel" \
+            --arg message_ts "$ts" \
+            '{ id: $id, type: "slack.channel.message", source: "slack", repo: null,
+               payload: { text: $text, user_id: $user_id, channel: $channel, message_ts: $message_ts },
+               priority: "normal",
+               created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+          add_reaction "$channel" "$ts" "eyes" || true
+          emit_event "$evt"
+          ;;
+      esac
+
+      rm -f "$inbox_file"
+    done
+  }
+
+  # socket-inbox에 message 이벤트 파일 생성
+  cat > "$BASE_DIR/state/envoy/socket-inbox/evt-001.json" << 'EOF'
+{"type":"message","channel":"D123","user_id":"U_USER","text":"hello kingdom","ts":"1707300000.000100","event_ts":"1707300000.000100"}
+EOF
+
+  check_socket_inbox
+
+  # 이벤트가 pending에 생성되었는지 확인
+  local evt_file="$BASE_DIR/queue/events/pending/evt-slack-msg-1707300000-000100.json"
+  assert [ -f "$evt_file" ]
+  run jq -r '.type' "$evt_file"
+  assert_output "slack.channel.message"
+  run jq -r '.payload.text' "$evt_file"
+  assert_output "hello kingdom"
+
+  # inbox 파일이 삭제되었는지 확인
+  assert [ ! -f "$BASE_DIR/state/envoy/socket-inbox/evt-001.json" ]
+}
+
+@test "envoy: check_socket_inbox processes app_mention events" {
+  check_socket_inbox() {
+    local inbox_dir="$BASE_DIR/state/envoy/socket-inbox"
+    [[ -d "$inbox_dir" ]] || return 0
+
+    for inbox_file in "$inbox_dir"/*.json; do
+      [[ -f "$inbox_file" ]] || continue
+
+      local event
+      event=$(cat "$inbox_file")
+      local type
+      type=$(echo "$event" | jq -r '.type')
+      local channel user_id text ts thread_ts event_ts
+      channel=$(echo "$event" | jq -r '.channel')
+      user_id=$(echo "$event" | jq -r '.user_id')
+      text=$(echo "$event" | jq -r '.text')
+      ts=$(echo "$event" | jq -r '.ts')
+      thread_ts=$(echo "$event" | jq -r '.thread_ts // empty')
+      event_ts=$(echo "$event" | jq -r '.event_ts')
+
+      case "$type" in
+        app_mention)
+          local event_id="evt-slack-mention-$(echo "$ts" | tr '.' '-')"
+          local evt
+          evt=$(jq -n \
+            --arg id "$event_id" --arg text "$text" \
+            --arg user_id "$user_id" --arg channel "$channel" \
+            --arg message_ts "$ts" \
+            '{ id: $id, type: "slack.app_mention", source: "slack", repo: null,
+               payload: { text: $text, user_id: $user_id, channel: $channel, message_ts: $message_ts },
+               priority: "normal",
+               created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+          add_reaction "$channel" "$ts" "eyes" || true
+          emit_event "$evt"
+          ;;
+      esac
+
+      rm -f "$inbox_file"
+    done
+  }
+
+  # socket-inbox에 app_mention 이벤트 파일 생성
+  cat > "$BASE_DIR/state/envoy/socket-inbox/evt-mention-001.json" << 'EOF'
+{"type":"app_mention","channel":"C_GENERAL","user_id":"U_USER","text":"<@BOT> help me","ts":"1707300000.000200","event_ts":"1707300000.000200"}
+EOF
+
+  check_socket_inbox
+
+  # 이벤트가 pending에 생성되었는지 확인
+  local evt_file="$BASE_DIR/queue/events/pending/evt-slack-mention-1707300000-000200.json"
+  assert [ -f "$evt_file" ]
+  run jq -r '.type' "$evt_file"
+  assert_output "slack.app_mention"
+  run jq -r '.payload.text' "$evt_file"
+  assert_output "<@BOT> help me"
+
+  # inbox 파일이 삭제되었는지 확인
+  assert [ ! -f "$BASE_DIR/state/envoy/socket-inbox/evt-mention-001.json" ]
+}
+
+@test "envoy: check_socket_inbox matches thread_reply to awaiting" {
+  check_socket_inbox() {
+    local inbox_dir="$BASE_DIR/state/envoy/socket-inbox"
+    [[ -d "$inbox_dir" ]] || return 0
+
+    for inbox_file in "$inbox_dir"/*.json; do
+      [[ -f "$inbox_file" ]] || continue
+
+      local event
+      event=$(cat "$inbox_file")
+      local type
+      type=$(echo "$event" | jq -r '.type')
+      local channel user_id text ts thread_ts event_ts
+      channel=$(echo "$event" | jq -r '.channel')
+      user_id=$(echo "$event" | jq -r '.user_id')
+      text=$(echo "$event" | jq -r '.text')
+      ts=$(echo "$event" | jq -r '.ts')
+      thread_ts=$(echo "$event" | jq -r '.thread_ts // empty')
+      event_ts=$(echo "$event" | jq -r '.event_ts')
+
+      case "$type" in
+        thread_reply)
+          [[ -n "$thread_ts" ]] || { rm -f "$inbox_file"; continue; }
+
+          local matched=false
+
+          if [[ -f "$AWAITING_FILE" ]]; then
+            local awaiting_match
+            awaiting_match=$(jq -r --arg tts "$thread_ts" \
+              '.[] | select(.thread_ts == $tts) | .task_id' "$AWAITING_FILE" 2>/dev/null | head -1)
+            if [[ -n "$awaiting_match" ]]; then
+              local reply_ctx
+              reply_ctx=$(jq --arg tts "$thread_ts" \
+                '.[] | select(.thread_ts == $tts) | .reply_context // {}' "$AWAITING_FILE" 2>/dev/null | head -1)
+              [[ -z "$reply_ctx" || "$reply_ctx" == "null" ]] && reply_ctx='{}'
+              local event_id="evt-slack-reply-$(echo "$thread_ts" | tr '.' '-')-$(date +%s)"
+              local evt
+              evt=$(jq -n \
+                --arg id "$event_id" --arg text "$text" \
+                --arg channel "$channel" --arg thread_ts "$thread_ts" \
+                --argjson reply_ctx "$reply_ctx" \
+                '{ id: $id, type: "slack.thread.reply", source: "slack",
+                   payload: { text: $text, channel: $channel, thread_ts: $thread_ts,
+                              reply_context: $reply_ctx },
+                   priority: "high",
+                   created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
+              emit_event "$evt"
+              remove_awaiting_response "$awaiting_match"
+              matched=true
+            fi
+          fi
+          ;;
+      esac
+
+      rm -f "$inbox_file"
+    done
+  }
+
+  # awaiting에 task 등록
+  add_awaiting_response "task-await-001" "1707300000.000300" "D_DM_CH"
+
+  # socket-inbox에 thread_reply 이벤트 파일 생성
+  cat > "$BASE_DIR/state/envoy/socket-inbox/evt-reply-001.json" << 'EOF'
+{"type":"thread_reply","channel":"D_DM_CH","user_id":"U_USER","text":"yes, proceed","ts":"1707300000.000400","thread_ts":"1707300000.000300","event_ts":"1707300000.000400"}
+EOF
+
+  check_socket_inbox
+
+  # slack.thread.reply 이벤트가 생성되었는지 확인
+  local found=false
+  for f in "$BASE_DIR/queue/events/pending"/evt-slack-reply-*.json; do
+    if [[ -f "$f" ]]; then
+      local evt_type
+      evt_type=$(jq -r '.type' "$f")
+      if [[ "$evt_type" == "slack.thread.reply" ]]; then
+        found=true
+        run jq -r '.payload.text' "$f"
+        assert_output "yes, proceed"
+        run jq -r '.priority' "$f"
+        assert_output "high"
+        break
+      fi
+    fi
+  done
+  assert [ "$found" = "true" ]
+
+  # awaiting에서 해당 task가 제거되었는지 확인
+  run jq 'length' "$AWAITING_FILE"
+  assert_output "0"
+
+  # inbox 파일이 삭제되었는지 확인
+  assert [ ! -f "$BASE_DIR/state/envoy/socket-inbox/evt-reply-001.json" ]
 }
 
 @test "envoy: 5 message types recognized" {

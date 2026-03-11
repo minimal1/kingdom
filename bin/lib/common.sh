@@ -140,6 +140,37 @@ get_mtime() {
   fi
 }
 
+# --- Sleep or Wake (fswatch 기반 즉시 깨움) ---
+
+sleep_or_wake() {
+  local timeout="$1"
+  local watch_dir="$2"
+
+  # fswatch 미설치 시 기존 sleep으로 fallback
+  if ! command -v fswatch &>/dev/null; then
+    sleep "$timeout"
+    return
+  fi
+
+  # watch 대상 디렉토리가 없으면 기존 sleep
+  if [[ ! -d "$watch_dir" ]]; then
+    sleep "$timeout"
+    return
+  fi
+
+  local fifo="/tmp/kingdom-wake-$$.fifo"
+  mkfifo "$fifo" 2>/dev/null || { sleep "$timeout"; return; }
+
+  fswatch --one-event --latency 0.5 "$watch_dir" > "$fifo" 2>/dev/null &
+  local watcher_pid=$!
+
+  read -t "$timeout" < "$fifo" 2>/dev/null || true
+
+  kill "$watcher_pid" 2>/dev/null || true
+  wait "$watcher_pid" 2>/dev/null || true
+  rm -f "$fifo"
+}
+
 # --- Portable File Lock ---
 
 portable_flock() {

@@ -258,7 +258,7 @@ process_pending_events() {
     # 3. General matching
     local general=""
 
-    if [ "$event_type" = "slack.channel.message" ]; then
+    if [ "$event_type" = "slack.channel.message" ] || [ "$event_type" = "slack.app_mention" ]; then
       # DM 메시지 -> 상소 심의 (petition) 비동기 처리로 위임
       local petition_enabled
       petition_enabled=$(get_config "king" "petition.enabled" "true")
