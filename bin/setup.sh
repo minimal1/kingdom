@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # Kingdom Setup Wizard
 # 대화형으로 Kingdom 전체 설치를 안내한다.
-# Usage: bin/setup.sh
+# Usage: bin/setup.sh [--upgrade] [--yes|-y]
+#   --upgrade: 코드만 갱신, 설정/인증은 물어봄 (기본 건너뜀)
+#   --yes|-y:  모든 질문에 Y 응답
 
 set -euo pipefail
+
+UPGRADE_MODE=false
+YES_ALL=false
+for arg in "$@"; do
+  case "$arg" in
+    --upgrade) UPGRADE_MODE=true ;;
+    --yes|-y)  YES_ALL=true ;;
+  esac
+done
 
 # ─── 색상 / 유틸 ───────────────────────────────────────────
 
@@ -33,6 +44,10 @@ ask() {
 ask_yn() {
   local prompt="$1"
   local default="${2:-Y}"
+  if $YES_ALL; then
+    printf "  %s [%s]: Y (--yes)\n" "$prompt" "$default" >&2
+    return 0
+  fi
   local ans
   printf "  %s [%s]: " "$prompt" "$default" >&2
   read -r ans
@@ -75,13 +90,21 @@ cat << 'BANNER'
 BANNER
 printf "${RESET}\n"
 info "소스 디렉토리: $SOURCE_DIR"
+if $UPGRADE_MODE; then
+  printf "  ${CYAN}모드: --upgrade (코드 갱신, 설정 유지)${RESET}\n"
+fi
 echo ""
 
 # ─── Step 1: 설치 경로 ────────────────────────────────────
 
 step 1 "설치 경로"
 
-DEST=$(ask "설치 경로를 입력하세요" "/opt/kingdom")
+if $UPGRADE_MODE && [[ -n "${KINGDOM_BASE_DIR:-}" ]] && [[ -f "${KINGDOM_BASE_DIR}/bin/king.sh" ]]; then
+  DEST="$KINGDOM_BASE_DIR"
+  ok "기존 설치 감지: $DEST"
+else
+  DEST=$(ask "설치 경로를 입력하세요" "${KINGDOM_BASE_DIR:-/opt/kingdom}")
+fi
 
 # 기존 설치 감지
 if [[ -f "$DEST/bin/king.sh" ]]; then
@@ -106,18 +129,24 @@ fi
 
 # 소스 파일 복사
 cp -r "$SOURCE_DIR/bin" "$DEST/"
-cp -r "$SOURCE_DIR/config" "$DEST/"
 cp -r "$SOURCE_DIR/schemas" "$DEST/"
 cp -r "$SOURCE_DIR/tools" "$DEST/"
-chmod +x "$DEST"/bin/*.sh 2>/dev/null || true
-chmod +x "$DEST"/bin/generals/*.sh 2>/dev/null || true
+[[ -f "$SOURCE_DIR/package.json" ]] && cp "$SOURCE_DIR/package.json" "$DEST/"
 
-# system.yaml의 base_dir 업데이트
-if command -v yq &>/dev/null; then
-  yq eval -i ".base_dir = \"$DEST\"" "$DEST/config/system.yaml"
+if $UPGRADE_MODE; then
+  # upgrade: config는 복사하지 않음 (기존 설정 보존)
+  ok "코드 파일 복사 완료 → $DEST (config 보존)"
+else
+  cp -r "$SOURCE_DIR/config" "$DEST/"
+  # system.yaml의 base_dir 업데이트
+  if command -v yq &>/dev/null; then
+    yq eval -i ".base_dir = \"$DEST\"" "$DEST/config/system.yaml"
+  fi
+  ok "소스 파일 복사 완료 → $DEST"
 fi
 
-ok "소스 파일 복사 완료 → $DEST"
+chmod +x "$DEST"/bin/*.sh 2>/dev/null || true
+chmod +x "$DEST"/bin/generals/*.sh 2>/dev/null || true
 
 # 소스 파일 복사 직후 — Node 의존성 설치 (package.json이 있으면)
 if [[ -f "$DEST/package.json" ]] && command -v node &>/dev/null; then
@@ -253,6 +282,11 @@ if [[ -f "$ENV_FILE" ]]; then
   info "기존 .env 파일 로드됨"
 fi
 
+if $UPGRADE_MODE && ! ask_yn "인증 설정을 다시 하시겠습니까?" "n"; then
+  warn "인증 설정 건너뜀 (기존 .env 유지)"
+  record "인증: 기존 설정 유지"
+else
+
 # Claude Code
 if command -v claude &>/dev/null; then
   if claude -p "echo ok" &>/dev/null 2>&1; then
@@ -334,9 +368,16 @@ fi
 
 record "인증: 설정 완료"
 
+fi  # end of !UPGRADE_MODE
+
 # ─── Step 4: 기본 설정 ────────────────────────────────────
 
 step 4 "기본 설정"
+
+if $UPGRADE_MODE && ! ask_yn "기본 설정을 다시 하시겠습니까? (레포, 채널, 병사수)" "n"; then
+  warn "기본 설정 건너뜀 (기존 config 유지)"
+  record "기본 설정: 기존 설정 유지"
+else
 
 # Timezone (Linux only)
 if [[ "$OS" != "Darwin" ]]; then
@@ -392,6 +433,8 @@ ok "king.yaml max_soldiers: $MAX_SOLDIERS"
 
 record "기본 설정: 완료"
 
+fi  # end of !UPGRADE_MODE
+
 # ─── Step 5: 디렉토리 초기화 ──────────────────────────────
 
 step 5 "디렉토리 초기화"
@@ -407,6 +450,11 @@ record "디렉토리: 초기화됨"
 # ─── Step 6: 장군 설치 ────────────────────────────────────
 
 step 6 "장군 설치"
+
+if $UPGRADE_MODE && ! ask_yn "장군 패키지를 재설치하시겠습니까?" "Y"; then
+  warn "장군 설치 건너뜀 (기존 장군 설정 유지)"
+  record "장군: 건너뜀"
+else
 
 GENERALS_INSTALLED=0
 GENERALS_FAILED=0
@@ -448,11 +496,16 @@ else
   record "장군: ${GENERALS_INSTALLED}개 설치, ${GENERALS_FAILED}개 실패"
 fi
 
+fi  # end of generals gate
+
 # ─── Step 7: 대시보드 ───────────────────────────────────────
 
 step 7 "대시보드"
 
-if command -v docker &>/dev/null; then
+if $UPGRADE_MODE && ! ask_yn "대시보드를 재빌드하시겠습니까?" "n"; then
+  warn "대시보드 건너뜀"
+  record "대시보드: 건너뜀"
+elif command -v docker &>/dev/null; then
   info "Docker 감지 — 대시보드 컨테이너를 빌드합니다."
   if docker build -t kingdom-dashboard "$DEST/tools/dashboard" &>/dev/null; then
     ok "대시보드 이미지 빌드 완료 (kingdom-dashboard)"
