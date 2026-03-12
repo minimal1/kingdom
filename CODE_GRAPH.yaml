@@ -304,7 +304,7 @@ system_scripts:
     - path: "bin/init-dirs.sh"
       description: "런타임 디렉토리 구조 초기화 (멱등)"
     - path: "bin/setup.sh"
-      description: "대화형 설치 위저드 — 7단계로 전체 설치 안내"
+      description: "대화형 설치 위저드 — 8단계 전체 설치 / --upgrade 모드 지원"
     - path: "bin/check-prerequisites.sh"
       description: "CLI 도구 + 인증 검증 (.env 파일 자동 로드)"
     - path: "bin/install-general.sh"
@@ -323,7 +323,7 @@ system_scripts:
     - "tests/test_install_general.sh"
 
 # ============================================================
-# GENERAL PACKAGES — 빌트인 장군 6종
+# GENERAL PACKAGES — 빌트인 장군 7종
 # ============================================================
 
 general_packages:
@@ -338,7 +338,7 @@ general_packages:
       schedules: []
       cc_plugins: ["friday@qp-plugin"]
       timeout: 1800
-      has_claude_md: false
+      has_claude_md: true
     gen-briefing:
       path: "generals/gen-briefing/"
       description: "시스템 상태 브리핑 장군 (F.R.I.D.A.Y. 성격)"
@@ -363,6 +363,14 @@ general_packages:
       cc_plugins: []
       timeout: 900
       has_claude_md: true  # generals/gen-catchup/general-claude.md
+    gen-jira:
+      path: "generals/gen-jira/"
+      description: "Jira 티켓 대응 장군 — kingdom 라벨 + In Progress 티켓을 friday:jira로 작업"
+      subscribes: ["jira.ticket.assigned", "jira.ticket.updated"]
+      schedules: []
+      cc_plugins: ["friday@qp-plugin"]
+      timeout: 1800
+      has_claude_md: true  # generals/gen-jira/general-claude.md
     gen-test-writer:
       path: "generals/gen-test-writer/"
       description: "30분 주기 테스트 자동 작성 → PR 오픈"
