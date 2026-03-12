@@ -722,7 +722,7 @@ while $RUNNING; do
   fi
 
   if [[ "$SOCKET_MODE_ENABLED" == "true" ]]; then
-    sleep_or_wake 5 "$BASE_DIR/state/envoy/socket-inbox"
+    sleep_or_wake 5 "$BASE_DIR/state/envoy/socket-inbox" "$BASE_DIR/queue/messages/pending"
   else
     sleep_or_wake 5 "$BASE_DIR/queue/messages/pending"
   fi

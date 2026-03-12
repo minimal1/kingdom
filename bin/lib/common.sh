@@ -144,7 +144,8 @@ get_mtime() {
 
 sleep_or_wake() {
   local timeout="$1"
-  local watch_dir="$2"
+  shift
+  local watch_dirs=("$@")
 
   # fswatch 미설치 시 기존 sleep으로 fallback
   if ! command -v fswatch &>/dev/null; then
@@ -152,8 +153,16 @@ sleep_or_wake() {
     return
   fi
 
-  # watch 대상 디렉토리가 없으면 기존 sleep
-  if [[ ! -d "$watch_dir" ]]; then
+  # 유효한 디렉토리만 필터링
+  local valid_dirs=()
+  for dir in "${watch_dirs[@]}"; do
+    if [[ -d "$dir" ]]; then
+      valid_dirs+=("$dir")
+    fi
+  done
+
+  # 유효한 디렉토리가 없으면 기존 sleep
+  if [[ ${#valid_dirs[@]} -eq 0 ]]; then
     sleep "$timeout"
     return
   fi
@@ -161,7 +170,7 @@ sleep_or_wake() {
   local fifo="/tmp/kingdom-wake-$$.fifo"
   mkfifo "$fifo" 2>/dev/null || { sleep "$timeout"; return; }
 
-  fswatch --one-event --latency 0.5 "$watch_dir" > "$fifo" 2>/dev/null &
+  fswatch --one-event --latency 0.5 "${valid_dirs[@]}" > "$fifo" 2>/dev/null &
   local watcher_pid=$!
 
   read -t "$timeout" < "$fifo" 2>/dev/null || true

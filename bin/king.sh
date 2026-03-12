@@ -67,7 +67,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
       LAST_SCHEDULE_CHECK=$now
     fi
 
-    sleep_or_wake "$LOOP_TICK" "$BASE_DIR/queue/events/pending"
+    sleep_or_wake "$LOOP_TICK" "$BASE_DIR/queue/events/pending" "$BASE_DIR/state/results"
   done
 
 fi

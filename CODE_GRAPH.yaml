@@ -288,7 +288,7 @@ common:
     - "update_heartbeat(), start_heartbeat_daemon(), stop_heartbeat_daemon()"
     - "emit_event(), emit_internal_event()"
     - "portable_date(), get_mtime(), portable_flock()"
-    - "sleep_or_wake(timeout, watch_dir) — fswatch 기반 즉시 깨움 (fallback: sleep)"
+    - "sleep_or_wake(timeout, watch_dirs...) — fswatch 기반 다중 디렉토리 즉시 깨움 (fallback: sleep)"
   tests:
     - "tests/lib/test_common.sh"
 

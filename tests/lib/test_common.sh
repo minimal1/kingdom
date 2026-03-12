@@ -304,6 +304,64 @@ EOF
   assert [ "$fifo_count" -eq 0 ]
 }
 
+@test "common: sleep_or_wake wakes on second dir file creation" {
+  if ! command -v fswatch &>/dev/null; then
+    skip "fswatch not installed"
+  fi
+
+  local dir1="$BASE_DIR/queue/events/pending"
+  local dir2="$BASE_DIR/state/results"
+  mkdir -p "$dir1" "$dir2"
+
+  # 두 번째 디렉토리에 파일 생성 → 즉시 깨어나야 함
+  (sleep 0.5 && touch "$dir2/test-wake.json") &
+  local bg_pid=$!
+
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 10 "$dir1" "$dir2"
+  end=$(date +%s)
+  elapsed=$((end - start))
+
+  wait "$bg_pid" 2>/dev/null || true
+  rm -f "$dir2/test-wake.json"
+
+  assert [ "$elapsed" -lt 5 ]
+}
+
+@test "common: sleep_or_wake ignores invalid dirs in multi-dir" {
+  if ! command -v fswatch &>/dev/null; then
+    skip "fswatch not installed"
+  fi
+
+  local valid_dir="$BASE_DIR/queue/events/pending"
+  mkdir -p "$valid_dir"
+
+  # 유효한 디렉토리 + 존재하지 않는 디렉토리 조합
+  (sleep 0.5 && touch "$valid_dir/test-wake.json") &
+  local bg_pid=$!
+
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 10 "$BASE_DIR/nonexistent" "$valid_dir"
+  end=$(date +%s)
+  elapsed=$((end - start))
+
+  wait "$bg_pid" 2>/dev/null || true
+  rm -f "$valid_dir/test-wake.json"
+
+  assert [ "$elapsed" -lt 5 ]
+}
+
+@test "common: sleep_or_wake falls back when all dirs invalid" {
+  local start end elapsed
+  start=$(date +%s)
+  sleep_or_wake 1 "$BASE_DIR/nonexistent1" "$BASE_DIR/nonexistent2"
+  end=$(date +%s)
+  elapsed=$((end - start))
+  assert [ "$elapsed" -ge 1 ]
+}
+
 @test "common: portable_flock executes command" {
   local lockfile="$BASE_DIR/test.lock"
   local outfile="$BASE_DIR/flock_out"

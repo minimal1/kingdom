@@ -116,7 +116,7 @@ prompt.md + payload + memory   → 작업 지시
 ## 테스트
 
 ```bash
-bats tests/test_*.sh tests/lib/*/test_*.sh
+bats tests/test_*.sh tests/lib/test_*.sh tests/lib/*/test_*.sh
 ```
 
 ## 슬래시 커맨드
