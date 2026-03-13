@@ -55,19 +55,29 @@ while $RUNNING; do
 
       # 2. parse
       events=$("${watcher}_parse" "$raw" 2>/dev/null)
+      parse_rc=$?
+      if [[ $parse_rc -ne 0 ]]; then
+        log "[EVENT] [sentinel] ERROR: ${watcher}_parse failed"
+        LAST_POLL[$watcher]=$(date +%s)
+        continue
+      fi
 
       # 3. emit (중복 제거)
+      emitted_file=$(mktemp)
       echo "$events" | jq -c '.[]' 2>/dev/null | while read -r event; do
         event_id=$(echo "$event" | jq -r '.id')
         if ! is_duplicate "$event_id"; then
-          sentinel_emit_event "$event"
+          if sentinel_emit_event "$event"; then
+            printf '%s\n' "$event" >> "$emitted_file"
+          fi
         fi
       done
 
       # 4. post-emit (optional: notification 읽음 처리 등)
       if type "${watcher}_post_emit" &>/dev/null; then
-        "${watcher}_post_emit" 2>/dev/null || true
+        "${watcher}_post_emit" "$emitted_file" 2>/dev/null || true
       fi
+      rm -f "$emitted_file"
 
       LAST_POLL[$watcher]=$(date +%s)
     fi

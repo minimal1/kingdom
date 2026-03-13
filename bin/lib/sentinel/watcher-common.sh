@@ -8,7 +8,7 @@ sentinel_emit_event() {
   local event_id
   event_id=$(echo "$event_json" | jq -r '.id')
 
-  emit_event "$event_json"
+  emit_event "$event_json" || return 1
 
   # seen 인덱스: 빈 파일로 중복 방지 마커
   touch "$BASE_DIR/state/sentinel/seen/${event_id}"

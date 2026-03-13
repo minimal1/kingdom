@@ -168,18 +168,26 @@ EOF
 
 # --- post_emit ---
 
-@test "github: post_emit clears pending_read_ids" {
-  # Setup: pending_read_ids in state
-  save_state "github" '{"etag":"W/\"abc\"","pending_read_ids":["111","222"]}'
+@test "github: post_emit marks only emitted notification threads as read" {
+  local emitted_file
+  emitted_file=$(mktemp)
+  cat > "$emitted_file" <<'EOF'
+{"payload":{"notification_thread_id":"111"}}
+{"payload":{"notification_thread_id":"222"}}
+EOF
 
-  # gh mock for PATCH (mark as read)
-  gh() { return 0; }
+  export MOCK_LOG="$BASE_DIR/mock-gh.log"
+  gh() {
+    printf '%s\n' "$*" >> "$MOCK_LOG"
+    return 0
+  }
   export -f gh
 
-  github_post_emit
+  github_post_emit "$emitted_file"
 
-  local state
-  state=$(load_state "github")
-  run jq 'has("pending_read_ids")' <<< "$state"
-  assert_output "false"
+  run cat "$MOCK_LOG"
+  assert_output --partial "/notifications/threads/111"
+  assert_output --partial "/notifications/threads/222"
+
+  rm -f "$emitted_file" "$MOCK_LOG"
 }

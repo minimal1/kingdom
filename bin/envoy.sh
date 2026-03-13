@@ -341,7 +341,10 @@ process_outbound_queue() {
     esac
 
     if $send_ok; then
-      mv "$msg_file" "$sent_dir/"
+      if ! mv "$msg_file" "$sent_dir/"; then
+        log "[ERROR] [envoy] Sent message archive failed, removing pending copy: $(basename "$msg_file")"
+        rm -f "$msg_file"
+      fi
     else
       # Increment retry count and check limit
       local retry_count

@@ -542,13 +542,13 @@ EOF
 # --- Schedule ---
 
 @test "king: already_triggered prevents duplicate" {
-  mark_triggered "test-schedule"
-  run already_triggered "test-schedule"
+  mark_triggered "gen-pr" "test-schedule"
+  run already_triggered "gen-pr" "test-schedule"
   assert_success
 }
 
 @test "king: untriggered schedule returns false" {
-  run already_triggered "never-triggered"
+  run already_triggered "gen-pr" "never-triggered"
   assert_failure
 }
 
@@ -617,16 +617,16 @@ EOF
 # --- Minute-based Dedup ---
 
 @test "king: already_triggered uses minute-based dedup" {
-  mark_triggered "test-min"
-  run already_triggered "test-min"
+  mark_triggered "gen-pr" "test-min"
+  run already_triggered "gen-pr" "test-min"
   assert_success
 }
 
 @test "king: different minute is not duplicate" {
   local old_key
   old_key=$(date -v-1M +%Y-%m-%dT%H:%M 2>/dev/null || date -d "1 minute ago" +%Y-%m-%dT%H:%M)
-  echo "{}" | jq --arg n "test-old" --arg d "$old_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
-  run already_triggered "test-old"
+  echo "{}" | jq --arg n "gen-pr:test-old" --arg d "$old_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
+  run already_triggered "gen-pr" "test-old"
   assert_failure
 }
 

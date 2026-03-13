@@ -153,10 +153,14 @@ socketClient.on('app_mention', async ({ event, ack }) => {
 // --- Outbound: outbox -> Slack Web API -> outbox-results ---
 
 async function processOutbox() {
+  if (processOutbox.running) return;
+  processOutbox.running = true;
+
   let files;
   try {
     files = fs.readdirSync(OUTBOX_DIR).filter(f => f.endsWith('.json') && !f.startsWith('.'));
   } catch (_) {
+    processOutbox.running = false;
     return;
   }
 
@@ -232,7 +236,11 @@ async function processOutbox() {
     // Remove processed outbox file
     try { fs.unlinkSync(filePath); } catch (_) {}
   }
+
+  processOutbox.running = false;
 }
+
+processOutbox.running = false;
 
 let outboxInterval = setInterval(processOutbox, 500);
 

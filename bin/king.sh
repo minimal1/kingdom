@@ -30,6 +30,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   SCHEDULE_CHECK_INTERVAL=$(get_config "king" "intervals.schedule_check_seconds" "60")
   PETITION_CHECK_INTERVAL=$(get_config "king" "intervals.petition_check_seconds" "5")
   LOOP_TICK=$(get_config "king" "intervals.loop_tick_seconds" "5")
+  KING_LAST_SCHEDULE_SCAN_EPOCH=$(( $(date +%s) - SCHEDULE_CHECK_INTERVAL ))
 
   LAST_EVENT_CHECK=0
   LAST_RESULT_CHECK=0

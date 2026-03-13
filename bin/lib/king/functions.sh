@@ -1,215 +1,9 @@
 #!/usr/bin/env bash
 # King Functions — all king logic extracted for testability
 # Source this file to get king functions without starting the main loop.
-
-# --- Sequence ID Generation (unified) ---
-
-next_seq_id() {
-  local prefix="$1"
-  local seq_file="$2"
-
-  local today
-  today=$(date +%Y%m%d)
-  local last
-  last=$(cat "$seq_file" 2>/dev/null || echo "00000000:000")
-  local last_date="${last%%:*}"
-  local last_seq="${last##*:}"
-
-  local seq
-  if [ "$last_date" = "$today" ]; then
-    seq=$((10#$last_seq + 1))
-  else
-    seq=1
-  fi
-
-  local formatted
-  formatted=$(printf '%03d' $seq)
-  echo "${today}:${formatted}" > "$seq_file"
-  echo "${prefix}-${today}-${formatted}"
-}
-
-next_task_id() {
-  next_seq_id "task" "$TASK_SEQ_FILE"
-}
-
-next_msg_id() {
-  next_seq_id "msg" "$MSG_SEQ_FILE"
-}
-
-# --- Source Ref Helper ---
-
-# DM 기반 task의 원본 메시지 참조를 추출 (리액션 업데이트용)
-extract_source_ref() {
-  local task="$1"
-  local src_msg_ts src_ch
-  src_msg_ts=$(echo "$task" | jq -r '.payload.message_ts // empty')
-  src_ch=$(echo "$task" | jq -r '.payload.channel // empty')
-  if [[ -n "$src_msg_ts" && -n "$src_ch" ]]; then
-    jq -n --arg ch "$src_ch" --arg ts "$src_msg_ts" '{channel: $ch, message_ts: $ts}'
-  else
-    echo "null"
-  fi
-}
-
-# --- Atomic Write Helper ---
-
-write_to_queue() {
-  local dir="$1"
-  local id="$2"
-  local json="$3"
-
-  echo "$json" > "$dir/.tmp-${id}.json"
-  mv "$dir/.tmp-${id}.json" "$dir/${id}.json"
-}
-
-# --- Task Context Formatter ---
-
-format_task_context() {
-  local type="$1"
-  local payload="$2"
-
-  case "$type" in
-    github.pr.*|github.issue.*)
-      local title pr_number repo_name html_url
-      title=$(echo "$payload" | jq -r '.subject_title // empty')
-      pr_number=$(echo "$payload" | jq -r '.pr_number // empty')
-      repo_name=$(echo "$payload" | jq -r '.repo // empty')
-      if [[ -n "$pr_number" && -n "$repo_name" ]]; then
-        html_url="https://github.com/${repo_name}/pull/${pr_number}"
-        printf '<%s|#%s %s>' "$html_url" "$pr_number" "$title"
-      elif [[ -n "$title" ]]; then
-        printf '%s' "$title"
-      fi
-      ;;
-    jira.ticket.*)
-      local url ticket_key summary
-      url=$(echo "$payload" | jq -r '.url // empty')
-      ticket_key=$(echo "$payload" | jq -r '.ticket_key // empty')
-      summary=$(echo "$payload" | jq -r '.summary // empty')
-      if [[ -n "$url" && -n "$ticket_key" ]]; then
-        printf '<%s|%s %s>' "$url" "$ticket_key" "$summary"
-      elif [[ -n "$summary" ]]; then
-        printf '%s' "$summary"
-      fi
-      ;;
-  esac
-}
-
-# --- Message Creation Helpers ---
-
-create_thread_start_message() {
-  local task_id="$1"
-  local general="$2"
-  local event="$3"
-  local event_type
-  event_type=$(echo "$event" | jq -r '.type')
-  local repo
-  repo=$(echo "$event" | jq -r '.repo // ""')
-  local msg_id
-  msg_id=$(next_msg_id)
-  local channel
-  channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
-
-  # Build rich context from payload
-  local payload
-  payload=$(echo "$event" | jq -c '.payload // {}')
-  # Inject repo into payload for format_task_context if not present
-  if [[ -n "$repo" ]]; then
-    payload=$(echo "$payload" | jq --arg r "$repo" '.repo //= $r')
-  fi
-  local ctx
-  ctx=$(format_task_context "$event_type" "$payload")
-
-  local content
-  if [[ -n "$ctx" ]]; then
-    content=$(printf '📋 *%s* | %s\n%s\n`%s`' "$general" "$task_id" "$ctx" "$event_type")
-  else
-    content=$(printf '📋 *%s* | %s\n`%s`' "$general" "$task_id" "$event_type")
-    [ -n "$repo" ] && content=$(printf '📋 *%s* | %s\n`%s` | %s' "$general" "$task_id" "$event_type" "$repo")
-  fi
-
-  # DM 이벤트: 기존 메시지를 스레드 부모로 재사용 (새 메시지 불필요)
-  local existing_ts existing_ch
-  existing_ts=$(echo "$event" | jq -r '.payload.message_ts // empty')
-  existing_ch=$(echo "$event" | jq -r '.payload.channel // empty')
-
-  local message
-  if [[ -n "$existing_ts" && -n "$existing_ch" ]]; then
-    message=$(jq -n \
-      --arg id "$msg_id" --arg task "$task_id" \
-      --arg ch "$existing_ch" --arg ct "$content" \
-      --arg ts "$existing_ts" \
-      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
-        thread_ts: $ts,
-        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
-  else
-    message=$(jq -n \
-      --arg id "$msg_id" --arg task "$task_id" \
-      --arg ch "$channel" --arg ct "$content" \
-      '{id: $id, type: "thread_start", task_id: $task, channel: $ch, content: $ct,
-        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
-  fi
-
-  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
-}
-
-create_thread_update_message() {
-  local task_id="$1"
-  local content="$2"
-  local msg_id
-  msg_id=$(next_msg_id)
-
-  local message
-  message=$(jq -n \
-    --arg id "$msg_id" --arg task "$task_id" --arg ct "$content" \
-    '{id: $id, type: "thread_update", task_id: $task, content: $ct,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
-
-  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
-}
-
-create_notification_message() {
-  local task_id="$1"
-  local content="$2"
-  local override_channel="${3:-}"
-  local source_ref_json="${4:-null}"
-  local msg_id
-  msg_id=$(next_msg_id)
-  local channel
-  if [ -n "$override_channel" ]; then
-    channel="$override_channel"
-  else
-    channel="${SLACK_DEFAULT_CHANNEL:-$(get_config "king" "slack.default_channel")}"
-  fi
-
-  local message
-  message=$(jq -n \
-    --arg id "$msg_id" --arg task "$task_id" \
-    --arg ch "$channel" --arg ct "$content" \
-    --argjson sr "$source_ref_json" \
-    '{id: $id, type: "notification", task_id: $task, channel: $ch,
-      urgency: "normal", content: $ct, source_ref: $sr,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
-
-  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
-}
-
-create_proclamation_message() {
-  local task_id="$1" channel="$2" message="$3"
-  local msg_id
-  msg_id=$(next_msg_id)
-  local proc_task_id="proclamation-${task_id}"
-
-  local msg
-  msg=$(jq -n \
-    --arg id "$msg_id" --arg task "$proc_task_id" \
-    --arg ch "$channel" --arg ct "$message" \
-    '{id: $id, type: "notification", task_id: $task, channel: $ch,
-      urgency: "high", content: $ct,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending"}')
-
-  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$msg"
-}
+KING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$KING_LIB_DIR/messages.sh"
+source "$KING_LIB_DIR/schedules.sh"
 
 # --- Event Processing ---
 
@@ -288,7 +82,9 @@ process_pending_events() {
     fi
 
     # 4. Dispatch task
-    dispatch_new_task "$event" "$general" "$event_file"
+    if ! dispatch_new_task "$event" "$general" "$event_file"; then
+      log "[ERROR] [king] Failed to dispatch event: $event_id"
+    fi
   done
 }
 
@@ -334,10 +130,9 @@ dispatch_new_task() {
       status: "pending"
     }')
 
-  write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
-
-  create_thread_start_message "$task_id" "$general" "$event"
-  mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
+  write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
+  create_thread_start_message "$task_id" "$general" "$event" || return 1
+  mv "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
 
   log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"
 }
@@ -384,8 +179,8 @@ process_thread_reply() {
        priority: "high",
        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
 
-  write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
-  mv "$event_file" "$BASE_DIR/queue/events/dispatched/"
+  write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
+  mv "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
   log "[EVENT] [king] Thread reply -> $general (task: $task_id)"
 }
 
@@ -445,8 +240,6 @@ handle_success() {
   local general
   general=$(echo "$task" | jq -r '.target_general')
 
-  complete_task "$task_id"
-
   # reply_to 분기: 기존 스레드에 답글 or 새 알림
   local reply_ch
   reply_ch=$(echo "$task" | jq -r '.payload.channel // empty')
@@ -483,7 +276,7 @@ handle_success() {
       '{ id: $id, type: "thread_reply", task_id: $task, channel: $ch,
          thread_ts: $ts, content: $ct, track_conversation: $tc, source_ref: $sr,
          created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
-    write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+    write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message" || return 1
   else
     local notify_ch
     notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
@@ -506,7 +299,7 @@ handle_success() {
     else
       notif_content=$(printf '✅ *%s* | %s\n%s' "$general" "$task_id" "$summary")
     fi
-    create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
+    create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref" || return 1
   fi
 
   # Proclamation: 별도 채널 공표
@@ -514,8 +307,10 @@ handle_success() {
   proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
   proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
   if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
-    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg" || return 1
   fi
+
+  complete_task "$task_id"
 
   log "[EVENT] [king] Task completed: $task_id"
 }
@@ -531,7 +326,6 @@ handle_failure() {
   local general
   general=$(echo "$task" | jq -r '.target_general')
 
-  complete_task "$task_id"
   local notify_ch
   notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
   local task_type
@@ -553,15 +347,17 @@ handle_failure() {
   else
     notif_content=$(printf '❌ *%s* | %s\n%s' "$general" "$task_id" "$error")
   fi
-  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
+  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref" || return 1
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
   proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
   proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
   if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
-    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg" || return 1
   fi
+
+  complete_task "$task_id"
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -640,7 +436,6 @@ handle_needs_human() {
   source_ref=$(extract_source_ref "$task")
 
   # 태스크 완료 (checkpoint에 모든 정보 보존됨)
-  complete_task "$task_id"
   rm -f "$BASE_DIR/state/results/${task_id}.json"
 
   local msg_id
@@ -665,7 +460,8 @@ handle_needs_human() {
     } + (if $ch != "" then {channel: $ch} else {} end)
       + (if $ts != "" then {thread_ts: $ts} else {} end)')
 
-  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
+  write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message" || return 1
+  complete_task "$task_id"
   log "[EVENT] [king] Needs human input: $task_id (completed, reply_context included)"
 }
 
@@ -680,7 +476,6 @@ handle_skipped() {
   local general
   general=$(echo "$task" | jq -r '.target_general')
 
-  complete_task "$task_id"
   local notify_ch
   notify_ch=$(echo "$result" | jq -r '.notify_channel // empty')
   local task_type
@@ -702,15 +497,17 @@ handle_skipped() {
   else
     notif_content=$(printf '⏭️ *%s* | %s\n%s' "$general" "$task_id" "$reason")
   fi
-  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref"
+  create_notification_message "$task_id" "$notif_content" "$notify_ch" "$source_ref" || return 1
 
   # Proclamation: 별도 채널 공표
   local proc_ch proc_msg
   proc_ch=$(echo "$result" | jq -r '.proclamation.channel // empty')
   proc_msg=$(echo "$result" | jq -r '.proclamation.message // empty')
   if [[ -n "$proc_ch" && -n "$proc_msg" ]]; then
-    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg"
+    create_proclamation_message "$task_id" "$proc_ch" "$proc_msg" || return 1
   fi
+
+  complete_task "$task_id"
 
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }
@@ -791,152 +588,4 @@ handle_unroutable_dm() {
 
   mv "$event_file" "$BASE_DIR/queue/events/completed/"
   log "[EVENT] [king] Unroutable DM, replied with guidance: $event_id"
-}
-
-# --- Schedule Processing ---
-
-cron_matches() {
-  local expr="$1"
-  local min hour dom mon dow
-
-  # Split cron expression into fields
-  read -r min hour dom mon dow <<< "$expr"
-
-  local now_min now_hour now_dom now_mon now_dow
-  now_min=$(date +%-M)
-  now_hour=$(date +%-H)
-  now_dom=$(date +%-d)
-  now_mon=$(date +%-m)
-  now_dow=$(date +%u)  # 1=Mon, 7=Sun
-
-  # Check each field
-  _cron_field_matches "$min" "$now_min" || return 1
-  _cron_field_matches "$hour" "$now_hour" || return 1
-  _cron_field_matches "$dom" "$now_dom" || return 1
-  _cron_field_matches "$mon" "$now_mon" || return 1
-  _cron_field_matches "$dow" "$now_dow" || return 1
-  return 0
-}
-
-_cron_field_matches() {
-  local field="$1"
-  local value="$2"
-
-  # Wildcard
-  [ "$field" = "*" ] && return 0
-
-  # Step (e.g. */10, */5)
-  if [[ "$field" == \*/* ]]; then
-    local step="${field#*/}"
-    (( value % step == 0 )) && return 0
-    return 1
-  fi
-
-  # Range (e.g. 1-5)
-  if [[ "$field" == *-* ]]; then
-    local low="${field%%-*}"
-    local high="${field##*-}"
-    [ "$value" -ge "$low" ] && [ "$value" -le "$high" ] && return 0
-    return 1
-  fi
-
-  # Exact match
-  [ "$field" = "$value" ] && return 0
-  return 1
-}
-
-already_triggered() {
-  local name="$1"
-  local now_key
-  now_key=$(date +%Y-%m-%dT%H:%M)
-  local last
-  last=$(jq -r --arg n "$name" '.[$n] // ""' "$SCHEDULE_SENT_FILE" 2>/dev/null)
-  [ "$last" = "$now_key" ]
-}
-
-mark_triggered() {
-  local name="$1"
-  local now_key
-  now_key=$(date +%Y-%m-%dT%H:%M)
-  local current
-  current=$(cat "$SCHEDULE_SENT_FILE" 2>/dev/null || echo '{}')
-  echo "$current" | jq --arg n "$name" --arg d "$now_key" '.[$n] = $d' > "$SCHEDULE_SENT_FILE"
-}
-
-dispatch_scheduled_task() {
-  local general="$1"
-  local sched_name="$2"
-  local task_type="$3"
-  local payload="$4"
-  local repo="${5:-}"
-  local task_id
-  task_id=$(next_task_id)
-
-  local repo_arg="null"
-  if [[ -n "$repo" ]]; then
-    repo_arg="\"$repo\""
-  fi
-
-  local task
-  task=$(jq -n \
-    --arg id "$task_id" \
-    --arg general "$general" \
-    --arg type "$task_type" \
-    --arg sched "$sched_name" \
-    --argjson payload "$payload" \
-    --argjson repo "$repo_arg" \
-    '{
-      id: $id,
-      event_id: ("schedule-" + $sched),
-      target_general: $general,
-      type: $type,
-      repo: $repo,
-      payload: $payload,
-      priority: "low",
-      retry_count: 0,
-      created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
-      status: "pending"
-    }')
-
-  write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task"
-
-  create_thread_start_message "$task_id" "$general" \
-    "$(jq -n --arg t "$task_type" --argjson r "$repo_arg" '{type: ("schedule." + $t), repo: $r}')"
-}
-
-check_general_schedules() {
-  local schedules
-  schedules=$(get_schedules)
-  [ -z "$schedules" ] && return 0
-
-  echo "$schedules" | while IFS= read -r entry; do
-    [ -z "$entry" ] && continue
-    local general="${entry%%|*}"
-    local sched_json="${entry#*|}"
-
-    local sched_name
-    sched_name=$(echo "$sched_json" | jq -r '.name')
-    local cron_expr
-    cron_expr=$(echo "$sched_json" | jq -r '.cron')
-
-    if cron_matches "$cron_expr" && ! already_triggered "$sched_name"; then
-      local task_type
-      task_type=$(echo "$sched_json" | jq -r '.task_type')
-      local payload
-      payload=$(echo "$sched_json" | jq '.payload')
-
-      local health
-      health=$(get_resource_health)
-      if ! can_accept_task "$health" "normal"; then
-        log "[WARN] [king] Skipping schedule '$sched_name': resource $health"
-        continue
-      fi
-
-      local repo
-      repo=$(echo "$sched_json" | jq -r '.repo // empty')
-      dispatch_scheduled_task "$general" "$sched_name" "$task_type" "$payload" "$repo"
-      mark_triggered "$sched_name"
-      log "[EVENT] [king] Scheduled task triggered: $sched_name -> $general"
-    fi
-  done
 }

@@ -44,25 +44,19 @@ github_fetch() {
   local body
   body=$(echo "$response" | sed '1,/^\r*$/d')
 
-  # notification thread IDs 저장 (post_emit에서 읽음 처리용)
-  save_state "github" "$(echo "$state" | jq --argjson ids "$(echo "$body" | jq -c '[.[].id] // []')" '.pending_read_ids = $ids')"
-
   echo "$body"
 }
 
 github_post_emit() {
-  local state
-  state=$(load_state "github")
-  local ids
-  ids=$(echo "$state" | jq -c '.pending_read_ids // []')
-  [[ "$ids" == "[]" ]] && return 0
+  local emitted_file="${1:-}"
+  [[ -n "$emitted_file" && -f "$emitted_file" ]] || return 0
 
-  echo "$ids" | jq -r '.[]' | while read -r thread_id; do
+  jq -r '.payload.notification_thread_id // empty' "$emitted_file" 2>/dev/null \
+    | sort -u \
+    | while read -r thread_id; do
+    [[ -n "$thread_id" ]] || continue
     gh api -X PATCH "/notifications/threads/${thread_id}" 2>/dev/null || true
   done
-
-  # 처리 완료 후 pending_read_ids 제거
-  save_state "github" "$(echo "$state" | jq 'del(.pending_read_ids)')"
 }
 
 github_parse() {
@@ -118,12 +112,13 @@ github_parse() {
       source: "github",
       repo: .repository.full_name,
       payload: {
+        notification_thread_id: .id,
         reason: .reason,
         subject_title: .subject.title,
         subject_url: .subject.url,
         subject_type: .subject.type,
         updated_at: .updated_at,
-        pr_number: (.subject.url | capture("/(?<num>[0-9]+)$") | .num // null)
+        pr_number: ((try (.subject.url | capture("/(?<num>[0-9]+)$") | .num)) // null)
       },
       priority: (
         if .reason == "review_requested" then "normal"

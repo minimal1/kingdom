@@ -59,6 +59,15 @@ teardown() {
   assert_output "event.detected"
 }
 
+@test "watcher-common: sentinel_emit_event does not mark seen when emit fails" {
+  emit_event() { return 1; }
+
+  local event='{"id":"evt-test-013","type":"test.event","source":"test","priority":"normal","created_at":"2026-01-01T00:00:00Z","data":{}}'
+  run sentinel_emit_event "$event"
+  assert_failure
+  assert [ ! -f "$BASE_DIR/state/sentinel/seen/evt-test-013" ]
+}
+
 # --- load_state / save_state ---
 
 @test "watcher-common: load_state returns empty obj for missing file" {

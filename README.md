@@ -285,4 +285,4 @@ kingdom/
 
 ## Status
 
-**v2.0.0** — 345개 테스트 통과. Socket Mode + sleep_or_wake + 빌트인 장군 7종.
+**v2.5.0** — 신뢰성/구조 정리 릴리스. 센티널 유실 방지, 스케줄 catch-up, Slack 중복 전송 방지, king 보조 모듈 분리.

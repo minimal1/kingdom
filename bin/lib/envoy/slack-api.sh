@@ -45,10 +45,10 @@ _outbox_send() {
   echo "$outbox_json" > "$outbox_dir/.tmp-${msg_id}.json"
   mv "$outbox_dir/.tmp-${msg_id}.json" "$outbox_dir/${msg_id}.json"
 
-  # Wait for result (100ms x 50 = 5s timeout)
+  # Wait for result (100ms x 150 = 15s timeout)
   local attempts=0
   local result_file="$results_dir/${msg_id}.json"
-  while [[ ! -f "$result_file" ]] && (( attempts < 50 )); do
+  while [[ ! -f "$result_file" ]] && (( attempts < 150 )); do
     sleep 0.1
     attempts=$((attempts + 1))
   done

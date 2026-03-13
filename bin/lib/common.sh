@@ -87,11 +87,27 @@ emit_event() {
   local event_id
   event_id=$(echo "$event_json" | jq -r '.id')
   local dir="$BASE_DIR/queue/events/pending"
-  local tmp_file="$dir/.tmp-${event_id}.json"
-  local final_file="$dir/${event_id}.json"
+  atomic_write_json_file "$dir" "${event_id}.json" "$event_json"
+}
 
-  echo "$event_json" > "$tmp_file"
-  mv "$tmp_file" "$final_file"
+atomic_write_json_file() {
+  local dir="$1"
+  local filename="$2"
+  local content="$3"
+  mkdir -p "$dir" || return 1
+
+  local tmp_file="$dir/.tmp-${filename}"
+  local final_file="$dir/${filename}"
+
+  printf '%s\n' "$content" > "$tmp_file" || {
+    rm -f "$tmp_file"
+    return 1
+  }
+
+  mv "$tmp_file" "$final_file" || {
+    rm -f "$tmp_file"
+    return 1
+  }
 }
 
 # --- Internal Event Emission ---
