@@ -108,7 +108,7 @@ generals/gen-{name}/
 
 ### Socket Mode — 실시간 Slack 연동
 
-v2.0.0부터 Slack Socket Mode를 지원한다. Node.js bridge가 WebSocket으로 Slack과 연결하여
+v2.0.0부터 Slack Socket Mode를 지원했고, v3.0.0부터는 Socket Mode 전용 구성으로 정리되었다. Node.js bridge가 WebSocket으로 Slack과 연결하여
 DM과 @멘션을 실시간으로 수신한다:
 
 ```
@@ -285,10 +285,10 @@ kingdom/
 │   └── generals/            #   설치된 장군 매니페스트
 ├── schemas/                 # JSON Schema (SSOT)
 ├── package.json             # Node.js 의존성 (Socket Mode)
-├── tests/                   # 364개 테스트
+├── tests/                   # 357개 테스트
 └── docs/                    # 문서
 ```
 
 ## Status
 
-**v2.5.0** — 신뢰성/구조 정리 릴리스. 센티널 유실 방지, 스케줄 catch-up, Slack 중복 전송 방지, `king/envoy/general` 보조 모듈 분리.
+**v3.0.0** — 구조 정리 완료 릴리스. `king/envoy/general` 모듈 분해, 파일 기반 MQ 의미론 정규화, 내부 이벤트 정비, Socket Mode 전용 전환, 역할/아키텍처 문서 재작성.
