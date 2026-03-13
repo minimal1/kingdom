@@ -14,7 +14,7 @@ mkdir -p "$BASE_DIR"/config/generals/templates
 
 mkdir -p "$BASE_DIR"/queue/events/{pending,dispatched,petitioning,completed}
 mkdir -p "$BASE_DIR"/queue/tasks/{pending,in_progress,completed}
-mkdir -p "$BASE_DIR"/queue/messages/{pending,sent}
+mkdir -p "$BASE_DIR"/queue/messages/{pending,sent,failed}
 
 mkdir -p "$BASE_DIR"/state/{king,king/petition-results,sentinel/seen,envoy,envoy/socket-inbox,envoy/outbox,envoy/outbox-results,chamberlain,results,prompts}
 mkdir -p "$BASE_DIR"/logs/{sessions,analysis}

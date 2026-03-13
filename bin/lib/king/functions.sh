@@ -60,7 +60,7 @@ process_pending_events() {
       message_text=$(echo "$event" | jq -r '.payload.text // empty')
 
       if [[ "$petition_enabled" = "true" && -n "$message_text" ]]; then
-        mv "$event_file" "$PETITIONING_DIR/"
+        move_file_to_dir "$event_file" "$PETITIONING_DIR/" || return 1
         spawn_petition "$event_id" "$message_text"
         continue
       fi
@@ -76,7 +76,7 @@ process_pending_events() {
       general=$(find_general "$event_type" 2>/dev/null || true)
       if [ -z "$general" ]; then
         log "[WARN] [king] No general for event type: $event_type, discarding: $event_id"
-        mv "$event_file" "$BASE_DIR/queue/events/completed/"
+        move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
         continue
       fi
     fi
@@ -132,7 +132,7 @@ dispatch_new_task() {
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
   create_thread_start_message "$task_id" "$general" "$event" || return 1
-  mv "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
+  move_file_to_dir "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
 
   log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"
 }
@@ -160,7 +160,7 @@ process_thread_reply() {
 
   if [[ -z "$general" ]]; then
     log "[WARN] [king] No general in reply_context, discarding: $event_id"
-    mv "$event_file" "$BASE_DIR/queue/events/completed/"
+    move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
     return 0
   fi
 
@@ -180,7 +180,7 @@ process_thread_reply() {
        created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), status: "pending" }')
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
-  mv "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
+  move_file_to_dir "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
   log "[EVENT] [king] Thread reply -> $general (task: $task_id)"
 }
 
@@ -522,11 +522,11 @@ complete_task() {
     local event_id
     event_id=$(echo "$task" | jq -r '.event_id')
 
-    mv "$task_file" "$BASE_DIR/queue/tasks/completed/"
+    move_file_to_dir "$task_file" "$BASE_DIR/queue/tasks/completed/" || return 1
 
     local event_file="$BASE_DIR/queue/events/dispatched/${event_id}.json"
     if [ -f "$event_file" ]; then
-      mv "$event_file" "$BASE_DIR/queue/events/completed/"
+      move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
     fi
   fi
 }
@@ -558,7 +558,7 @@ handle_direct_response() {
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   fi
 
-  mv "$event_file" "$BASE_DIR/queue/events/completed/"
+  move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
   log "[EVENT] [king] Petition direct response for: $event_id"
 }
 
@@ -586,6 +586,6 @@ handle_unroutable_dm() {
     write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message"
   fi
 
-  mv "$event_file" "$BASE_DIR/queue/events/completed/"
+  move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
   log "[EVENT] [king] Unroutable DM, replied with guidance: $event_id"
 }

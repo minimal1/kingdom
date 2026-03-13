@@ -8,21 +8,19 @@ report_to_king() {
   local raw_result="$4"
 
   local result_file="$BASE_DIR/state/results/${task_id}.json"
-  local tmp_file="${result_file}.tmp"
 
   if [ -n "$raw_result" ] && [ "$raw_result" != "" ]; then
-    echo "$raw_result" | jq --arg s "$status" --arg tid "$task_id" '.status = $s | .task_id = $tid' > "$tmp_file"
+    raw_result=$(echo "$raw_result" | jq --arg s "$status" --arg tid "$task_id" '.status = $s | .task_id = $tid')
   else
-    jq -n \
+    raw_result=$(jq -n \
       --arg task_id "$task_id" \
       --arg status "$status" \
       --arg summary "$summary" \
       --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '{task_id: $task_id, status: $status, summary: $summary, completed_at: $ts}' \
-      > "$tmp_file"
+      '{task_id: $task_id, status: $status, summary: $summary, completed_at: $ts}')
   fi
 
-  mv "$tmp_file" "$result_file"
+  write_state_json "$result_file" "$raw_result" || return 1
   log "[EVENT] [$GENERAL_DOMAIN] Reported to king: $task_id ($status)"
 }
 
@@ -52,13 +50,10 @@ escalate_to_king() {
     > "$checkpoint_file"
 
   local result_file="$BASE_DIR/state/results/${task_id}.json"
-  local tmp_file="${result_file}.tmp"
-
-  echo "$result" | jq \
+  result=$(echo "$result" | jq \
     --arg cp "$checkpoint_file" \
-    '.status = "needs_human" | .checkpoint_path = $cp' \
-    > "$tmp_file"
-  mv "$tmp_file" "$result_file"
+    '.status = "needs_human" | .checkpoint_path = $cp')
+  write_state_json "$result_file" "$result" || return 1
 
   log "[EVENT] [$GENERAL_DOMAIN] Escalated to king: $task_id (needs_human)"
 }

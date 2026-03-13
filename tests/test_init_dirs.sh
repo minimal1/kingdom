@@ -34,6 +34,7 @@ teardown() {
   assert_success
   assert [ -d "$BASE_DIR/queue/messages/pending" ]
   assert [ -d "$BASE_DIR/queue/messages/sent" ]
+  assert [ -d "$BASE_DIR/queue/messages/failed" ]
 }
 
 @test "init-dirs: creates state directories" {

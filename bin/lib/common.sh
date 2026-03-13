@@ -110,6 +110,21 @@ atomic_write_json_file() {
   }
 }
 
+write_state_json() {
+  local file_path="$1"
+  local content="$2"
+  local dir
+  dir=$(dirname "$file_path")
+  atomic_write_json_file "$dir" "$(basename "$file_path")" "$content"
+}
+
+move_file_to_dir() {
+  local file_path="$1"
+  local target_dir="$2"
+  mkdir -p "$target_dir" || return 1
+  mv "$file_path" "$target_dir/"
+}
+
 # --- Internal Event Emission ---
 
 emit_internal_event() {
