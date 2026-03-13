@@ -119,11 +119,36 @@ envoy:
   description: "Slack 양방향 소통 전담 — Socket Mode (bridge.js) + 아웃바운드 메시지 + 사람 응답 수집"
   entry_point: "bin/envoy.sh"
   key_files:
+    - path: "bin/lib/envoy/bridge-lifecycle.sh"
+      description: "Socket Mode bridge 프로세스 생명주기 관리"
+      functions:
+        - "start_bridge(), stop_bridge(), check_bridge_health()"
     - path: "bin/lib/envoy/bridge.js"
       description: "Socket Mode WebSocket 브릿지 (Node.js) — 인바운드 수신 + 아웃바운드 Web API 호출"
       functions:
         - "Inbound: message/app_mention/thread_reply → socket-inbox/ 파일 생성"
         - "Outbound: outbox/ 파일 감시 → Web API 호출 → outbox-results/ 기록"
+    - path: "bin/lib/envoy/message-processors.sh"
+      description: "아웃바운드 메시지 타입별 처리"
+      functions:
+        - "update_source_reactions(msg, final_emoji)"
+        - "process_thread_start(), process_thread_update(), process_thread_reply_msg()"
+        - "process_human_input_request(), process_notification(), process_report()"
+    - path: "bin/lib/envoy/outbound.sh"
+      description: "queue/messages/pending/ 소비 및 retry/archive 처리"
+      functions:
+        - "process_outbound_queue()"
+    - path: "bin/lib/envoy/socket-inbox.sh"
+      description: "Socket Mode 인바운드 파일 처리"
+      functions:
+        - "emit_socket_message_event(), emit_thread_reply_event()"
+        - "check_socket_inbox()"
+    - path: "bin/lib/envoy/legacy-inbox.sh"
+      description: "레거시 polling 기반 인바운드 처리"
+      functions:
+        - "resolve_history_channel()"
+        - "check_channel_messages(), check_awaiting_responses(), check_conversation_threads()"
+        - "expire_conversations()"
     - path: "bin/lib/envoy/slack-api.sh"
       description: "Slack API 래퍼 — Socket Mode 시 outbox 기반, 레거시 시 curl 직접"
       functions:
@@ -142,11 +167,6 @@ envoy:
         - "save_conversation_thread(), get_conversation_thread(), update_conversation_thread(), remove_conversation_thread()"
   dependencies:
     - common
-  entry_functions:
-    - "start_bridge(), stop_bridge(), check_bridge_health() — bridge.js 생명주기"
-    - "check_socket_inbox() — socket-inbox/ 파일 처리 (message/app_mention/thread_reply)"
-    - "expire_conversations() — conversation-threads.json TTL 만료 정리"
-    - "update_source_reactions(msg, final_emoji) — source_ref 기반 원본 DM 리액션 업데이트"
   data_flow: "Socket Mode WebSocket → socket-inbox/ → 이벤트 emit | queue/messages/pending/ → outbox/ → bridge.js → Slack API → outbox-results/ → sent/ | failed/"
   message_types:
     - "thread_start    — 작업 시작 (스레드 생성)"
@@ -235,17 +255,34 @@ general:
   entry_point: "bin/generals/gen-{name}.sh (install-general.sh가 자동 생성)"
   key_files:
     - path: "bin/lib/general/common.sh"
-      description: "장군 공통 함수 — 태스크 선택, 워크스페이스, 메모리, 병사 관리"
+      description: "장군 공통 entrypoint — 보조 모듈 source"
+    - path: "bin/lib/general/task-selection.sh"
+      description: "장군 태스크 선택"
       functions:
         - "pick_next_task()"
+    - path: "bin/lib/general/workspace.sh"
+      description: "워크스페이스 및 에이전트 동기화"
+      functions:
         - "ensure_workspace()"
         - "sync_general_agents()  — 장군 에이전트 파일을 작업 디렉토리에 복사"
+    - path: "bin/lib/general/memory.sh"
+      description: "도메인/레포 메모리 로드 및 갱신"
+      functions:
         - "load_domain_memory(), load_repo_memory()"
         - "update_memory()"
+    - path: "bin/lib/general/soldier-lifecycle.sh"
+      description: "병사 실행 및 대기"
+      functions:
         - "spawn_soldier()"
         - "wait_for_soldier()"
+    - path: "bin/lib/general/results.sh"
+      description: "왕에게 결과 보고 / needs_human escalate"
+      functions:
         - "report_to_king()"
         - "escalate_to_king()"
+    - path: "bin/lib/general/main-loop.sh"
+      description: "장군 메인 루프"
+      functions:
         - "main_loop()"
     - path: "bin/lib/general/prompt-builder.sh"
       description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md로 자동 로드)"

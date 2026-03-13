@@ -216,6 +216,12 @@ EOF
   rm -rf "$plugin_pkg"
 }
 
+@test "install: gen-catchup package fails while TODO placeholders remain" {
+  run env KINGDOM_BASE_DIR="$BASE_DIR" "${BATS_TEST_DIRNAME}/../generals/gen-catchup/install.sh"
+  assert_failure
+  assert_output --partial "still contains TODO placeholders"
+}
+
 # --- uninstall-general.sh ---
 
 @test "uninstall: removes definition files" {

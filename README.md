@@ -260,9 +260,15 @@ kingdom/
 │   ├── generals/            #   장군 엔트리포인트
 │   └── lib/                 #   공유 라이브러리
 │       ├── common.sh            # 공통 (로깅, 설정, sleep_or_wake)
-│       ├── king/functions.sh    # 왕 함수 (테스트 가능)
+│       ├── king/functions.sh    # 왕 오케스트레이션
+│       ├── king/messages.sh     # 왕 메시지/시퀀스 보조
+│       ├── king/schedules.sh    # 왕 스케줄 보조
 │       ├── envoy/bridge.js      # Socket Mode 브릿지 (Node.js)
+│       ├── envoy/message-processors.sh # 메시지 타입별 처리
+│       ├── envoy/socket-inbox.sh # Socket Mode 인바운드 처리
 │       ├── envoy/slack-api.sh   # Slack API (outbox/curl 이중 디스패치)
+│       ├── general/common.sh    # 장군 공통 진입점
+│       ├── general/main-loop.sh # 장군 메인 루프
 │       ├── general/prompt-builder.sh  # Soul + 프롬프트 조립
 │       └── ...
 ├── generals/                # 장군 패키지 (소스, 7종)
@@ -279,10 +285,10 @@ kingdom/
 │   └── generals/            #   설치된 장군 매니페스트
 ├── schemas/                 # JSON Schema (SSOT)
 ├── package.json             # Node.js 의존성 (Socket Mode)
-├── tests/                   # 313개 테스트
+├── tests/                   # 364개 테스트
 └── docs/                    # 문서
 ```
 
 ## Status
 
-**v2.5.0** — 신뢰성/구조 정리 릴리스. 센티널 유실 방지, 스케줄 catch-up, Slack 중복 전송 방지, king 보조 모듈 분리.
+**v2.5.0** — 신뢰성/구조 정리 릴리스. 센티널 유실 방지, 스케줄 catch-up, Slack 중복 전송 방지, `king/envoy/general` 보조 모듈 분리.
