@@ -110,7 +110,8 @@ pending → in_progress → completed
 ```
 queue/messages/
 ├── pending/         # 발송 대기
-└── sent/            # 발송 완료
+├── sent/            # 발송 완료
+└── failed/          # 최대 재시도 초과로 격리
 ```
 
 ### 메시지 스키마
@@ -123,7 +124,7 @@ queue/messages/
   "content": "사람이 읽을 메시지",
   "context": { },
   "created_at": "ISO8601",
-  "status": "pending | sent"
+  "status": "pending | sent | failed"
 }
 ```
 
@@ -208,3 +209,4 @@ proclamation task_id = "proclamation-{원래_task_id}"
 1. **Write-then-Rename**: 임시 파일에 쓴 후 `mv`로 이동 (원자적)
 2. **단일 소비자**: 각 큐는 하나의 역할만 소비 (events→왕, tasks→해당 장군)
 3. **상태 변경 = 디렉토리 이동**: `mv pending/file.json dispatched/file.json`
+4. **결과 파일도 원자 쓰기**: `state/results/*.json` 역시 tmp write 후 rename

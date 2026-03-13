@@ -29,7 +29,7 @@
 │   │   └── gen-briefing.sh
 │   │
 │   └── lib/                          # 공통 라이브러리
-│       ├── common.sh                 # 공통 함수 (log, get_config, update_heartbeat, start_heartbeat_daemon, stop_heartbeat_daemon, emit_event, emit_internal_event)
+│       ├── common.sh                 # 공통 함수 (log, get_config, queue/state write helpers, heartbeat, 내부 이벤트)
 │       ├── sentinel/
 │       │   ├── watcher-common.sh
 │       │   ├── github-watcher.sh
@@ -39,11 +39,23 @@
 │       │   └── resource-check.sh
 │       ├── general/
 │       │   ├── common.sh
+│       │   ├── task-selection.sh
+│       │   ├── workspace.sh
+│       │   ├── memory.sh
+│       │   ├── soldier-lifecycle.sh
+│       │   ├── results.sh
+│       │   ├── main-loop.sh
 │       │   └── prompt-builder.sh
 │       ├── soldier/                  # (현재 빈 디렉토리 — 향후 확장용)
 │       ├── envoy/
-│       │   ├── slack-api.sh              # Slack API 공통 함수
-│       │   └── thread-manager.sh         # 스레드 매핑, awaiting 관리
+│       │   ├── bridge-lifecycle.sh
+│       │   ├── bridge.js
+│       │   ├── slack-api.sh
+│       │   ├── message-processors.sh
+│       │   ├── outbound.sh
+│       │   ├── socket-inbox.sh
+│       │   ├── legacy-inbox.sh
+│       │   └── thread-manager.sh
 │       └── chamberlain/
 │           ├── metrics-collector.sh
 │           ├── session-checker.sh
@@ -77,7 +89,8 @@
 │   │   └── completed/
 │   └── messages/                     # 왕/장군/내관 → 사절
 │       ├── pending/
-│       └── sent/
+│       ├── sent/
+│       └── failed/
 │
 ├── state/                            # 상태 저장소
 │   ├── resources.json                # 현재 리소스 (내관 갱신)
@@ -103,7 +116,12 @@
 │   ├── envoy/                        # 사절 상태
 │   │   ├── heartbeat                 # 생존 확인
 │   │   ├── thread-mappings.json      # task_id ↔ thread_ts 매핑
-│   │   └── awaiting-responses.json   # needs_human 응답 대기 스레드 목록
+│   │   ├── awaiting-responses.json   # needs_human 응답 대기 스레드 목록
+│   │   ├── conversation-threads.json # 멀티턴 대화 스레드 추적
+│   │   ├── socket-inbox/             # Socket Mode 인바운드 이벤트
+│   │   ├── outbox/                   # Socket Mode 아웃바운드 요청
+│   │   ├── outbox-results/           # Socket Mode 아웃바운드 결과
+│   │   └── bridge-health             # bridge.js 생존 확인
 │   └── chamberlain/                  # 내관 상태
 │       ├── events-offset             # events.log 마지막 읽은 라인 번호 (커서)
 │       ├── daily-cleanup             # 만료 파일 정리 마지막 실행일

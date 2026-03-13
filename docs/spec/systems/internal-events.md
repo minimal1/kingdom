@@ -60,7 +60,15 @@ emit_internal_event() {
 
 ### 구현 상태
 
-> **주의**: 현재 구현에서는 `system.*`, `recovery.*` 카테고리만 실제로 `emit_internal_event()`를 호출한다. `event.*`, `task.*`, `soldier.*`, `message.*` 카테고리는 설계 단계이며, 해당 역할에서 `log()` 호출로 텍스트 로깅만 수행 중이다. 향후 각 역할에 `emit_internal_event()` 호출을 추가하여 내관의 메트릭 집계와 이상 감지를 활성화할 예정이다.
+현재 구현은 다음 범주의 내부 이벤트를 실제로 발행한다.
+
+- `event.*`: 센티널 감지, 왕의 dispatch/discard
+- `task.*`: 왕의 task 생성/완료/실패/needs_human, 장군의 task 시작
+- `soldier.*`: 장군의 spawn/timeout/killed, 내관의 orphan cleanup
+- `message.*`: 사절의 Slack 발송
+- `system.*`, `recovery.*`: 내관 중심
+
+일부 오래된 텍스트 로그는 여전히 병행 사용되지만, 메트릭과 이상 감지의 기준은 점진적으로 내부 이벤트로 옮기는 중이다.
 
 ---
 

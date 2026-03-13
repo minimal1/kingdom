@@ -40,6 +40,8 @@ spawn_soldier() {
   local soldier_id
   soldier_id=$(cat "$BASE_DIR/state/results/${task_id}-soldier-id" 2>/dev/null)
   if [ -n "$soldier_id" ]; then
+    emit_internal_event "soldier.spawned" "$GENERAL_DOMAIN" \
+      "$(jq -n -c --arg tid "$task_id" --arg sid "$soldier_id" '{task_id: $tid, soldier_id: $sid}')"
     local session_entry
     session_entry=$(jq -n \
       --arg id "$soldier_id" \
@@ -114,8 +116,14 @@ wait_for_soldier() {
     if (( waited < timeout )); then
       result_status="killed"
       reason="Soldier session died after ${waited} seconds"
+      emit_internal_event "soldier.killed" "$GENERAL_DOMAIN" \
+        "$(jq -n -c --arg tid "$task_id" --arg sid "$soldier_id" --arg rs "$reason" \
+          '{task_id: $tid, soldier_id: $sid, reason: $rs}')"
     else
       log "[ERROR] [$GENERAL_DOMAIN] Soldier timeout: $task_id (>${waited}s)"
+      emit_internal_event "soldier.timeout" "$GENERAL_DOMAIN" \
+        "$(jq -n -c --arg tid "$task_id" --arg sid "$soldier_id" --argjson to "$waited" \
+          '{task_id: $tid, soldier_id: $sid, timeout_seconds: $to}')"
     fi
 
     if [ -n "$soldier_id" ] && tmux has-session -t "$soldier_id" 2>/dev/null; then

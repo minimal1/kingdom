@@ -28,6 +28,8 @@ main_loop() {
 
     mv "$task_file" "$BASE_DIR/queue/tasks/in_progress/${task_id}.json"
     log "[EVENT] [$GENERAL_DOMAIN] Task claimed: $task_id"
+    emit_internal_event "task.started" "$GENERAL_DOMAIN" \
+      "$(jq -n -c --arg tid "$task_id" '{task_id: $tid}')"
 
     local repo
     repo=$(echo "$task" | jq -r '.repo // empty')

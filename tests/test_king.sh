@@ -102,6 +102,8 @@ EOF
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)
   run jq -r '.target_general' "$task_file"
   assert_output "gen-pr"
+  run grep '"type":"event.dispatched"' "$BASE_DIR/logs/events.log"
+  assert_success
 }
 
 @test "king: process_pending_events creates thread_start message" {
@@ -277,6 +279,9 @@ EOF
 
   assert [ ! -f "$BASE_DIR/queue/tasks/in_progress/task-20260210-002.json" ]
   assert [ -f "$BASE_DIR/queue/tasks/completed/task-20260210-002.json" ]
+
+  run grep '"type":"task.failed"' "$BASE_DIR/logs/events.log"
+  assert_success
 
   local msg_file
   msg_file=$(ls "$BASE_DIR/queue/messages/pending/"*.json | head -1)

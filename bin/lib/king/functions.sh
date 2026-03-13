@@ -76,6 +76,9 @@ process_pending_events() {
       general=$(find_general "$event_type" 2>/dev/null || true)
       if [ -z "$general" ]; then
         log "[WARN] [king] No general for event type: $event_type, discarding: $event_id"
+        emit_internal_event "event.discarded" "king" \
+          "$(jq -n -c --arg eid "$event_id" --arg et "$event_type" --arg reason "no_general" \
+            '{event_id: $eid, event_type: $et, reason: $reason}')"
         move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
         continue
       fi
@@ -133,6 +136,12 @@ dispatch_new_task() {
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
   create_thread_start_message "$task_id" "$general" "$event" || return 1
   move_file_to_dir "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
+  emit_internal_event "event.dispatched" "king" \
+    "$(jq -n -c --arg eid "$event_id" --arg tid "$task_id" --arg tg "$general" \
+      '{event_id: $eid, task_id: $tid, target_general: $tg}')"
+  emit_internal_event "task.created" "king" \
+    "$(jq -n -c --arg tid "$task_id" --arg et "$event_type" --arg tg "$general" --arg p "$priority" \
+      '{task_id: $tid, event_type: $et, target_general: $tg, priority: $p}')"
 
   log "[EVENT] [king] Dispatched: $event_id -> $general (task: $task_id)"
 }
@@ -181,6 +190,9 @@ process_thread_reply() {
 
   write_to_queue "$BASE_DIR/queue/tasks/pending" "$task_id" "$task" || return 1
   move_file_to_dir "$event_file" "$BASE_DIR/queue/events/dispatched/" || return 1
+  emit_internal_event "task.resumed" "king" \
+    "$(jq -n -c --arg tid "$task_id" --arg oid "$event_id" \
+      '{task_id: $tid, original_task_id: $oid}')"
   log "[EVENT] [king] Thread reply -> $general (task: $task_id)"
 }
 
@@ -311,6 +323,8 @@ handle_success() {
   fi
 
   complete_task "$task_id"
+  emit_internal_event "task.completed" "$general" \
+    "$(jq -n -c --arg tid "$task_id" --arg st "success" '{task_id: $tid, status: $st}')"
 
   log "[EVENT] [king] Task completed: $task_id"
 }
@@ -358,6 +372,8 @@ handle_failure() {
   fi
 
   complete_task "$task_id"
+  emit_internal_event "task.failed" "$general" \
+    "$(jq -n -c --arg tid "$task_id" --arg err "$error" '{task_id: $tid, error: $err}')"
 
   log "[ERROR] [king] Task failed permanently: $task_id — $error"
 }
@@ -462,6 +478,8 @@ handle_needs_human() {
 
   write_to_queue "$BASE_DIR/queue/messages/pending" "$msg_id" "$message" || return 1
   complete_task "$task_id"
+  emit_internal_event "task.needs_human" "$general" \
+    "$(jq -n -c --arg tid "$task_id" --arg q "$question" '{task_id: $tid, question: $q}')"
   log "[EVENT] [king] Needs human input: $task_id (completed, reply_context included)"
 }
 
@@ -508,6 +526,9 @@ handle_skipped() {
   fi
 
   complete_task "$task_id"
+  emit_internal_event "task.completed" "$general" \
+    "$(jq -n -c --arg tid "$task_id" --arg st "skipped" --arg rs "$reason" \
+      '{task_id: $tid, status: $st, reason: $rs}')"
 
   log "[EVENT] [king] Task skipped: $task_id — $reason"
 }

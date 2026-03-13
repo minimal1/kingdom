@@ -311,6 +311,8 @@ EOF
   local soldier_id
   soldier_id=$(cat "$BASE_DIR/state/results/task-008-soldier-id")
   [[ "$soldier_id" == soldier-* ]]
+  run grep '"type":"soldier.spawned"' "$BASE_DIR/logs/events.log"
+  assert_success
 }
 
 # --- wait_for_soldier ---
