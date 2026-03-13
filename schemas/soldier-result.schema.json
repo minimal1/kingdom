@@ -6,6 +6,24 @@
   "type": "object",
   "required": ["task_id", "status", "summary"],
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": { "required": ["error"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "killed" } } },
+      "then": { "required": ["error"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "needs_human" } } },
+      "then": { "required": ["question"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "skipped" } } },
+      "then": { "required": ["reason"] }
+    }
+  ],
   "properties": {
     "task_id": { "type": "string", "pattern": "^task-[0-9]{8}-[0-9]{3}$" },
     "status": { "enum": ["success", "failed", "killed", "needs_human", "skipped"] },
