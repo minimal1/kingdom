@@ -22,7 +22,17 @@ build_prompt() {
   fi
 
   # --- Task Prompt (template) ---
+  # Action-based template branching: payload.action → {general}-{action}.md
+  local action
+  action=$(echo "$payload" | jq -r '.action // ""')
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
+  if [ -n "$action" ]; then
+    local action_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${action}.md"
+    if [ -f "$action_template" ]; then
+      template="$action_template"
+      log "[SYSTEM] [$GENERAL_DOMAIN] Using action template: ${GENERAL_DOMAIN}-${action}.md"
+    fi
+  fi
   if [ ! -f "$template" ]; then
     log "[WARN] [$GENERAL_DOMAIN] Template not found: $template, using default"
     template="$BASE_DIR/config/generals/templates/default.md"

@@ -114,3 +114,38 @@ teardown() {
   # Should use default.md template
   [[ "$result" == *"task-009"* ]]
 }
+
+# --- Action-based template branching ---
+
+@test "prompt-builder: build_prompt uses action template when payload.action exists" {
+  echo '# Default PR template' > "$BASE_DIR/config/generals/templates/gen-pr.md"
+  echo '# Refresh rules for {{REPO}}' > "$BASE_DIR/config/generals/templates/gen-pr-refresh_rules.md"
+
+  local task='{"id":"task-010","type":"refresh_rules","repo":"chequer/qp","payload":{"action":"refresh_rules"}}'
+
+  local result
+  result=$(build_prompt "$task" "" "")
+  [[ "$result" == *"Refresh rules"* ]]
+  [[ "$result" != *"Default PR template"* ]]
+}
+
+@test "prompt-builder: build_prompt falls back to default when action template missing" {
+  echo '# Default PR template {{TASK_ID}}' > "$BASE_DIR/config/generals/templates/gen-pr.md"
+  rm -f "$BASE_DIR/config/generals/templates/gen-pr-nonexistent.md"
+
+  local task='{"id":"task-011","type":"test","repo":"","payload":{"action":"nonexistent"}}'
+
+  local result
+  result=$(build_prompt "$task" "" "")
+  [[ "$result" == *"Default PR template"* ]]
+}
+
+@test "prompt-builder: build_prompt ignores empty action" {
+  echo '# Default PR template {{TASK_ID}}' > "$BASE_DIR/config/generals/templates/gen-pr.md"
+
+  local task='{"id":"task-012","type":"test","repo":"","payload":{"action":""}}'
+
+  local result
+  result=$(build_prompt "$task" "" "")
+  [[ "$result" == *"Default PR template"* ]]
+}

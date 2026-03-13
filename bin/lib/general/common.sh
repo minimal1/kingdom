@@ -118,6 +118,19 @@ ensure_workspace() {
   fi
 }
 
+# --- Agent Sync ---
+
+sync_general_agents() {
+  local general="$1"
+  local work_dir="$2"
+  local agents_src="$BASE_DIR/config/generals/agents/${general}"
+
+  if [ -d "$agents_src" ]; then
+    mkdir -p "$work_dir/.claude/agents"
+    cp "$agents_src"/*.md "$work_dir/.claude/agents/" 2>/dev/null || true
+  fi
+}
+
 # --- Memory ---
 
 load_domain_memory() {
@@ -421,6 +434,9 @@ main_loop() {
         continue
       }
     fi
+
+    # Sync agent files to workspace (for Agent tool discovery)
+    sync_general_agents "$GENERAL_DOMAIN" "$work_dir"
 
     local prompt_file="$BASE_DIR/state/prompts/${task_id}.md"
 

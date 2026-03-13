@@ -85,56 +85,72 @@ EOF
 # --- ensure_workspace ---
 
 @test "general: ensure_workspace creates directory" {
-  # Setup global settings with plugin enabled
-  mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":{"friday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
-
   local result
   result=$(ensure_workspace "gen-pr" "")
   assert [ -d "$BASE_DIR/workspace/gen-pr" ]
 }
 
 @test "general: ensure_workspace validates plugin enabled globally" {
-  mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":{"friday@qp-plugin":true,"sunday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
-
-  run ensure_workspace "gen-pr" ""
-  assert_success
-}
-
-@test "general: ensure_workspace fails when plugin not enabled" {
-  mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":{"other-plugin@some-marketplace":true}}' > "$HOME/.claude/settings.json"
-
-  run ensure_workspace "gen-pr" ""
-  assert_failure
-}
-
-@test "general: ensure_workspace skips validation without cc_plugins" {
-  # Use a manifest without cc_plugins
-  cat > "$BASE_DIR/config/generals/gen-noplugin.yaml" << 'EOF'
-name: gen-noplugin
-description: "No plugin general"
+  # Create a manifest with cc_plugins for plugin validation tests
+  cat > "$BASE_DIR/config/generals/gen-withplugin.yaml" << 'EOF'
+name: gen-withplugin
+description: "General with plugin dependency"
+cc_plugins:
+  - friday@qp-plugin
 subscribes: []
 schedules: []
 EOF
 
-  run ensure_workspace "gen-noplugin" ""
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":{"friday@qp-plugin":true,"sunday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
+
+  run ensure_workspace "gen-withplugin" ""
+  assert_success
+}
+
+@test "general: ensure_workspace fails when plugin not enabled" {
+  cat > "$BASE_DIR/config/generals/gen-withplugin.yaml" << 'EOF'
+name: gen-withplugin
+description: "General with plugin dependency"
+cc_plugins:
+  - friday@qp-plugin
+subscribes: []
+schedules: []
+EOF
+
+  mkdir -p "$HOME/.claude"
+  echo '{"enabledPlugins":{"other-plugin@some-marketplace":true}}' > "$HOME/.claude/settings.json"
+
+  run ensure_workspace "gen-withplugin" ""
+  assert_failure
+}
+
+@test "general: ensure_workspace skips validation without cc_plugins" {
+  # gen-pr now has no cc_plugins, should succeed without settings.json
+  rm -f "$HOME/.claude/settings.json"
+
+  run ensure_workspace "gen-pr" ""
   assert_success
 }
 
 @test "general: ensure_workspace fails when settings.json missing" {
+  cat > "$BASE_DIR/config/generals/gen-withplugin.yaml" << 'EOF'
+name: gen-withplugin
+description: "General with plugin dependency"
+cc_plugins:
+  - friday@qp-plugin
+subscribes: []
+schedules: []
+EOF
+
   # Ensure no settings.json exists
   rm -f "$HOME/.claude/settings.json"
 
-  run ensure_workspace "gen-pr" ""
+  run ensure_workspace "gen-withplugin" ""
   assert_failure
 }
 
 @test "general: ensure_workspace clones repo" {
-  mkdir -p "$HOME/.claude"
-  echo '{"enabledPlugins":{"friday@qp-plugin":true}}' > "$HOME/.claude/settings.json"
-
   local result
   result=$(ensure_workspace "gen-pr" "chequer/frontend")
 
@@ -320,4 +336,29 @@ EOF
   assert_output "failed"
   run jq -r '.error' "$raw_file"
   assert_output --partial "Timeout"
+}
+
+# --- sync_general_agents ---
+
+@test "general: sync_general_agents copies agent files to workspace" {
+  local work_dir="$BASE_DIR/workspace/gen-pr/testrepo"
+  mkdir -p "$work_dir"
+  mkdir -p "$BASE_DIR/config/generals/agents/gen-pr"
+  echo "# meta-reviewer agent" > "$BASE_DIR/config/generals/agents/gen-pr/meta-reviewer.md"
+
+  sync_general_agents "gen-pr" "$work_dir"
+
+  assert [ -f "$work_dir/.claude/agents/meta-reviewer.md" ]
+  run cat "$work_dir/.claude/agents/meta-reviewer.md"
+  assert_output "# meta-reviewer agent"
+}
+
+@test "general: sync_general_agents skips when no agents directory" {
+  local work_dir="$BASE_DIR/workspace/gen-briefing/testrepo"
+  mkdir -p "$work_dir"
+
+  # Should not fail even when agents dir doesn't exist
+  run sync_general_agents "gen-briefing" "$work_dir"
+  assert_success
+  assert [ ! -d "$work_dir/.claude/agents" ]
 }

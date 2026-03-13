@@ -233,6 +233,7 @@ general:
       functions:
         - "pick_next_task()"
         - "ensure_workspace()"
+        - "sync_general_agents()  — 장군 에이전트 파일을 작업 디렉토리에 복사"
         - "load_domain_memory(), load_repo_memory()"
         - "update_memory()"
         - "spawn_soldier()"
@@ -243,7 +244,7 @@ general:
     - path: "bin/lib/general/prompt-builder.sh"
       description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md로 자동 로드)"
       functions:
-        - "build_prompt()  — {{TASK_ID}}, {{TASK_TYPE}}, {{REPO}}, {{REPO_DIR}}, {{payload.*}} 치환"
+        - "build_prompt()  — {{TASK_ID}}, {{TASK_TYPE}}, {{REPO}}, {{REPO_DIR}}, {{payload.*}} 치환, action별 템플릿 분기"
         - "check_prompt_size()  — 200KB 가드"
     - path: "bin/spawn-soldier.sh"
       description: "tmux 세션 생성 → claude -p 실행 → 결과 대기"
@@ -333,12 +334,14 @@ general_packages:
   packages:
     gen-pr:
       path: "generals/gen-pr/"
-      description: "PR 리뷰 전문 장군"
+      description: "PR 리뷰 전문 장군 — 프로젝트 규칙 기반 자립형 리뷰"
       subscribes: ["github.pr.review_requested"]
-      schedules: []
-      cc_plugins: ["friday@qp-plugin"]
+      schedules: ["refresh_rules (0 2 * * *)"]
+      cc_plugins: []
       timeout: 1800
       has_claude_md: true
+      has_agents: true  # agents/meta-reviewer.md
+      has_multi_templates: true  # prompts/refresh-rules.md → gen-pr-refresh_rules.md
     gen-briefing:
       path: "generals/gen-briefing/"
       description: "시스템 상태 브리핑 장군 (F.R.I.D.A.Y. 성격)"

@@ -5,29 +5,32 @@ set -euo pipefail
 KINGDOM_BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
 PACKAGE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# --- CC Plugin 설치: friday@qp-plugin ---
-if command -v claude &>/dev/null; then
-  SETTINGS="$HOME/.claude/settings.json"
-  MARKETPLACES="$HOME/.claude/plugins/known_marketplaces.json"
+# --- 멀티 템플릿 복사 (install-general.sh 호출 전에 추가 템플릿 준비) ---
+# install-general.sh가 기본 템플릿(prompt.md → gen-pr.md)을 복사하므로
+# 여기서는 추가 템플릿만 처리
 
-  # qp-plugin 마켓플레이스 등록
-  if [ ! -f "$MARKETPLACES" ] || ! jq -e '.["qp-plugin"]' "$MARKETPLACES" &>/dev/null; then
-    echo "Adding qp-plugin marketplace..."
-    claude plugin marketplace add eddy-jeon/qp-plugin
+_post_install() {
+  local template_dir="$KINGDOM_BASE_DIR/config/generals/templates"
+
+  # action 템플릿: refresh_rules
+  if [ -f "$PACKAGE_DIR/prompts/refresh-rules.md" ]; then
+    cp "$PACKAGE_DIR/prompts/refresh-rules.md" "$template_dir/gen-pr-refresh_rules.md"
+    echo "  Template:  config/generals/templates/gen-pr-refresh_rules.md"
   fi
 
-  # friday 플러그인 설치
-  if [ ! -f "$SETTINGS" ] || ! jq -e '.enabledPlugins["friday@qp-plugin"]' "$SETTINGS" &>/dev/null; then
-    echo "Installing friday plugin..."
-    claude plugin install friday@qp-plugin
-  else
-    echo "Plugin friday@qp-plugin already installed."
+  # 에이전트 복사 (런타임)
+  if [ -d "$PACKAGE_DIR/agents" ]; then
+    mkdir -p "$KINGDOM_BASE_DIR/config/generals/agents/gen-pr"
+    cp "$PACKAGE_DIR/agents/"*.md "$KINGDOM_BASE_DIR/config/generals/agents/gen-pr/" 2>/dev/null || true
+    echo "  Agents:    config/generals/agents/gen-pr/"
   fi
-else
-  echo "WARN: claude CLI not found. Install CC plugins manually:"
-  echo "  claude plugin marketplace add eddy-jeon/qp-plugin"
-  echo "  claude plugin install friday@qp-plugin"
-fi
+
+  # memory 디렉토리 초기화
+  mkdir -p "$KINGDOM_BASE_DIR/memory/generals/gen-pr"
+}
 
 # --- Kingdom에 장군 설치 ---
-exec "$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
+"$KINGDOM_BASE_DIR/bin/install-general.sh" "$PACKAGE_DIR" "$@"
+
+# --- 후처리 ---
+_post_install

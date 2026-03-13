@@ -58,7 +58,7 @@ EOF
   local schedules
   schedules=$(get_schedules)
   [ -n "$schedules" ]
-  [[ "$schedules" == gen-sched-test\|* ]]
+  echo "$schedules" | grep -q '^gen-sched-test|'
 }
 
 @test "router: schedule entries are single-line compact JSON" {

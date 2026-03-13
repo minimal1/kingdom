@@ -1,12 +1,16 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-pr
-description: "GitHub PR 코드 리뷰 전문 장군 — friday 플러그인으로 PR 분석 및 리뷰 코멘트 작성"
+description: "GitHub PR 코드 리뷰 전문 장군 — 프로젝트 규칙 기반 자립형 리뷰"
 timeout_seconds: 1800
 
-cc_plugins:
-  - friday@qp-plugin
+cc_plugins: []
 
 subscribes:
   - github.pr.review_requested
 
-schedules: []
+schedules:
+  - name: refresh-rules
+    cron: "0 2 * * *"
+    task_type: "refresh_rules"
+    payload:
+      action: "refresh_rules"

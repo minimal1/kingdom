@@ -46,20 +46,22 @@
 ```yaml
 # generals/gen-pr/manifest.yaml (install-general.sh로 설치 → config/generals/gen-pr.yaml)
 name: gen-pr
-description: "PR 리뷰 전문 장군"
+description: "GitHub PR 코드 리뷰 전문 장군 — 프로젝트 규칙 기반 자립형 리뷰"
 timeout_seconds: 1800       # 30분 — 리뷰는 읽기 + 코멘트 위주
 
-cc_plugins:
-  - friday@qp-plugin
+cc_plugins: []              # 자립형 (외부 플러그인 불필요)
 
 # 구독: 이 장군이 처리할 수 있는 이벤트 타입
 subscribes:
   - github.pr.review_requested
-  - github.pr.mentioned
-  - github.pr.assigned
 
-# 정기 작업: 외부 이벤트 없이 자체 스케줄로 실행
-schedules: []
+# 정기 작업: 리뷰 규칙 자동 갱신
+schedules:
+  - name: refresh-rules
+    cron: "0 2 * * *"
+    task_type: "refresh_rules"
+    payload:
+      action: "refresh_rules"
 ```
 
 ```yaml
