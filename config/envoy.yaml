@@ -4,13 +4,9 @@ slack:
   default_channel: "dev-eddy"
 
 socket_mode:
-  enabled: true
   app_token_env: "SLACK_APP_TOKEN"
 
 intervals:
   outbound_seconds: 5
-  thread_check_seconds: 30
   loop_tick_seconds: 5
-  channel_check_seconds: 30
-  conversation_check_seconds: 15
   conversation_ttl_seconds: 3600

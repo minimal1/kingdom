@@ -54,7 +54,6 @@
 │       │   ├── message-processors.sh
 │       │   ├── outbound.sh
 │       │   ├── socket-inbox.sh
-│       │   ├── legacy-inbox.sh
 │       │   └── thread-manager.sh
 │       └── chamberlain/
 │           ├── metrics-collector.sh

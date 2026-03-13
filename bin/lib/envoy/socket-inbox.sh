@@ -78,7 +78,7 @@ check_socket_inbox() {
             '.[] | select(.thread_ts == $tts) | .task_id' "$AWAITING_FILE" 2>/dev/null | head -1)
           if [[ -n "$awaiting_match" ]]; then
             local reply_ctx
-            reply_ctx=$(jq --arg tts "$thread_ts" \
+            reply_ctx=$(jq -c --arg tts "$thread_ts" \
               '.[] | select(.thread_ts == $tts) | .reply_context // {}' "$AWAITING_FILE" 2>/dev/null | head -1)
             [[ -z "$reply_ctx" || "$reply_ctx" == "null" ]] && reply_ctx='{}'
             emit_thread_reply_event "$text" "$channel" "$thread_ts" "$reply_ctx"
@@ -93,7 +93,7 @@ check_socket_inbox() {
           conv_match=$(jq -r --arg tts "$thread_ts" '.[$tts] // empty' "$CONV_FILE" 2>/dev/null)
           if [[ -n "$conv_match" ]]; then
             local reply_ctx
-            reply_ctx=$(echo "$conv_match" | jq '.reply_context // {}')
+            reply_ctx=$(echo "$conv_match" | jq -c '.reply_context // {}')
             emit_thread_reply_event "$text" "$channel" "$thread_ts" "$reply_ctx"
             update_conversation_thread "$thread_ts" "$ts"
             log "[EVENT] [envoy] Thread reply (conversation, socket): $thread_ts"

@@ -4,26 +4,18 @@
 BRIDGE_PID=""
 
 start_bridge() {
-  if [[ "$SOCKET_MODE_ENABLED" != "true" ]]; then
-    return 0
-  fi
-
   local app_token_env
   app_token_env=$(get_config "envoy" "socket_mode.app_token_env" "SLACK_APP_TOKEN")
   local app_token="${!app_token_env:-}"
 
   if [[ -z "$app_token" ]]; then
-    log "[ERROR] [envoy] $app_token_env not set — Socket Mode disabled"
-    SOCKET_MODE_ENABLED="false"
-    export SOCKET_MODE_ENABLED
+    log "[ERROR] [envoy] $app_token_env not set"
     return 1
   fi
 
   local bridge_script="$BASE_DIR/bin/lib/envoy/bridge.js"
   if [[ ! -f "$bridge_script" ]]; then
     log "[ERROR] [envoy] bridge.js not found: $bridge_script"
-    SOCKET_MODE_ENABLED="false"
-    export SOCKET_MODE_ENABLED
     return 1
   fi
 
@@ -44,7 +36,6 @@ stop_bridge() {
 }
 
 check_bridge_health() {
-  [[ "$SOCKET_MODE_ENABLED" != "true" ]] && return 0
   [[ -z "$BRIDGE_PID" ]] && { start_bridge; return; }
 
   if ! kill -0 "$BRIDGE_PID" 2>/dev/null; then
