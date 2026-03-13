@@ -168,14 +168,22 @@ sleep_or_wake() {
   fi
 
   local fifo="/tmp/kingdom-wake-$$.fifo"
+  rm -f "$fifo"
   mkfifo "$fifo" 2>/dev/null || { sleep "$timeout"; return; }
+
+  # Timeout guard: fswatch가 FIFO를 열기 전에 죽으면 read가 무한 블록하므로,
+  # 타임아웃 후 FIFO에 write하여 read의 open()을 언블록한다.
+  (sleep "$timeout" && echo "" > "$fifo" 2>/dev/null) &
+  local timer_pid=$!
 
   fswatch --one-event --latency 0.5 "${valid_dirs[@]}" > "$fifo" 2>/dev/null &
   local watcher_pid=$!
 
-  read -t "$timeout" < "$fifo" 2>/dev/null || true
+  read < "$fifo" 2>/dev/null || true
 
+  kill "$timer_pid" 2>/dev/null || true
   kill "$watcher_pid" 2>/dev/null || true
+  wait "$timer_pid" 2>/dev/null || true
   wait "$watcher_pid" 2>/dev/null || true
   rm -f "$fifo"
 }
