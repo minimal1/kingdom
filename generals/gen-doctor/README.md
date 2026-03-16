@@ -18,6 +18,11 @@ task-20260309-001 자세히 분석해줘
 2. `bin/doctor.sh --recent` 또는 `bin/doctor.sh <task_id> [--deep]` 실행
 3. 진단 결과를 요약하여 보고
 
+## 엔진별 자산
+
+- Claude: `prompt.md`
+- Codex: `prompt-codex.md`, `general-codex.md`
+
 ## 설치
 
 ```bash

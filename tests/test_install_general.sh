@@ -59,11 +59,13 @@ teardown() {
   mkdir -p "$TEST_PKG/agents" "$TEST_PKG/skills/demo-skill"
   echo "# agent" > "$TEST_PKG/agents/reviewer.md"
   echo "# skill" > "$TEST_PKG/skills/demo-skill/SKILL.md"
+  echo "# codex prompt" > "$TEST_PKG/prompt-codex.md"
 
   run "$BASE_DIR/bin/install-general.sh" "$TEST_PKG"
   assert_success
   assert [ -f "$BASE_DIR/config/generals/agents/gen-foo/reviewer.md" ]
   assert [ -f "$BASE_DIR/config/generals/skills/gen-foo/demo-skill/SKILL.md" ]
+  assert [ -f "$BASE_DIR/config/generals/templates/gen-foo-codex.md" ]
 }
 
 @test "install: creates runtime directories" {
