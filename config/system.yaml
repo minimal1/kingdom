@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../schemas/system.schema.json
-version: "3.0.0"
+version: "4.0.0"
 base_dir: "/opt/kingdom"
 runtime:
   engine: "claude"

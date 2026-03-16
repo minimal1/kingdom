@@ -298,10 +298,10 @@ kingdom/
 │   └── generals/            #   설치된 장군 매니페스트
 ├── schemas/                 # JSON Schema (SSOT)
 ├── package.json             # Node.js 의존성 (Socket Mode)
-├── tests/                   # 357개 테스트
+├── tests/                   # 362개 테스트
 └── docs/                    # 문서
 ```
 
 ## Status
 
-**v3.0.0** — 구조 정리 완료 릴리스. `king/envoy/general` 모듈 분해, 파일 기반 MQ 의미론 정규화, 내부 이벤트 정비, Socket Mode 전용 전환, 역할/아키텍처 문서 재작성.
+**v4.0.0** — 멀티 엔진 런타임 릴리스. `claude`/`codex` 병행 지원, `AGENTS.md`/skills/agents 포팅, runtime engine 추상화, Socket Mode 전용 Slack 경로 유지.
