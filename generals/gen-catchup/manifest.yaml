@@ -5,6 +5,9 @@ timeout_seconds: 900
 
 cc_plugins: []
 
+supported_engines:
+  - claude
+
 subscribes: []
 
 schedules:

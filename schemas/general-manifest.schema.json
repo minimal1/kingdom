@@ -33,6 +33,16 @@
         "examples": ["friday@qp-plugin", "sunday", "saturday"]
       }
     },
+    "supported_engines": {
+      "type": "array",
+      "description": "이 장군이 지원하는 실행 엔진 목록",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["claude", "codex"]
+      },
+      "examples": [["claude"], ["claude", "codex"]]
+    },
     "default_repo": {
       "type": "string",
       "description": "이벤트에 repo 정보가 없을 때 사용할 기본 레포 (owner/repo 형식). 지정 시 prepare_workspace에서 자동 clone",

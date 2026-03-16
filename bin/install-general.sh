@@ -63,11 +63,13 @@ cp "$PACKAGE_DIR/manifest.yaml" "$BASE_DIR/config/generals/${NAME}.yaml"
 # 프롬프트 템플릿 복사
 mkdir -p "$BASE_DIR/config/generals/templates"
 cp "$PACKAGE_DIR/prompt.md" "$BASE_DIR/config/generals/templates/${NAME}.md"
+[ -f "$PACKAGE_DIR/prompt-claude.md" ] && cp "$PACKAGE_DIR/prompt-claude.md" "$BASE_DIR/config/generals/templates/${NAME}-claude.md"
+[ -f "$PACKAGE_DIR/prompt-codex.md" ] && cp "$PACKAGE_DIR/prompt-codex.md" "$BASE_DIR/config/generals/templates/${NAME}-codex.md"
 
 # 에이전트/스킬 복사 (선택)
 if [ -d "$PACKAGE_DIR/agents" ]; then
   mkdir -p "$BASE_DIR/config/generals/agents/${NAME}"
-  cp "$PACKAGE_DIR/agents/"*.md "$BASE_DIR/config/generals/agents/${NAME}/" 2>/dev/null || true
+  cp -R "$PACKAGE_DIR/agents/." "$BASE_DIR/config/generals/agents/${NAME}/" 2>/dev/null || true
 fi
 
 if [ -d "$PACKAGE_DIR/skills" ]; then
@@ -98,9 +100,15 @@ if [ -f "$BASE_DIR/config/workspace-claude.md" ] && [ ! -f "$BASE_DIR/workspace/
   copy_instruction_file_pair "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace"
 fi
 
-# 장군별 general-claude.md → workspace/gen-{name}/{CLAUDE,AGENTS}.md로 복사
+# 장군별 instruction 파일 → workspace/gen-{name}/
 if [ -f "$PACKAGE_DIR/general-claude.md" ]; then
-  copy_instruction_file_pair "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME"
+  cp "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME/CLAUDE.md"
+  if [ ! -f "$PACKAGE_DIR/general-codex.md" ]; then
+    cp "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME/AGENTS.md"
+  fi
+fi
+if [ -f "$PACKAGE_DIR/general-codex.md" ]; then
+  cp "$PACKAGE_DIR/general-codex.md" "$BASE_DIR/workspace/$NAME/AGENTS.md"
 fi
 
 # Memory 경로 안내 자동 주입 (항상)

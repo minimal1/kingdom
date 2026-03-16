@@ -2,6 +2,7 @@
 # King Functions — all king logic extracted for testability
 # Source this file to get king functions without starting the main loop.
 KING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$KING_LIB_DIR/../runtime/engine.sh"
 source "$KING_LIB_DIR/messages.sh"
 source "$KING_LIB_DIR/schedules.sh"
 
@@ -82,6 +83,14 @@ process_pending_events() {
         move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
         continue
       fi
+    fi
+
+    local runtime_engine
+    runtime_engine=$(get_runtime_engine)
+    if ! general_supports_engine "$general" "$runtime_engine"; then
+      log "[WARN] [king] General '$general' does not support runtime engine '$runtime_engine', discarding: $event_id"
+      move_file_to_dir "$event_file" "$BASE_DIR/queue/events/completed/" || return 1
+      continue
     fi
 
     # 4. Dispatch task

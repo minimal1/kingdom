@@ -149,3 +149,19 @@ teardown() {
   result=$(build_prompt "$task" "" "")
   [[ "$result" == *"Default PR template"* ]]
 }
+
+@test "prompt-builder: build_prompt prefers engine-specific template" {
+  cat > "$BASE_DIR/config/system.yaml" <<'EOF'
+version: "4.0.0"
+base_dir: "/opt/kingdom"
+runtime:
+  engine: "codex"
+EOF
+  echo '# Generic template' > "$BASE_DIR/config/generals/templates/gen-pr.md"
+  echo '# Codex template {{TASK_ID}}' > "$BASE_DIR/config/generals/templates/gen-pr-codex.md"
+
+  local task='{"id":"task-013","type":"test","repo":"","payload":{}}'
+  local result
+  result=$(build_prompt "$task" "" "")
+  [[ "$result" == *"Codex template"* ]]
+}

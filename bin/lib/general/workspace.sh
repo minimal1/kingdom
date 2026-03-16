@@ -65,8 +65,19 @@ ensure_workspace() {
 sync_general_agents() {
   local general="$1"
   local work_dir="$2"
-  local agents_src="$BASE_DIR/config/generals/agents/${general}"
-  local skills_src="$BASE_DIR/config/generals/skills/${general}"
+  local engine
+  engine=$(get_runtime_engine)
+  local agents_root="$BASE_DIR/config/generals/agents/${general}"
+  local skills_root="$BASE_DIR/config/generals/skills/${general}"
+  local agents_src="$agents_root"
+  local skills_src="$skills_root"
+
+  if [ -d "$agents_root/$engine" ]; then
+    agents_src="$agents_root/$engine"
+  fi
+  if [ -d "$skills_root/$engine" ]; then
+    skills_src="$skills_root/$engine"
+  fi
 
   sync_runtime_assistant_dirs "$agents_src" "$work_dir" "agents"
   sync_runtime_assistant_dirs "$skills_src" "$work_dir" "skills"

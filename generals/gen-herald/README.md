@@ -15,6 +15,8 @@ petition 분류 실패 시 catch-all로 동작한다.
 
 CC 플러그인 없이 `install-general.sh`만 호출한다.
 
+Codex runtime을 사용할 때는 `prompt-codex.md`, `general-codex.md`가 선택된다.
+
 ## 처리 범위
 
 - **일상 대화**: 인사, 잡담, 감사, 기타 DM

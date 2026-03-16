@@ -100,6 +100,22 @@ get_default_repo() {
   jq -r --arg gn "$general" '.[$gn] // empty' "$DEFAULT_REPO_FILE" 2>/dev/null
 }
 
+general_supports_engine() {
+  local general="$1"
+  local engine="$2"
+  local manifest="$GENERALS_CONFIG_DIR/${general}.yaml"
+  [ -f "$manifest" ] || return 1
+
+  local supported
+  supported=$(yq eval '.supported_engines[]' "$manifest" 2>/dev/null || true)
+  if [ -z "$supported" ]; then
+    [ "$engine" = "claude" ]
+    return
+  fi
+
+  echo "$supported" | grep -qx "$engine"
+}
+
 # Get number of mapped event types
 get_routing_table_count() {
   echo "$ROUTING_TABLE_COUNT"

@@ -2,6 +2,9 @@
 # General Prompt Builder — assembles prompts from template + dynamic sections
 # Soul (common + general-specific) is delivered via CLAUDE.md (context compression safe)
 
+_PROMPT_BUILDER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_PROMPT_BUILDER_DIR/../runtime/engine.sh"
+
 # Maximum prompt size in bytes (default 200KB)
 MAX_PROMPT_BYTES="${MAX_PROMPT_BYTES:-204800}"
 
@@ -23,12 +26,22 @@ build_prompt() {
 
   # --- Task Prompt (template) ---
   # Action-based template branching: payload.action → {general}-{action}.md
+  local engine
+  engine=$(get_runtime_engine)
   local action
   action=$(echo "$payload" | jq -r '.action // ""')
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
+  local engine_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${engine}.md"
+  if [ -f "$engine_template" ]; then
+    template="$engine_template"
+  fi
   if [ -n "$action" ]; then
     local action_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${action}.md"
-    if [ -f "$action_template" ]; then
+    local action_engine_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${action}-${engine}.md"
+    if [ -f "$action_engine_template" ]; then
+      template="$action_engine_template"
+      log "[SYSTEM] [$GENERAL_DOMAIN] Using engine action template: ${GENERAL_DOMAIN}-${action}-${engine}.md"
+    elif [ -f "$action_template" ]; then
       template="$action_template"
       log "[SYSTEM] [$GENERAL_DOMAIN] Using action template: ${GENERAL_DOMAIN}-${action}.md"
     fi

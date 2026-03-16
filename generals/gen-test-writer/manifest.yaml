@@ -6,6 +6,9 @@ timeout_seconds: 1800
 cc_plugins:
   - friday@qp-plugin
 
+supported_engines:
+  - claude
+
 subscribes: []
 
 schedules:
