@@ -23,3 +23,8 @@ setup() {
   run grep 'task_id, status, summary' "${BATS_TEST_DIRNAME}/../config/workspace-claude.md"
   assert_success
 }
+
+@test "workspace-claude: source is portable to AGENTS.md" {
+  run grep 'KINGDOM_RESULT_PATH' "${BATS_TEST_DIRNAME}/../config/workspace-claude.md"
+  assert_success
+}

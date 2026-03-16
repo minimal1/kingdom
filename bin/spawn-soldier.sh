@@ -5,43 +5,49 @@
 # Session registration (sessions.json) is handled by general's spawn_soldier()
 
 BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$BASE_DIR/bin/lib/common.sh"
+if [ -f "$BASE_DIR/bin/lib/runtime/engine.sh" ]; then
+  source "$BASE_DIR/bin/lib/runtime/engine.sh"
+else
+  source "$SCRIPT_DIR/lib/runtime/engine.sh"
+fi
 
 TASK_ID="$1"
 PROMPT_FILE="$2"
 WORK_DIR="$3"
 RESUME_SESSION_ID="${4:-}"  # Optional: session_id to resume (for needs_human flow)
 SOLDIER_ID="soldier-$(date +%s)-$$"
+RUNTIME_ENGINE="$(get_runtime_engine)"
 
 RAW_FILE="$BASE_DIR/state/results/${TASK_ID}-raw.json"
 SESSION_ID_FILE="$BASE_DIR/state/results/${TASK_ID}-session-id"
 
 # Pre-flight checks
-if ! command -v claude &> /dev/null; then
-  log "[ERROR] [soldier] claude command not found"
+RUNTIME_CMD="$(get_runtime_command "$RUNTIME_ENGINE")"
+if ! command -v "$RUNTIME_CMD" &> /dev/null; then
+  log "[ERROR] [soldier] runtime command not found: $RUNTIME_CMD"
   exit 1
 fi
 
-# Build Claude CLI command (resume mode vs new session)
-CLAUDE_ARGS="--dangerously-skip-permissions --output-format json"
 if [ -n "$RESUME_SESSION_ID" ]; then
-  CLAUDE_ARGS="$CLAUDE_ARGS --resume '$RESUME_SESSION_ID'"
   log "[SYSTEM] [soldier] Resuming session: $RESUME_SESSION_ID for task: $TASK_ID"
 fi
 
-# Session creation
-# stdout → JSON (session_id extraction), stderr → separate log
-# Soldier writes result via Write tool to -raw.json, stdout JSON is for session_id capture
-# Task context → env vars (파일 오염 없이 병사가 어디서든 접근 가능)
+ENGINE_COMMAND=$(runtime_prepare_command \
+  "$RUNTIME_ENGINE" \
+  "$PROMPT_FILE" \
+  "$WORK_DIR" \
+  "$BASE_DIR/logs/sessions/${SOLDIER_ID}.json" \
+  "$BASE_DIR/logs/sessions/${SOLDIER_ID}.err" \
+  "$SESSION_ID_FILE" \
+  "$RESUME_SESSION_ID")
+
 if ! tmux new-session -d -s "$SOLDIER_ID" \
   "export KINGDOM_BASE_DIR='$BASE_DIR' \
    KINGDOM_TASK_ID='$TASK_ID' \
    KINGDOM_RESULT_PATH='$RAW_FILE' && \
-   cd '$WORK_DIR' && eval claude -p $CLAUDE_ARGS \
-    < '$PROMPT_FILE' \
-    > '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' 2>'$BASE_DIR/logs/sessions/${SOLDIER_ID}.err'; \
-   jq -r '.session_id // empty' '$BASE_DIR/logs/sessions/${SOLDIER_ID}.json' \
-    > '$SESSION_ID_FILE' 2>/dev/null; \
+   $ENGINE_COMMAND; \
    tmux wait-for -S ${SOLDIER_ID}-done"; then
   log "[ERROR] [soldier] Failed to create tmux session: $SOLDIER_ID"
   exit 1
@@ -50,4 +56,4 @@ fi
 # Record soldier_id
 echo "$SOLDIER_ID" > "$BASE_DIR/state/results/${TASK_ID}-soldier-id"
 
-log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR"
+log "[SYSTEM] [soldier] Spawned: $SOLDIER_ID for task: $TASK_ID in $WORK_DIR (engine: $RUNTIME_ENGINE)"

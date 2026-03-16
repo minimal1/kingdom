@@ -13,6 +13,8 @@ setup() {
   # install-general.sh needs common.sh at runtime
   mkdir -p "$BASE_DIR/bin/lib"
   cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$BASE_DIR/bin/lib/"
+  mkdir -p "$BASE_DIR/bin/lib/runtime"
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh" "$BASE_DIR/bin/lib/runtime/"
   cp "${BATS_TEST_DIRNAME}/../bin/install-general.sh" "$BASE_DIR/bin/"
   cp "${BATS_TEST_DIRNAME}/../bin/uninstall-general.sh" "$BASE_DIR/bin/"
   chmod +x "$BASE_DIR/bin/install-general.sh" "$BASE_DIR/bin/uninstall-general.sh"
@@ -51,6 +53,17 @@ teardown() {
   assert [ -f "$BASE_DIR/config/generals/gen-foo.yaml" ]
   assert [ -f "$BASE_DIR/config/generals/templates/gen-foo.md" ]
   assert [ -f "$BASE_DIR/bin/generals/gen-foo.sh" ]
+}
+
+@test "install: copies optional agents and skills" {
+  mkdir -p "$TEST_PKG/agents" "$TEST_PKG/skills/demo-skill"
+  echo "# agent" > "$TEST_PKG/agents/reviewer.md"
+  echo "# skill" > "$TEST_PKG/skills/demo-skill/SKILL.md"
+
+  run "$BASE_DIR/bin/install-general.sh" "$TEST_PKG"
+  assert_success
+  assert [ -f "$BASE_DIR/config/generals/agents/gen-foo/reviewer.md" ]
+  assert [ -f "$BASE_DIR/config/generals/skills/gen-foo/demo-skill/SKILL.md" ]
 }
 
 @test "install: creates runtime directories" {
@@ -154,6 +167,7 @@ EOF
   run cat "$BASE_DIR/workspace/gen-foo/CLAUDE.md"
   assert_output --partial "## Memory"
   assert_output --partial "memory/generals/gen-foo/"
+  assert [ -f "$BASE_DIR/workspace/gen-foo/AGENTS.md" ]
 }
 
 @test "install: CLAUDE.md has Memory even without general-claude.md" {
@@ -170,6 +184,8 @@ EOF
   run cat "$BASE_DIR/workspace/gen-foo/CLAUDE.md"
   assert_output --partial "Gen-Foo Soul"
   assert_output --partial "## Memory"
+  run cat "$BASE_DIR/workspace/gen-foo/AGENTS.md"
+  assert_output --partial "Gen-Foo Soul"
 }
 
 # --- CC Plugin warning ---

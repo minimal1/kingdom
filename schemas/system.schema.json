@@ -18,6 +18,51 @@
       "description": "Kingdom 런타임 루트 디렉토리",
       "default": "/opt/kingdom",
       "examples": ["/opt/kingdom"]
+    },
+    "runtime": {
+      "type": "object",
+      "description": "LLM runtime engine settings",
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": ["claude", "codex"],
+          "default": "claude"
+        },
+        "claude": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string",
+              "default": "claude"
+            }
+          }
+        },
+        "codex": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string",
+              "default": "codex"
+            },
+            "model": {
+              "type": "string",
+              "default": "gpt-5-codex"
+            },
+            "sandbox": {
+              "type": "string",
+              "enum": ["read-only", "workspace-write", "danger-full-access"],
+              "default": "workspace-write"
+            },
+            "full_auto": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      }
     }
   }
 }

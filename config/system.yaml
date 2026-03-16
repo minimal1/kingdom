@@ -1,3 +1,12 @@
 # yaml-language-server: $schema=../schemas/system.schema.json
 version: "3.0.0"
 base_dir: "/opt/kingdom"
+runtime:
+  engine: "claude"
+  claude:
+    command: "claude"
+  codex:
+    command: "codex"
+    model: "gpt-5-codex"
+    sandbox: "workspace-write"
+    full_auto: true

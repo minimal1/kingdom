@@ -8,8 +8,11 @@ setup() {
   # Ensure common.sh is available at the expected path
   mkdir -p "$BASE_DIR/bin/lib"
   cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$BASE_DIR/bin/lib/"
+  mkdir -p "$BASE_DIR/bin/lib/runtime"
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh" "$BASE_DIR/bin/lib/runtime/"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
+  source "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh"
 }
 
 teardown() {
@@ -95,9 +98,10 @@ teardown() {
   assert_success
 }
 
-@test "spawn-soldier: uses --output-format json" {
-  run grep -- '--output-format json' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
-  assert_success
+@test "spawn-soldier: claude runtime uses --output-format json" {
+  local cmd
+  cmd=$(runtime_prepare_command "claude" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "")
+  [[ "$cmd" == *"--output-format json"* ]]
 }
 
 @test "spawn-soldier: extracts session_id from output" {
@@ -108,6 +112,43 @@ teardown() {
 @test "spawn-soldier: accepts optional resume session_id" {
   run grep 'RESUME_SESSION_ID' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
-  run grep -- '--resume' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
+  local cmd
+  cmd=$(runtime_prepare_command "claude" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "sess-123")
+  [[ "$cmd" == *"--resume 'sess-123'"* ]]
+  local codex_cmd
+  codex_cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "sess-456")
+  [[ "$codex_cmd" == *"exec resume --json"* ]]
+  [[ "$codex_cmd" == *"'sess-456' -"* ]]
+}
+
+@test "spawn-soldier: supports codex runtime command" {
+  local cmd
+  cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "")
+  [[ "$cmd" == *"codex exec"* ]]
+  run grep 'runtime_prepare_command' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
+}
+
+@test "spawn-soldier: runs with codex engine when configured" {
+  mkdir -p "$BASE_DIR/workspace/gen-pr" "$BASE_DIR/config"
+  cat > "$BASE_DIR/config/system.yaml" <<'EOF'
+version: "4.0.0"
+base_dir: "/tmp/kingdom"
+runtime:
+  engine: "codex"
+  codex:
+    command: "codex"
+    model: "gpt-5-codex"
+    sandbox: "workspace-write"
+    full_auto: true
+EOF
+  local prompt_file="$BASE_DIR/state/prompts/task-codex.md"
+  echo "test prompt" > "$prompt_file"
+  export MOCK_LOG="$(mktemp)"
+
+  "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh" "task-codex" "$prompt_file" "$BASE_DIR/workspace/gen-pr"
+
+  run cat "$MOCK_LOG"
+  assert_output --partial "codex exec"
+  rm -f "$MOCK_LOG"
 }

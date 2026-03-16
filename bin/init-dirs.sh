@@ -5,6 +5,12 @@
 set -euo pipefail
 
 BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$BASE_DIR/bin/lib/runtime/engine.sh" ]; then
+  source "$BASE_DIR/bin/lib/runtime/engine.sh"
+else
+  source "$SCRIPT_DIR/lib/runtime/engine.sh"
+fi
 
 # --- Directory Structure ---
 
@@ -31,10 +37,10 @@ for manifest in "$BASE_DIR"/config/generals/*.yaml; do
   mkdir -p "$BASE_DIR/workspace/$gen_name"
 done
 
-# workspace/CLAUDE.md 배치 (병사에게 결과 보고 방법을 지시)
+# workspace instruction files 배치 (Claude/Codex 공용)
 if [ -f "$BASE_DIR/config/workspace-claude.md" ]; then
   mkdir -p "$BASE_DIR/workspace"
-  cp "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
+  copy_instruction_file_pair "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace"
 fi
 
 # --- Initial State Files (only if missing) ---

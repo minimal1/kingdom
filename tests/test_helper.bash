@@ -31,6 +31,7 @@ setup_kingdom_env() {
 
   # workspace/CLAUDE.md 생성 (테스트 환경)
   echo "# Kingdom Soldier (test)" > "$BASE_DIR/workspace/CLAUDE.md"
+  echo "# Kingdom Soldier (test)" > "$BASE_DIR/workspace/AGENTS.md"
 }
 
 teardown_kingdom_env() {

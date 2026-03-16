@@ -15,6 +15,7 @@ teardown() {
   export GH_TOKEN="ghp_test"
   export JIRA_API_TOKEN="test"
   export JIRA_URL="https://chequer.atlassian.net"
+  export JIRA_USER_EMAIL="eddy@chequer.io"
   export SLACK_BOT_TOKEN="xoxb-test"
   # claude mock은 PATH에 있으므로 OK가 나옴
   run "${BATS_TEST_DIRNAME}/../bin/check-prerequisites.sh"
@@ -65,4 +66,32 @@ teardown() {
   unset JIRA_API_TOKEN JIRA_URL SLACK_BOT_TOKEN GH_TOKEN 2>/dev/null || true
   run "${BATS_TEST_DIRNAME}/../bin/check-prerequisites.sh"
   assert_failure
+}
+
+@test "check-prerequisites: codex engine checks Codex auth path" {
+  export PATH="${BATS_TEST_DIRNAME}/mocks:$PATH"
+  export GH_TOKEN="ghp_test"
+  export JIRA_API_TOKEN="test"
+  export JIRA_URL="https://chequer.atlassian.net"
+  export JIRA_USER_EMAIL="eddy@chequer.io"
+  export SLACK_BOT_TOKEN="xoxb-test"
+  export KINGDOM_BASE_DIR="$(mktemp -d)"
+  mkdir -p "$KINGDOM_BASE_DIR/config" "$KINGDOM_BASE_DIR/bin/lib/runtime" "$KINGDOM_BASE_DIR/bin/lib"
+  cat > "$KINGDOM_BASE_DIR/config/system.yaml" <<'EOF'
+version: "4.0.0"
+base_dir: "/opt/kingdom"
+runtime:
+  engine: "codex"
+  claude:
+    command: "claude"
+  codex:
+    command: "codex"
+    model: "gpt-5-codex"
+    sandbox: "workspace-write"
+    full_auto: true
+EOF
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$KINGDOM_BASE_DIR/bin/lib/"
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh" "$KINGDOM_BASE_DIR/bin/lib/runtime/"
+  run "${BATS_TEST_DIRNAME}/../bin/check-prerequisites.sh"
+  assert_output --partial "Codex"
 }

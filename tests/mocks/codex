@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Mock codex CLI
+
+echo "codex $*" >> "${MOCK_LOG:-/dev/null}"
+
+if [[ "$1" == "exec" ]]; then
+  cat > /dev/null
+  echo '{"session_id":"mock-codex-session","type":"result","message":"ok"}'
+elif [[ "$1" == "login" ]]; then
+  echo "Already logged in"
+else
+  echo "mock-codex: $*"
+fi

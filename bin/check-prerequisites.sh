@@ -13,6 +13,18 @@ if [[ -f "$KINGDOM_BASE_DIR/.env" ]]; then
   set +a
 fi
 
+if [[ -f "$KINGDOM_BASE_DIR/bin/lib/common.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "$KINGDOM_BASE_DIR/bin/lib/common.sh"
+fi
+if [[ -f "$KINGDOM_BASE_DIR/bin/lib/runtime/engine.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "$KINGDOM_BASE_DIR/bin/lib/runtime/engine.sh"
+  RUNTIME_ENGINE="$(get_runtime_engine)"
+else
+  RUNTIME_ENGINE="claude"
+fi
+
 PASS=0
 FAIL=0
 TOTAL=0
@@ -74,11 +86,24 @@ else
   printf "  [WARN] %-12s %s\n" "fswatch" "not found (optional: brew install fswatch)"
 fi
 
-# claude: 특수 체크 (--version 지원 안할 수 있음)
 if command -v claude &>/dev/null; then
   check "claude" "ok" "installed"
 else
-  check "claude" "fail" "not found"
+  if [[ "$RUNTIME_ENGINE" == "claude" ]]; then
+    check "claude" "fail" "not found"
+  else
+    printf "  [WARN] %-12s %s\n" "claude" "not found (inactive runtime)"
+  fi
+fi
+
+if command -v codex &>/dev/null; then
+  check "codex" "ok" "installed"
+else
+  if [[ "$RUNTIME_ENGINE" == "codex" ]]; then
+    check "codex" "fail" "not found"
+  else
+    printf "  [WARN] %-12s %s\n" "codex" "not found (inactive runtime)"
+  fi
 fi
 
 # Node modules (Socket Mode bridge)
@@ -92,15 +117,26 @@ echo "======================================="
 
 # --- External Service Auth ---
 
-# Claude Code (OAuth)
-if command -v claude &>/dev/null; then
-  if claude -p "echo hello" &>/dev/null; then
-    check "Claude Code" "ok" "OAuth authenticated"
+if [[ "$RUNTIME_ENGINE" == "claude" ]]; then
+  if command -v claude &>/dev/null; then
+    if claude -p "echo hello" &>/dev/null; then
+      check "Claude Code" "ok" "OAuth authenticated"
+    else
+      check "Claude Code" "fail" "not authenticated (run: claude login)"
+    fi
   else
-    check "Claude Code" "fail" "not authenticated (run: claude login)"
+    check "Claude Code" "fail" "CLI not installed"
   fi
-else
-  check "Claude Code" "fail" "CLI not installed"
+elif [[ "$RUNTIME_ENGINE" == "codex" ]]; then
+  if command -v codex &>/dev/null; then
+    if codex exec --skip-git-repo-check --sandbox read-only --full-auto "echo hello" &>/dev/null; then
+      check "Codex" "ok" "authenticated"
+    else
+      check "Codex" "fail" "not authenticated (run: codex login)"
+    fi
+  else
+    check "Codex" "fail" "CLI not installed"
+  fi
 fi
 
 # GitHub

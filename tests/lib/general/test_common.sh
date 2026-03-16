@@ -346,13 +346,18 @@ EOF
   local work_dir="$BASE_DIR/workspace/gen-pr/testrepo"
   mkdir -p "$work_dir"
   mkdir -p "$BASE_DIR/config/generals/agents/gen-pr"
+  mkdir -p "$BASE_DIR/config/generals/skills/gen-pr/demo-skill"
   echo "# meta-reviewer agent" > "$BASE_DIR/config/generals/agents/gen-pr/meta-reviewer.md"
+  echo "# demo skill" > "$BASE_DIR/config/generals/skills/gen-pr/demo-skill/SKILL.md"
 
   sync_general_agents "gen-pr" "$work_dir"
 
   assert [ -f "$work_dir/.claude/agents/meta-reviewer.md" ]
   run cat "$work_dir/.claude/agents/meta-reviewer.md"
   assert_output "# meta-reviewer agent"
+  assert [ -f "$work_dir/.codex/agents/meta-reviewer.md" ]
+  assert [ -f "$work_dir/.claude/skills/demo-skill/SKILL.md" ]
+  assert [ -f "$work_dir/.codex/skills/demo-skill/SKILL.md" ]
 }
 
 @test "general: sync_general_agents skips when no agents directory" {

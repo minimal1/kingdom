@@ -277,16 +277,16 @@ general:
       functions:
         - "main_loop()"
     - path: "bin/lib/general/prompt-builder.sh"
-      description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md로 자동 로드)"
+      description: "프롬프트 템플릿 + 메모리 → 최종 프롬프트 조립 (Soul은 CLAUDE.md/AGENTS.md로 자동 로드)"
       functions:
         - "build_prompt()  — {{TASK_ID}}, {{TASK_TYPE}}, {{REPO}}, {{REPO_DIR}}, {{payload.*}} 치환, action별 템플릿 분기"
         - "check_prompt_size()  — 200KB 가드"
     - path: "bin/spawn-soldier.sh"
-      description: "tmux 세션 생성 → claude -p 실행 → 결과 대기"
+      description: "tmux 세션 생성 → selected runtime engine 실행 → 결과 대기"
   dependencies:
     - common
     - king  # queue/tasks/pending/ (태스크 소비), state/results/ (결과 기록)
-  data_flow: "queue/tasks/pending/ → 프롬프트 조립 → claude -p → state/results/*.json"
+  data_flow: "queue/tasks/pending/ → 프롬프트 조립 → runtime engine (claude|codex) → state/results/*.json"
   spec: "docs/spec/roles/general.md"
   tests:
     - "tests/lib/general/test_common.sh"
@@ -294,17 +294,19 @@ general:
     - "tests/test_spawn_soldier.sh"
 
 soldier:
-  description: "Claude Code -p 모드로 실제 작업 수행하는 일회성 프로세스"
+  description: "Selected runtime engine (Claude Code or Codex)로 실제 작업 수행하는 일회성 프로세스"
   entry_point: "bin/spawn-soldier.sh"
   schema: "schemas/soldier-result.schema.json"
   key_files:
+    - path: "bin/lib/runtime/engine.sh"
+      description: "runtime engine 선택, instruction 파일/command 조립"
     - path: "config/workspace-claude.md"
-      description: "병사의 CLAUDE.md — 결과 JSON 스키마 지시"
+      description: "병사의 instruction source — workspace의 CLAUDE.md와 AGENTS.md로 복사"
     - path: "bin/lib/soldier/stop-hook.sh"
       description: "Stop hook — 결과 파일 미작성 시 block하여 LLM이 직접 결과 보고하도록 유도"
     - path: "bin/lib/soldier/heartbeat-hook.sh"
       description: "PostToolUse hook — 도구 호출마다 타임스탬프 기록 (생존 신호)"
-  data_flow: "프롬프트 파일 → claude -p [--resume SESSION_ID] → stdout JSON → session-id 캡처 → env vars(KINGDOM_TASK_ID, KINGDOM_RESULT_PATH) → result.json"
+  data_flow: "프롬프트 파일 → runtime engine exec [resume token optional] → stdout JSONL/JSON → session-id 캡처(best effort) → env vars(KINGDOM_TASK_ID, KINGDOM_RESULT_PATH) → result.json"
   spec: "docs/spec/roles/soldier.md"
   tests:
     - "tests/test_spawn_soldier.sh"

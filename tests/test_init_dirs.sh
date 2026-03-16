@@ -126,6 +126,9 @@ teardown() {
   # 내용이 소스와 동일한지 확인
   run diff "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
   assert_success
+  assert [ -f "$BASE_DIR/workspace/AGENTS.md" ]
+  run diff "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/AGENTS.md"
+  assert_success
 }
 
 @test "init-dirs: skips CLAUDE.md copy when source missing" {
@@ -133,6 +136,7 @@ teardown() {
   run "${BATS_TEST_DIRNAME}/../bin/init-dirs.sh"
   assert_success
   assert [ ! -f "$BASE_DIR/workspace/CLAUDE.md" ]
+  assert [ ! -f "$BASE_DIR/workspace/AGENTS.md" ]
 }
 
 @test "init-dirs: output message" {

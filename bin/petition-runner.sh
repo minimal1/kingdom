@@ -4,6 +4,9 @@
 
 BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
 source "$BASE_DIR/bin/lib/common.sh"
+if [ -f "$BASE_DIR/bin/lib/runtime/engine.sh" ]; then
+  source "$BASE_DIR/bin/lib/runtime/engine.sh"
+fi
 
 EVENT_ID="$1"
 MESSAGE_TEXT="$2"
@@ -27,7 +30,8 @@ if [ -z "$catalog" ]; then
 fi
 
 # 2. LLM 호출
-model=$(get_config "king" "petition.model" "haiku")
+runtime_engine="${RUNTIME_ENGINE:-$(get_runtime_engine 2>/dev/null || echo claude)}"
+model=$(get_config "king" "petition.model" "")
 petition_timeout=$(get_config "king" "petition.timeout_seconds" "15")
 
 prompt_file=$(mktemp)
@@ -51,7 +55,20 @@ JSON만 출력 (아래 중 하나):
 {"general": null}' "$catalog" "$MESSAGE_TEXT" > "$prompt_file"
 
 # macOS 호환 타임아웃: background + wait
-claude -p --model "$model" < "$prompt_file" > "${prompt_file}.out" 2>/dev/null &
+if [ "$runtime_engine" = "codex" ]; then
+  codex_cmd="$(get_runtime_command codex)"
+  codex_model="$model"
+  [ -z "$codex_model" ] && codex_model=$(get_config "system" "runtime.codex.model" "")
+  codex_sandbox=$(get_config "system" "runtime.codex.sandbox" "read-only")
+  codex_args="exec --skip-git-repo-check --json --sandbox '$codex_sandbox' --full-auto -"
+  [ -n "$codex_model" ] && codex_args="exec --skip-git-repo-check --json --sandbox '$codex_sandbox' --full-auto --model '$codex_model' -"
+  eval "$codex_cmd $codex_args < '$prompt_file' > '${prompt_file}.out' 2>/dev/null" &
+else
+  claude_cmd="$(get_runtime_command claude)"
+  claude_model="$model"
+  [ -n "$claude_model" ] && claude_model="--model '$claude_model'"
+  eval "$claude_cmd -p $claude_model < '$prompt_file' > '${prompt_file}.out' 2>/dev/null" &
+fi
 pid=$!
 i=0
 while kill -0 "$pid" 2>/dev/null && [ "$i" -lt "$petition_timeout" ]; do

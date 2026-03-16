@@ -16,6 +16,8 @@ setup() {
   # Copy common.sh
   mkdir -p "$BASE_DIR/bin/lib"
   cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$BASE_DIR/bin/lib/"
+  mkdir -p "$BASE_DIR/bin/lib/runtime"
+  cp "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh" "$BASE_DIR/bin/lib/runtime/"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
 }

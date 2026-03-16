@@ -228,13 +228,30 @@ else
   printf "  ${YELLOW}[SKIP]${RESET} %s\n" "fswatch 미설치 (선택: $PKG fswatch — sleep_or_wake 즉시 깨움 지원)"
 fi
 
-# claude: 특수 체크
+# runtimes
 if command -v claude &>/dev/null; then
   ok "claude (installed)"
 else
   fail "claude 미설치"
   info "https://docs.anthropic.com/en/docs/claude-code/overview"
   MISSING_TOOLS+=("claude")
+fi
+
+if command -v codex &>/dev/null; then
+  ok "codex (installed)"
+else
+  printf "  ${YELLOW}[SKIP]${RESET} %s\n" "codex 미설치 (선택: Codex runtime 지원용)"
+fi
+
+if command -v yq &>/dev/null; then
+  local_runtime="claude"
+  if command -v codex &>/dev/null; then
+    if ask_yn "Codex를 기본 실행 엔진으로 사용하시겠습니까?" "N"; then
+      local_runtime="codex"
+    fi
+  fi
+  yq eval -i ".runtime.engine = \"$local_runtime\"" "$DEST/config/system.yaml"
+  ok "실행 엔진: $local_runtime"
 fi
 
 if [[ ${#MISSING_TOOLS[@]} -gt 0 ]]; then

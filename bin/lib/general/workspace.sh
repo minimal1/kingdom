@@ -66,9 +66,8 @@ sync_general_agents() {
   local general="$1"
   local work_dir="$2"
   local agents_src="$BASE_DIR/config/generals/agents/${general}"
+  local skills_src="$BASE_DIR/config/generals/skills/${general}"
 
-  if [ -d "$agents_src" ]; then
-    mkdir -p "$work_dir/.claude/agents"
-    cp "$agents_src"/*.md "$work_dir/.claude/agents/" 2>/dev/null || true
-  fi
+  sync_runtime_assistant_dirs "$agents_src" "$work_dir" "agents"
+  sync_runtime_assistant_dirs "$skills_src" "$work_dir" "skills"
 }

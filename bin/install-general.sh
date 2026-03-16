@@ -4,7 +4,13 @@
 set -euo pipefail
 
 BASE_DIR="${KINGDOM_BASE_DIR:-/opt/kingdom}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$BASE_DIR/bin/lib/common.sh"
+if [ -f "$BASE_DIR/bin/lib/runtime/engine.sh" ]; then
+  source "$BASE_DIR/bin/lib/runtime/engine.sh"
+else
+  source "$SCRIPT_DIR/lib/runtime/engine.sh"
+fi
 
 PACKAGE_DIR="${1:?Usage: install-general.sh <package-dir> [--force]}"
 FORCE="${2:-}"
@@ -58,6 +64,17 @@ cp "$PACKAGE_DIR/manifest.yaml" "$BASE_DIR/config/generals/${NAME}.yaml"
 mkdir -p "$BASE_DIR/config/generals/templates"
 cp "$PACKAGE_DIR/prompt.md" "$BASE_DIR/config/generals/templates/${NAME}.md"
 
+# 에이전트/스킬 복사 (선택)
+if [ -d "$PACKAGE_DIR/agents" ]; then
+  mkdir -p "$BASE_DIR/config/generals/agents/${NAME}"
+  cp "$PACKAGE_DIR/agents/"*.md "$BASE_DIR/config/generals/agents/${NAME}/" 2>/dev/null || true
+fi
+
+if [ -d "$PACKAGE_DIR/skills" ]; then
+  mkdir -p "$BASE_DIR/config/generals/skills/${NAME}"
+  cp -R "$PACKAGE_DIR/skills/." "$BASE_DIR/config/generals/skills/${NAME}/" 2>/dev/null || true
+fi
+
 # 엔트리 스크립트 자동 생성
 mkdir -p "$BASE_DIR/bin/generals"
 cat > "$BASE_DIR/bin/generals/${NAME}.sh" << ENTRY
@@ -76,29 +93,32 @@ mkdir -p "$BASE_DIR/state/$NAME"
 mkdir -p "$BASE_DIR/memory/generals/$NAME"
 mkdir -p "$BASE_DIR/workspace/$NAME"
 
-# workspace/CLAUDE.md 확인 (없으면 config에서 복사)
+# workspace instruction files 확인 (없으면 config에서 복사)
 if [ -f "$BASE_DIR/config/workspace-claude.md" ] && [ ! -f "$BASE_DIR/workspace/CLAUDE.md" ]; then
-  cp "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace/CLAUDE.md"
+  copy_instruction_file_pair "$BASE_DIR/config/workspace-claude.md" "$BASE_DIR/workspace"
 fi
 
-# 장군별 general-claude.md → workspace/gen-{name}/CLAUDE.md로 복사
+# 장군별 general-claude.md → workspace/gen-{name}/{CLAUDE,AGENTS}.md로 복사
 if [ -f "$PACKAGE_DIR/general-claude.md" ]; then
-  cp "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME/CLAUDE.md"
+  copy_instruction_file_pair "$PACKAGE_DIR/general-claude.md" "$BASE_DIR/workspace/$NAME"
 fi
 
 # Memory 경로 안내 자동 주입 (항상)
-cat >> "$BASE_DIR/workspace/$NAME/CLAUDE.md" << MEMORY
+for instruction_file in "$BASE_DIR/workspace/$NAME/CLAUDE.md" "$BASE_DIR/workspace/$NAME/AGENTS.md"; do
+  touch "$instruction_file"
+  cat >> "$instruction_file" << MEMORY
 
 ## Memory
 
 작업 전 도메인 지식을 확보하라:
 - \`../../memory/generals/${NAME}/\` 디렉토리의 모든 .md 파일을 읽어라
 MEMORY
+done
 
-# Soldier Stop hook 등록 (글로벌 설정, 최초 1회)
+# Claude runtime hooks 등록 (Claude engine 사용 시)
 GLOBAL_SETTINGS="$HOME/.claude/settings.json"
 HOOK_CMD="$BASE_DIR/bin/lib/soldier/stop-hook.sh"
-if [ -f "$GLOBAL_SETTINGS" ]; then
+if [ "$(get_runtime_engine)" = "claude" ] && [ -f "$GLOBAL_SETTINGS" ]; then
   # 이미 등록되어 있는지 확인 (matcher+hooks 구조에서 command 검색)
   if ! jq -e '.hooks.Stop[]?.hooks[]? | select(.command == "'"$HOOK_CMD"'")' "$GLOBAL_SETTINGS" >/dev/null 2>&1; then
     # Stop hook 배열에 추가 (matcher: "" = 모든 Stop 이벤트에 매치)
@@ -121,7 +141,7 @@ if [ -f "$GLOBAL_SETTINGS" ]; then
     ' "$GLOBAL_SETTINGS" > "$tmp_settings" && mv "$tmp_settings" "$GLOBAL_SETTINGS"
     echo "  Hook:      PostToolUse heartbeat hook registered"
   fi
-else
+elif [ "$(get_runtime_engine)" = "claude" ]; then
   echo "  WARN: ~/.claude/settings.json not found. Add hooks manually:"
   echo "         Stop: $HOOK_CMD"
   echo "         PostToolUse: $BASE_DIR/bin/lib/soldier/heartbeat-hook.sh"
@@ -131,3 +151,9 @@ echo "Installed general: $NAME"
 echo "  Manifest:  config/generals/${NAME}.yaml"
 echo "  Template:  config/generals/templates/${NAME}.md"
 echo "  Script:    bin/generals/${NAME}.sh"
+if [ -d "$BASE_DIR/config/generals/agents/${NAME}" ]; then
+  echo "  Agents:    config/generals/agents/${NAME}/"
+fi
+if [ -d "$BASE_DIR/config/generals/skills/${NAME}" ]; then
+  echo "  Skills:    config/generals/skills/${NAME}/"
+fi
