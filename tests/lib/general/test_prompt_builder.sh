@@ -39,13 +39,13 @@ teardown() {
 }
 
 @test "prompt-builder: build_prompt substitutes payload fields" {
-  echo '/friday:review-pr {{payload.pr_number}}' > "$BASE_DIR/config/generals/templates/gen-pr.md"
+  echo 'gh pr view {{payload.pr_number}}' > "$BASE_DIR/config/generals/templates/gen-pr.md"
 
   local task='{"id":"task-002","type":"test","repo":"","payload":{"pr_number":456}}'
 
   local result
   result=$(build_prompt "$task" "" "")
-  [[ "$result" == *"/friday:review-pr 456"* ]]
+  [[ "$result" == *"gh pr view 456"* ]]
 }
 
 @test "prompt-builder: build_prompt substitutes multiple payload fields" {

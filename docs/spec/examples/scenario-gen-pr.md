@@ -63,7 +63,7 @@
 - `spawn_soldier()`
 - `wait_for_soldier()`
 
-`gen-pr`의 prompt는 `pr_number`를 치환한 `/friday:review-pr 1234` 형태다.
+`gen-pr`의 prompt는 현재 엔진에 맞는 템플릿을 선택하며, 공통적으로 `gh pr view`, `gh pr diff`, 메타리뷰 절차를 사용한다.
 
 ## 5. 병사
 

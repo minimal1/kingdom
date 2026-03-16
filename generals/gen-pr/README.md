@@ -24,12 +24,16 @@ PR 리뷰 병사:
 ```
 generals/gen-pr/
 ├── manifest.yaml          # subscribes + schedules
-├── prompt.md              # PR 리뷰 프롬프트 (자립형)
+├── prompt.md              # 공통 fallback 프롬프트
+├── prompt-claude.md       # Claude 전용 PR 리뷰 프롬프트
+├── prompt-codex.md        # Codex 전용 PR 리뷰 프롬프트
 ├── prompts/
 │   └── refresh-rules.md   # 규칙 학습 프롬프트
+│   └── refresh-rules-codex.md # Codex용 규칙 학습 프롬프트
 ├── agents/
 │   └── meta-reviewer.md   # 메타리뷰 에이전트 정의
 ├── general-claude.md      # 리뷰 원칙 Soul
+├── general-codex.md       # Codex 리뷰 지침
 ├── install.sh
 └── README.md
 ```
@@ -45,6 +49,7 @@ generals/gen-pr/
 2. 추가 템플릿 복사 (`gen-pr-refresh_rules.md`)
 3. 에이전트 복사 (`config/generals/agents/gen-pr/`)
 4. Memory 디렉토리 초기화
+5. Codex용 refresh_rules 템플릿이 있으면 함께 복사
 
 ## 구독 이벤트
 
@@ -62,6 +67,13 @@ generals/gen-pr/
 
 - timeout: 1800초 (30분)
 - cc_plugins: 없음 (자립형)
+- supported_engines: `claude`, `codex`
+
+## 엔진별 자산
+
+- Claude: `prompt-claude.md`, `general-claude.md`
+- Codex: `prompt-codex.md`, `general-codex.md`
+- 규칙 학습도 `refresh-rules-codex.md`로 엔진별 분기 가능
 
 ## 제거
 

@@ -17,11 +17,15 @@ _post_install() {
     cp "$PACKAGE_DIR/prompts/refresh-rules.md" "$template_dir/gen-pr-refresh_rules.md"
     echo "  Template:  config/generals/templates/gen-pr-refresh_rules.md"
   fi
+  if [ -f "$PACKAGE_DIR/prompts/refresh-rules-codex.md" ]; then
+    cp "$PACKAGE_DIR/prompts/refresh-rules-codex.md" "$template_dir/gen-pr-refresh_rules-codex.md"
+    echo "  Template:  config/generals/templates/gen-pr-refresh_rules-codex.md"
+  fi
 
   # 에이전트 복사 (런타임)
   if [ -d "$PACKAGE_DIR/agents" ]; then
     mkdir -p "$KINGDOM_BASE_DIR/config/generals/agents/gen-pr"
-    cp "$PACKAGE_DIR/agents/"*.md "$KINGDOM_BASE_DIR/config/generals/agents/gen-pr/" 2>/dev/null || true
+    cp -R "$PACKAGE_DIR/agents/." "$KINGDOM_BASE_DIR/config/generals/agents/gen-pr/" 2>/dev/null || true
     echo "  Agents:    config/generals/agents/gen-pr/"
   fi
 

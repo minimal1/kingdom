@@ -100,7 +100,7 @@ generals/gen-{name}/
 
 | 장군 | 역할 | 트리거 |
 |------|------|--------|
-| `gen-pr` | PR 리뷰 (friday 플러그인) | `github.pr.review_requested` |
+| `gen-pr` | PR 리뷰 | `github.pr.review_requested` |
 | `gen-jira` | Jira 티켓 구현 | `jira.ticket.assigned`, `jira.ticket.updated` |
 | `gen-catchup` | 일간 PR 캐치업 요약 | 스케줄 (cron) |
 | `gen-briefing` | 시스템 상태 브리핑 | DM petition |
