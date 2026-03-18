@@ -88,6 +88,13 @@ Codex/Claude 공통으로 아래 절차를 명문화한다.
 - [ ] Claude/Codex 공통 prompt 초안 작성
 - [ ] 그 후에만 Codex 자산 추가
 
+## Draft assets
+
+초안 자산은 장군 패키지 안에 추가되었다. 아직 활성 템플릿은 아니며, 자립화 설계를 고정하기 위한 문서다.
+
+- [generals/gen-test-writer/design/prompt-claude-draft.md](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/design/prompt-claude-draft.md)
+- [generals/gen-test-writer/design/prompt-codex-draft.md](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/design/prompt-codex-draft.md)
+
 ## 결론
 
 `gen-test-writer`는 지금 당장 Codex 자산을 추가할 단계가 아니다.

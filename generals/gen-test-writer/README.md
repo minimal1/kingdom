@@ -31,6 +31,11 @@
 
 - [docs/analysis/gen-test-writer-portability.md](/Users/eddy/Documents/worktree/lab/lil-eddy/docs/analysis/gen-test-writer-portability.md)
 
+초안 자산:
+
+- `design/prompt-claude-draft.md`
+- `design/prompt-codex-draft.md`
+
 ## 동작 흐름
 
 1. `develop` 브랜치 최신화 (`git pull`)
