@@ -2,6 +2,8 @@
 
 30분마다 `chequer-io/querypie-mono` 레포의 `develop` 브랜치에서 테스트 코드 1개를 자동 작성하고 PR을 오픈한다.
 
+현재는 `friday:test` 의존이 남아 있어 `claude-only` 장군으로 유지한다.
+
 ## 사전 요구사항
 
 1. **friday@qp-plugin**: `write-test` 스킬이 포함된 CC 플러그인
@@ -20,6 +22,14 @@
 - **이벤트 구독**: 없음 (순수 스케줄 기반)
 - **스케줄**: 30분 주기 (`*/30 * * * *`)
 - **플러그인**: friday@qp-plugin (write-test 스킬)
+
+## Codex 포팅 상태
+
+아직 포팅하지 않았다. 이유는 핵심 테스트 생성 로직이 `/friday:test` 내부에 있기 때문이다.
+
+정리 문서:
+
+- [docs/analysis/gen-test-writer-portability.md](/Users/eddy/Documents/worktree/lab/lil-eddy/docs/analysis/gen-test-writer-portability.md)
 
 ## 동작 흐름
 
