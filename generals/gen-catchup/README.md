@@ -27,7 +27,12 @@
 - **timeout**: 900초 (15분)
 - **이벤트 구독**: 없음 (순수 스케줄 기반)
 - **스케줄**: 매일 09:00 KST (`0 0 * * *` UTC)
-- **플러그인**: friday@qp-plugin (pr-catchup 스킬)
+- **플러그인**: 없음 (자립형)
+
+## 엔진별 자산
+
+- Claude: `prompt.md`, `general-claude.md`
+- Codex: `prompt-codex.md`, `general-codex.md`
 
 ## prompt.md 설정
 
