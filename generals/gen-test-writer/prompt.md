@@ -35,17 +35,48 @@ else
 fi
 ```
 
-### Step 3. 테스트 코드 작성
+### Step 3. 테스트 후보 선정
 
-friday 플러그인의 test 스킬을 실행하여 테스트 코드 **1개**를 작성하라.
+아래 기준으로 **가치가 높은 테스트 1개**만 선택한다.
 
-```
-/friday:test
-```
+- 최근 변경 파일과 인접한 코드
+- 기존 테스트가 부족하거나 없는 영역
+- 버그 가능성이 높은 분기 / edge case
+- 비교적 짧은 시간 안에 검증 가능한 단위
 
-스킬이 대상 파일을 자동 선택한다. 스킬 실행 결과를 확인하고, 테스트 코드가 정상 작성되었는지 검증하라.
+피해야 할 것:
 
-### Step 4. 커밋 및 Push
+- 대규모 fixture 추가가 필요한 테스트
+- 환경 의존성이 큰 E2E
+- flaky 가능성이 높은 통합 테스트
+
+선정 이유를 먼저 짧게 정리한 뒤 테스트를 작성하라.
+
+### Step 4. 테스트 작성
+
+선정한 대상에 대해 테스트 1개만 작성한다.
+
+작성 원칙:
+
+- 기존 테스트 스타일을 따른다
+- 가장 작은 유효 검증을 추가한다
+- 의미 없는 snapshot 확대는 피한다
+- 테스트 이름은 의도를 드러내야 한다
+
+### Step 5. 최소 검증
+
+가능하면 다음 우선순위로 검증한다.
+
+1. 해당 테스트 파일만 실행
+2. 관련 패키지/모듈 테스트만 실행
+3. 그것도 어려우면 lint/typecheck 등 최소 검증
+
+실패 시:
+
+- 원인 명확하면 수정 후 1회 재시도
+- 환경 문제/과도한 범위면 `skipped`
+
+### Step 6. 커밋 및 Push
 
 ```bash
 git add -A
@@ -55,7 +86,7 @@ git commit -m "test: add auto-generated test
 git push origin "$BRANCH"
 ```
 
-### Step 5. Draft PR 생성 (없을 때만)
+### Step 7. Draft PR 생성 (없을 때만)
 
 이 브랜치에 대한 열린 PR이 없으면 draft PR을 생성한다.
 
@@ -72,7 +103,7 @@ if [ -z "$EXISTING_PR" ]; then
 fi
 ```
 
-### Step 6. base 브랜치로 복귀
+### Step 8. base 브랜치로 복귀
 
 ```bash
 git checkout {{payload.base_branch}}
@@ -80,8 +111,8 @@ git checkout {{payload.base_branch}}
 
 ### 결과 보고
 
-- `summary`: "테스트 커밋 완료: <테스트 대상 파일 요약> (브랜치: $BRANCH)"
-- 실패 시 `summary`에 실패 원인을 명시하라.
+- `summary`: "테스트 커밋 완료: <대상 요약> (브랜치: $BRANCH)"
+- `skipped`일 때는 구체적 이유를 `reason`에 넣는다
 
 ---
 

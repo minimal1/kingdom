@@ -1,6 +1,6 @@
 # gen-test-writer Portability Assessment
 
-> `gen-test-writer`는 현재 Codex 포팅 대상이라기보다, 먼저 `friday:test` 의존성을 해체해야 하는 장군이다.
+> `gen-test-writer`는 이제 Claude 경로에서 `friday:test` 의존을 제거했고, 다음 단계로 Codex 포팅을 준비하는 장군이다.
 
 ## 현재 상태
 
@@ -11,7 +11,7 @@
 - [generals/gen-test-writer/install.sh](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/install.sh)
 - [generals/gen-test-writer/README.md](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/README.md)
 
-현재 장군은 `supported_engines: [claude]`이고, 핵심 작업 Step 3이 `/friday:test`에 잠겨 있다.
+현재 장군은 `supported_engines: [claude]`이며, Codex 포팅은 아직 열지 않았다.
 
 ## 무엇이 이미 분리돼 있는가
 
@@ -38,27 +38,26 @@
 
 즉 Codex 포팅의 핵심 난도는 “테스트 생성 전략”이 plugin 안에 숨어 있다는 점이다.
 
+## 진행 상태
+
+이미 반영된 것:
+
+- Claude 경로는 plugin-free workflow로 전환
+- `prompt.md`가 테스트 대상 선정/작성/최소 검증 절차를 직접 지시
+- install 경로에서 `friday` 플러그인 설치 제거
+
+남은 것:
+
+- Codex용 자산(`prompt-codex.md`, `general-codex.md`) 추가
+- 실제 Codex 포팅 시 검증 전략 튜닝
+
 ## 권장 방향
 
-`gen-pr`처럼 바로 dual-engine으로 여는 것이 아니라, 먼저 plugin-free workflow를 장군 prompt 수준에서 정의한다.
+다음 단계는 Stage 2, 즉 Codex 자산 추가다.
 
-### Stage 1 — 자립화 설계
-
-Codex/Claude 공통으로 아래 절차를 명문화한다.
-
-1. 최근 변경/취약 영역 후보 수집
-2. 테스트 가치가 큰 대상 1개 선정
-3. 테스트 작성
-4. 최소 검증
-5. commit/push/PR
-
-### Stage 2 — Claude 자립화
-
-기존 `/friday:test`를 제거하고, Claude에서도 명시적 절차 prompt로 동작하게 만든다.
-
-### Stage 3 — Codex 자산 추가
-
-그 후에만 `prompt-codex.md`, `general-codex.md`, `supported_engines: [claude, codex]`로 확장한다.
+1. `prompt-codex.md`
+2. 필요 시 `general-codex.md`
+3. `supported_engines: [claude, codex]`
 
 ## plugin-free target workflow (draft)
 
@@ -90,15 +89,14 @@ Codex/Claude 공통으로 아래 절차를 명문화한다.
 
 ## Draft assets
 
-초안 자산은 장군 패키지 안에 추가되었다. 아직 활성 템플릿은 아니며, 자립화 설계를 고정하기 위한 문서다.
+초안 자산은 장군 패키지 안에 추가되었고, Claude 쪽은 이미 활성 템플릿으로 승격되었다. Codex 초안은 아직 비활성 설계 자산이다.
 
 - [generals/gen-test-writer/design/prompt-claude-draft.md](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/design/prompt-claude-draft.md)
 - [generals/gen-test-writer/design/prompt-codex-draft.md](/Users/eddy/Documents/worktree/lab/lil-eddy/generals/gen-test-writer/design/prompt-codex-draft.md)
 
 ## 결론
 
-`gen-test-writer`는 지금 당장 Codex 자산을 추가할 단계가 아니다.
+`gen-test-writer`는 이제 plugin-free Claude 장군이 되었고, 다음 단계로 Codex 포팅을 진행할 수 있다.
 
-- 현재: `claude-only` 유지
-- 다음 작업: `/friday:test`가 하던 판단을 장군 prompt로 끌어올리는 자립화 설계
-- 그 후: Codex 포팅
+- 현재: `claude-only` 유지, plugin-free workflow 활성
+- 다음 작업: Codex 자산 추가
