@@ -48,16 +48,17 @@
 
 남은 것:
 
-- Codex용 자산(`prompt-codex.md`, `general-codex.md`) 추가
 - 실제 Codex 포팅 시 검증 전략 튜닝
 
 ## 권장 방향
 
-다음 단계는 Stage 2, 즉 Codex 자산 추가다.
+현재는 Codex 자산 추가까지 완료되었다.
 
-1. `prompt-codex.md`
-2. 필요 시 `general-codex.md`
-3. `supported_engines: [claude, codex]`
+다음 단계는 운영 검증이다.
+
+1. `prompt-codex.md` 품질 검증
+2. 실제 테스트 대상 선정 품질 확인
+3. `supported_engines: [claude, codex]` 상태에서 스케줄 동작 검증
 
 ## plugin-free target workflow (draft)
 
@@ -96,7 +97,7 @@
 
 ## 결론
 
-`gen-test-writer`는 이제 plugin-free Claude 장군이 되었고, 다음 단계로 Codex 포팅을 진행할 수 있다.
+`gen-test-writer`는 이제 plugin-free Claude 장군이며, Codex 자산까지 추가된 dual-engine 장군이다.
 
-- 현재: `claude-only` 유지, plugin-free workflow 활성
-- 다음 작업: Codex 자산 추가
+- 현재: `claude`, `codex` 지원
+- 다음 작업: 운영 품질 검증

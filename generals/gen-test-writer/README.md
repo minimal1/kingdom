@@ -2,7 +2,7 @@
 
 30분마다 `chequer-io/querypie-mono` 레포의 `develop` 브랜치에서 테스트 코드 1개를 자동 작성하고 PR을 오픈한다.
 
-현재는 자립형 Claude workflow를 사용하며, Codex 포팅은 다음 단계다.
+현재는 자립형 Claude workflow를 사용하며, Codex 자산도 추가되었다.
 
 ## 사전 요구사항
 
@@ -24,7 +24,7 @@
 
 ## Codex 포팅 상태
 
-아직 포팅하지 않았다. 현재는 plugin-free Claude workflow를 먼저 활성화한 상태다.
+Codex 자산을 추가했다. 현재 `supported_engines`는 `claude`, `codex`를 모두 포함한다.
 
 정리 문서:
 
@@ -34,6 +34,12 @@
 
 - `design/prompt-claude-draft.md`
 - `design/prompt-codex-draft.md`
+
+활성 자산:
+
+- `prompt.md` (Claude 기본)
+- `prompt-codex.md`
+- `general-codex.md`
 
 ## 동작 흐름
 
