@@ -264,6 +264,7 @@ bats tests/test_*.sh tests/lib/test_*.sh tests/lib/*/test_*.sh
 | [`docs/guides/`](docs/guides/) | 운영 가이드 — 설치, 로컬 개발 |
 | [`docs/spec/`](docs/spec/) | 설계 명세 — 아키텍처, 역할, 시스템 |
 | [`docs/analysis/`](docs/analysis/) | 분석 — OpenClaw 비교, 기술 선택 근거 |
+| [`docs/releases/`](docs/releases/) | 릴리스 노트 |
 | [`docs/archive/`](docs/archive/) | 히스토리 — 컨셉 초안, 인프라 메모 |
 
 ## Project Structure
