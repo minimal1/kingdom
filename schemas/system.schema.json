@@ -50,15 +50,6 @@
             "model": {
               "type": "string",
               "default": "gpt-5-codex"
-            },
-            "sandbox": {
-              "type": "string",
-              "enum": ["read-only", "workspace-write", "danger-full-access"],
-              "default": "workspace-write"
-            },
-            "full_auto": {
-              "type": "boolean",
-              "default": true
             }
           }
         }

@@ -3,7 +3,10 @@
 
 get_runtime_engine() {
   local engine
-  engine=$(get_config "system" "runtime.engine" "claude")
+  engine="${KINGDOM_RUNTIME_ENGINE:-}"
+  if [ -z "$engine" ]; then
+    engine=$(get_config "system" "runtime.engine" "claude")
+  fi
   case "$engine" in
     claude|codex) printf '%s\n' "$engine" ;;
     *) printf 'claude\n' ;;
@@ -74,19 +77,14 @@ jq -r '.session_id // empty' '$stdout_file' > '$session_id_file' 2>/dev/null
 EOF
       ;;
     codex)
-      local codex_cmd model sandbox full_auto
+      local codex_cmd model
       codex_cmd=$(get_runtime_command "$engine")
       model=$(get_config "system" "runtime.codex.model" "")
-      sandbox=$(get_config "system" "runtime.codex.sandbox" "workspace-write")
-      full_auto=$(get_config "system" "runtime.codex.full_auto" "true")
-      local args="exec --json --skip-git-repo-check"
+      local args="exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox"
       [ -n "$model" ] && args="$args --model '$model'"
-      [ -n "$sandbox" ] && args="$args --sandbox '$sandbox'"
-      [ "$full_auto" = "true" ] && args="$args --full-auto"
       if [ -n "$resume_token" ]; then
-        args="exec resume --json --skip-git-repo-check"
+        args="exec resume --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox"
         [ -n "$model" ] && args="$args --model '$model'"
-        [ "$full_auto" = "true" ] && args="$args --full-auto"
         args="$args '$resume_token' -"
       else
         args="$args -"

@@ -59,9 +59,8 @@ if [ "$runtime_engine" = "codex" ]; then
   codex_cmd="$(get_runtime_command codex)"
   codex_model="$model"
   [ -z "$codex_model" ] && codex_model=$(get_config "system" "runtime.codex.model" "")
-  codex_sandbox=$(get_config "system" "runtime.codex.sandbox" "read-only")
-  codex_args="exec --skip-git-repo-check --json --sandbox '$codex_sandbox' --full-auto -"
-  [ -n "$codex_model" ] && codex_args="exec --skip-git-repo-check --json --sandbox '$codex_sandbox' --full-auto --model '$codex_model' -"
+  codex_args="exec --skip-git-repo-check --json --dangerously-bypass-approvals-and-sandbox -"
+  [ -n "$codex_model" ] && codex_args="exec --skip-git-repo-check --json --dangerously-bypass-approvals-and-sandbox --model '$codex_model' -"
   eval "$codex_cmd $codex_args < '$prompt_file' > '${prompt_file}.out' 2>/dev/null" &
 else
   claude_cmd="$(get_runtime_command claude)"

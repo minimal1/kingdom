@@ -118,6 +118,7 @@ teardown() {
   local codex_cmd
   codex_cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "sess-456")
   [[ "$codex_cmd" == *"exec resume --json"* ]]
+  [[ "$codex_cmd" == *"--dangerously-bypass-approvals-and-sandbox"* ]]
   [[ "$codex_cmd" == *"'sess-456' -"* ]]
 }
 
@@ -125,30 +126,22 @@ teardown() {
   local cmd
   cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "")
   [[ "$cmd" == *"codex exec"* ]]
+  [[ "$cmd" == *"--dangerously-bypass-approvals-and-sandbox"* ]]
   run grep 'runtime_prepare_command' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
 }
 
 @test "spawn-soldier: runs with codex engine when configured" {
   mkdir -p "$BASE_DIR/workspace/gen-pr" "$BASE_DIR/config"
-  cat > "$BASE_DIR/config/system.yaml" <<'EOF'
-version: "4.0.0"
-base_dir: "/tmp/kingdom"
-runtime:
-  engine: "codex"
-  codex:
-    command: "codex"
-    model: "gpt-5-codex"
-    sandbox: "workspace-write"
-    full_auto: true
-EOF
   local prompt_file="$BASE_DIR/state/prompts/task-codex.md"
   echo "test prompt" > "$prompt_file"
   export MOCK_LOG="$(mktemp)"
+  export KINGDOM_RUNTIME_ENGINE="codex"
 
   "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh" "task-codex" "$prompt_file" "$BASE_DIR/workspace/gen-pr"
 
   run cat "$MOCK_LOG"
   assert_output --partial "codex exec"
+  unset KINGDOM_RUNTIME_ENGINE
   rm -f "$MOCK_LOG"
 }

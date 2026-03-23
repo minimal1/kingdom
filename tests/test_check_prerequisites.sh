@@ -87,8 +87,6 @@ runtime:
   codex:
     command: "codex"
     model: "gpt-5-codex"
-    sandbox: "workspace-write"
-    full_auto: true
 EOF
   cp "${BATS_TEST_DIRNAME}/../bin/lib/common.sh" "$KINGDOM_BASE_DIR/bin/lib/"
   cp "${BATS_TEST_DIRNAME}/../bin/lib/runtime/engine.sh" "$KINGDOM_BASE_DIR/bin/lib/runtime/"

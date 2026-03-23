@@ -8,5 +8,3 @@ runtime:
   codex:
     command: "codex"
     model: "gpt-5-codex"
-    sandbox: "workspace-write"
-    full_auto: true
