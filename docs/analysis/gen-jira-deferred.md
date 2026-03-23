@@ -2,12 +2,12 @@
 
 ## Decision
 
-`gen-jira`는 현재 `claude-only`로 유지하며, Codex 포팅은 보류한다.
+`gen-jira`는 현재 `claude-only` 하네스 장군으로 재설계 중이며, Codex 포팅은 보류한다.
 
 ## Why Deferred
 
 1. 현재 Claude 경로 안에서도 완성도가 낮다
-2. `friday:jira` 의존이 깊다
+2. Codex용 자산과 운영 검증이 아직 없다
 3. Jira 상태/라벨/레포 연결 규칙이 복잡하다
 4. 다른 장군 대비 운영 리스크가 높다
 

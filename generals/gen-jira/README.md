@@ -1,9 +1,8 @@
 # gen-jira - Jira 티켓 대응
 
-Jira 티켓이 "In Progress" 상태이고 "kingdom" 라벨이 있을 때 friday:jira 커맨드로 작업을 수행한다.
-현재 스프린트의 할당된 티켓을 추적하되, 실제 작업은 두 조건을 모두 만족할 때만 실행한다.
+Jira 티켓을 repo-bound harnessed_dev workflow로 처리하는 장군.
 
-현재는 보류 대상이지만, harnessed_dev 재설계 초안을 패키지 안에 포함한다.
+현재는 Claude 경로에서 하네스 기반으로 재설계된 상태이며, Codex 포팅은 아직 열지 않았다.
 
 관련 초안:
 
@@ -11,13 +10,13 @@ Jira 티켓이 "In Progress" 상태이고 "kingdom" 라벨이 있을 때 friday:
 - `decision-rules.md`
 - `validation-rules.md`
 - `prompt-harness-claude.md`
+- `prompt-claude.md`
 - `README-harness-v1.md`
 
 ## 사전 요구사항
 
 - Kingdom 설치 완료 (`/opt/kingdom/`)
 - Jira API 토큰 (`JIRA_API_TOKEN` 환경변수)
-- friday@qp-plugin CC 플러그인
 
 ## 설치
 
@@ -33,6 +32,12 @@ bash generals/gen-jira/install.sh
 | `jira.ticket.updated` | 티켓 상태 변경 |
 
 > 두 이벤트 모두 수신하지만, 프롬프트에서 `payload.status == "In Progress"` 가드를 적용. 그 외 상태에서는 즉시 건너뜀(⏭️).
+
+## 현재 상태
+
+- `mode: harnessed_dev`
+- `supported_engines: claude`
+- `cc_plugins: 없음`
 
 ## 설정
 

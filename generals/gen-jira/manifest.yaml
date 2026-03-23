@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=../../schemas/general-manifest.schema.json
 name: gen-jira
-description: "Jira 티켓 대응 장군 — repo-bound harnessed_dev 개발 워크플로우 초안"
+description: "Jira 티켓 대응 장군 — repo-bound harnessed_dev 개발 워크플로우"
 timeout_seconds: 1800
 
-cc_plugins:
-  - friday@qp-plugin
+cc_plugins: []
 
 mode: harnessed_dev
 
