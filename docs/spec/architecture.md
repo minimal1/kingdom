@@ -67,6 +67,7 @@ envoy
 - `king`는 `functions.sh`, `messages.sh`, `schedules.sh`로 분리
 - `envoy`는 Socket Mode 전용이며 bridge/outbound/message-processors/socket-inbox로 분리
 - `general`은 task-selection/workspace/memory/soldier-lifecycle/results/main-loop로 분리
+- 향후 자발적 개발형 장군을 위해 `Harness General Mode` 도입 예정
 
 ## 설정 기준
 
@@ -79,6 +80,7 @@ envoy
 
 - [roles/king.md](roles/king.md)
 - [roles/general.md](roles/general.md)
+- [harness-general-mode.md](harness-general-mode.md)
 - [roles/envoy.md](roles/envoy.md)
 - [systems/event-types.md](systems/event-types.md)
 - [systems/internal-events.md](systems/internal-events.md)
