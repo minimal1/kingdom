@@ -1,4 +1,4 @@
-# querypie-mono Validation Rules
+# Kingdom Harness Validation Rules
 
 ## Validation Order
 

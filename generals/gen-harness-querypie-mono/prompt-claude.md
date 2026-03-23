@@ -9,7 +9,7 @@
 
 ## Bootstrap
 
-먼저 `harness.md`, `decision-rules.md`, `validation-rules.md`를 읽어라.
+시스템 공통 하네스와 `bootstrap-knowledge.md`, `repo-rules.md`를 먼저 읽어라.
 
 그리고 `querypie-mono`의 관련 문서/skills를 읽어 bootstrap knowledge를 확보하라.
 

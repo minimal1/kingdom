@@ -25,10 +25,11 @@
 
 - `prompt-claude.md`
 - `general-claude.md`
-- `harness.md`
-- `decision-rules.md`
-- `validation-rules.md`
+- `bootstrap-knowledge.md`
+- `repo-rules.md`
 
 ## 상태
 
 활성 장군. `gen-jira`의 successor로 간주한다.
+
+공통 하네스 규칙은 package 안에 두지 않고 Kingdom 시스템의 `config/harness/*.md`를 사용한다.

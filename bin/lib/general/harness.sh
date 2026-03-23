@@ -28,3 +28,10 @@ read_harness_asset() {
   [ -f "$path" ] || return 1
   cat "$path"
 }
+
+read_system_harness_asset() {
+  local filename="$1"
+  local path="$BASE_DIR/config/harness/${filename}"
+  [ -f "$path" ] || return 1
+  cat "$path"
+}

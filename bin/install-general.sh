@@ -80,8 +80,8 @@ if [ -d "$PACKAGE_DIR/skills" ]; then
   cp -R "$PACKAGE_DIR/skills/." "$BASE_DIR/config/generals/skills/${NAME}/" 2>/dev/null || true
 fi
 
-# Harness assets 복사 (선택)
-for harness_asset in harness.md decision-rules.md validation-rules.md; do
+# Harness extension assets 복사 (선택)
+for harness_asset in bootstrap-knowledge.md repo-rules.md harness.md decision-rules.md validation-rules.md; do
   if [ -f "$PACKAGE_DIR/$harness_asset" ]; then
     mkdir -p "$BASE_DIR/config/generals/${NAME}"
     cp "$PACKAGE_DIR/$harness_asset" "$BASE_DIR/config/generals/${NAME}/$harness_asset"

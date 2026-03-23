@@ -180,6 +180,27 @@ harness:
 - `gen-doctor`
 - `gen-catchup`
 
+## 구조 원칙
+
+하네스는 장군 패키지가 아니라 **Kingdom 시스템**이 제공한다.
+
+시스템 제공:
+
+- `config/harness/base.md`
+- `config/harness/decision-rules.md`
+- `config/harness/validation-rules.md`
+
+장군 제공:
+
+- `bootstrap-knowledge.md`
+- `repo-rules.md`
+- 엔진별 prompt/instruction 자산
+
+즉:
+
+- 하네스 정의 = Kingdom
+- 하네스 특화 = General
+
 ## 관련 문서
 
 - [docs/spec/roles/general.md](/Users/eddy/Documents/worktree/lab/lil-eddy/docs/spec/roles/general.md)

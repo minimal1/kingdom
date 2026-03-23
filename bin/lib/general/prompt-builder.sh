@@ -108,11 +108,25 @@ build_prompt() {
 
   if [ "$mode" = "harnessed_dev" ]; then
     local asset content
-    for asset in harness.md decision-rules.md validation-rules.md; do
+    for asset in base.md decision-rules.md validation-rules.md; do
+      content=$(read_system_harness_asset "$asset" 2>/dev/null || true)
+      [ -z "$content" ] && continue
+      echo ""
+      case "$asset" in
+        base.md) echo "## Harness Base" ;;
+        decision-rules.md) echo "## Decision Rules" ;;
+        validation-rules.md) echo "## Validation Rules" ;;
+      esac
+      echo "$content"
+    done
+
+    for asset in bootstrap-knowledge.md repo-rules.md harness.md decision-rules.md validation-rules.md; do
       content=$(read_harness_asset "$asset" 2>/dev/null || true)
       [ -z "$content" ] && continue
       echo ""
       case "$asset" in
+        bootstrap-knowledge.md) echo "## Bootstrap Knowledge" ;;
+        repo-rules.md) echo "## Repository Rules" ;;
         harness.md) echo "## Harness" ;;
         decision-rules.md) echo "## Decision Rules" ;;
         validation-rules.md) echo "## Validation Rules" ;;
