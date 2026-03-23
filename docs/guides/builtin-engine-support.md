@@ -11,6 +11,7 @@
 | `gen-catchup` | Yes | Yes | dual-engine |
 | `gen-test-writer` | Yes | Yes | dual-engine |
 | `gen-jira` | Yes | No | deferred |
+| `gen-harness-querypie-mono` | Yes | No | draft harness |
 
 ## Asset Rules
 

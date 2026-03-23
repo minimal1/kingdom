@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../schemas/general-manifest.schema.json
+name: gen-harness-querypie-mono
+description: "querypie-mono 전용 harnessed_dev 장군 — Jira/Slack 기반 개발 작업 수행"
+timeout_seconds: 1800
+
+cc_plugins: []
+
+mode: harnessed_dev
+
+supported_engines:
+  - claude
+
+default_repo: chequer-io/querypie-mono
+
+harness:
+  profile: querypie-mono-dev
+  phases:
+    - bootstrap
+    - intake
+    - plan
+    - execute
+    - review
+    - validate
+    - decide
+    - report
+
+subscribes:
+  - jira.ticket.assigned
+  - jira.ticket.updated
+
+schedules: []
