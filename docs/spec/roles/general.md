@@ -44,6 +44,7 @@
 장군 공통 로직은 하나의 큰 파일이 아니라 보조 모듈로 나뉜다.
 
 - `task-selection.sh`: `pick_next_task()`
+- `harness.sh`: `get_general_mode()`, harness asset lookup
 - `workspace.sh`: `ensure_workspace()`, `sync_general_agents()`
 - `memory.sh`: `load_domain_memory()`, `load_repo_memory()`, `update_memory()`
 - `soldier-lifecycle.sh`: `spawn_soldier()`, `wait_for_soldier()`
@@ -63,6 +64,15 @@
 7. 상태별 분기 후 `report_to_king()` 또는 `escalate_to_king()`
 
 장군은 `task.started` 내부 이벤트를 발행한다.
+
+## 실행 모드
+
+장군은 두 모드를 가질 수 있다.
+
+- `automation`
+- `harnessed_dev`
+
+`harnessed_dev` 장군은 prompt 조립 시 `harness.md`, `decision-rules.md`, `validation-rules.md`를 추가 주입한다.
 
 ## workspace
 

@@ -65,6 +65,9 @@ mkdir -p "$BASE_DIR/config/generals/templates"
 cp "$PACKAGE_DIR/prompt.md" "$BASE_DIR/config/generals/templates/${NAME}.md"
 [ -f "$PACKAGE_DIR/prompt-claude.md" ] && cp "$PACKAGE_DIR/prompt-claude.md" "$BASE_DIR/config/generals/templates/${NAME}-claude.md"
 [ -f "$PACKAGE_DIR/prompt-codex.md" ] && cp "$PACKAGE_DIR/prompt-codex.md" "$BASE_DIR/config/generals/templates/${NAME}-codex.md"
+[ -f "$PACKAGE_DIR/prompt-harness.md" ] && cp "$PACKAGE_DIR/prompt-harness.md" "$BASE_DIR/config/generals/templates/${NAME}-harness.md"
+[ -f "$PACKAGE_DIR/prompt-harness-claude.md" ] && cp "$PACKAGE_DIR/prompt-harness-claude.md" "$BASE_DIR/config/generals/templates/${NAME}-harness-claude.md"
+[ -f "$PACKAGE_DIR/prompt-harness-codex.md" ] && cp "$PACKAGE_DIR/prompt-harness-codex.md" "$BASE_DIR/config/generals/templates/${NAME}-harness-codex.md"
 
 # 에이전트/스킬 복사 (선택)
 if [ -d "$PACKAGE_DIR/agents" ]; then
@@ -76,6 +79,14 @@ if [ -d "$PACKAGE_DIR/skills" ]; then
   mkdir -p "$BASE_DIR/config/generals/skills/${NAME}"
   cp -R "$PACKAGE_DIR/skills/." "$BASE_DIR/config/generals/skills/${NAME}/" 2>/dev/null || true
 fi
+
+# Harness assets 복사 (선택)
+for harness_asset in harness.md decision-rules.md validation-rules.md; do
+  if [ -f "$PACKAGE_DIR/$harness_asset" ]; then
+    mkdir -p "$BASE_DIR/config/generals/${NAME}"
+    cp "$PACKAGE_DIR/$harness_asset" "$BASE_DIR/config/generals/${NAME}/$harness_asset"
+  fi
+done
 
 # 엔트리 스크립트 자동 생성
 mkdir -p "$BASE_DIR/bin/generals"

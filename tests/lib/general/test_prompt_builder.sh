@@ -165,3 +165,32 @@ EOF
   result=$(build_prompt "$task" "" "")
   [[ "$result" == *"Codex template"* ]]
 }
+
+@test "prompt-builder: harnessed_dev includes harness assets" {
+  GENERAL_DOMAIN="gen-jira"
+  cat > "$BASE_DIR/config/generals/gen-jira.yaml" <<'EOF'
+name: gen-jira
+description: "Harness test"
+timeout_seconds: 120
+cc_plugins: []
+mode: harnessed_dev
+subscribes: []
+schedules: []
+EOF
+  echo '# Harness template {{TASK_ID}}' > "$BASE_DIR/config/generals/templates/gen-jira-harness-claude.md"
+  mkdir -p "$BASE_DIR/config/generals/gen-jira"
+  echo 'Harness content' > "$BASE_DIR/config/generals/gen-jira/harness.md"
+  echo 'Decision content' > "$BASE_DIR/config/generals/gen-jira/decision-rules.md"
+  echo 'Validation content' > "$BASE_DIR/config/generals/gen-jira/validation-rules.md"
+
+  local task='{"id":"task-014","type":"jira.ticket.updated","repo":"chequer/qp","payload":{"ticket_key":"QP-1"}}'
+  local result
+  result=$(build_prompt "$task" "" "")
+  [[ "$result" == *"Harness template task-014"* ]]
+  [[ "$result" == *"## Harness"* ]]
+  [[ "$result" == *"Harness content"* ]]
+  [[ "$result" == *"## Decision Rules"* ]]
+  [[ "$result" == *"Decision content"* ]]
+  [[ "$result" == *"## Validation Rules"* ]]
+  [[ "$result" == *"Validation content"* ]]
+}

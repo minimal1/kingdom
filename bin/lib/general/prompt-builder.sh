@@ -4,6 +4,7 @@
 
 _PROMPT_BUILDER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_PROMPT_BUILDER_DIR/../runtime/engine.sh"
+source "$_PROMPT_BUILDER_DIR/harness.sh"
 
 # Maximum prompt size in bytes (default 200KB)
 MAX_PROMPT_BYTES="${MAX_PROMPT_BYTES:-204800}"
@@ -28,12 +29,23 @@ build_prompt() {
   # Action-based template branching: payload.action → {general}-{action}.md
   local engine
   engine=$(get_runtime_engine)
+  local mode
+  mode=$(get_general_mode)
   local action
   action=$(echo "$payload" | jq -r '.action // ""')
   local template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}.md"
   local engine_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${engine}.md"
   if [ -f "$engine_template" ]; then
     template="$engine_template"
+  fi
+  if [ "$mode" = "harnessed_dev" ]; then
+    local harness_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-harness.md"
+    local harness_engine_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-harness-${engine}.md"
+    if [ -f "$harness_engine_template" ]; then
+      template="$harness_engine_template"
+    elif [ -f "$harness_template" ]; then
+      template="$harness_template"
+    fi
   fi
   if [ -n "$action" ]; then
     local action_template="$BASE_DIR/config/generals/templates/${GENERAL_DOMAIN}-${action}.md"
@@ -92,6 +104,21 @@ build_prompt() {
     echo '```json'
     echo "$payload" | jq .
     echo '```'
+  fi
+
+  if [ "$mode" = "harnessed_dev" ]; then
+    local asset content
+    for asset in harness.md decision-rules.md validation-rules.md; do
+      content=$(read_harness_asset "$asset" 2>/dev/null || true)
+      [ -z "$content" ] && continue
+      echo ""
+      case "$asset" in
+        harness.md) echo "## Harness" ;;
+        decision-rules.md) echo "## Decision Rules" ;;
+        validation-rules.md) echo "## Validation Rules" ;;
+      esac
+      echo "$content"
+    done
   fi
 
 }

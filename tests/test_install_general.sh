@@ -60,12 +60,20 @@ teardown() {
   echo "# agent" > "$TEST_PKG/agents/reviewer.md"
   echo "# skill" > "$TEST_PKG/skills/demo-skill/SKILL.md"
   echo "# codex prompt" > "$TEST_PKG/prompt-codex.md"
+  echo "# harness prompt" > "$TEST_PKG/prompt-harness-claude.md"
+  echo "# harness" > "$TEST_PKG/harness.md"
+  echo "# decisions" > "$TEST_PKG/decision-rules.md"
+  echo "# validations" > "$TEST_PKG/validation-rules.md"
 
   run "$BASE_DIR/bin/install-general.sh" "$TEST_PKG"
   assert_success
   assert [ -f "$BASE_DIR/config/generals/agents/gen-foo/reviewer.md" ]
   assert [ -f "$BASE_DIR/config/generals/skills/gen-foo/demo-skill/SKILL.md" ]
   assert [ -f "$BASE_DIR/config/generals/templates/gen-foo-codex.md" ]
+  assert [ -f "$BASE_DIR/config/generals/templates/gen-foo-harness-claude.md" ]
+  assert [ -f "$BASE_DIR/config/generals/gen-foo/harness.md" ]
+  assert [ -f "$BASE_DIR/config/generals/gen-foo/decision-rules.md" ]
+  assert [ -f "$BASE_DIR/config/generals/gen-foo/validation-rules.md" ]
 }
 
 @test "install: creates runtime directories" {

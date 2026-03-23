@@ -5,6 +5,7 @@
 
 _GENERAL_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_GENERAL_LIB_DIR/../runtime/engine.sh"
+source "$_GENERAL_LIB_DIR/harness.sh"
 source "$_GENERAL_LIB_DIR/prompt-builder.sh"
 source "$_GENERAL_LIB_DIR/task-selection.sh"
 source "$_GENERAL_LIB_DIR/workspace.sh"
