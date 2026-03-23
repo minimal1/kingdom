@@ -80,20 +80,17 @@ EOF
       local codex_cmd model
       codex_cmd=$(get_runtime_command "$engine")
       model=$(get_config "system" "runtime.codex.model" "")
-      local args="exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox"
-      [ -n "$model" ] && args="$args --model '$model'"
-      if [ -n "$resume_token" ]; then
-        args="exec resume --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox"
-        [ -n "$model" ] && args="$args --model '$model'"
-        args="$args '$resume_token' -"
-      else
-        args="$args -"
-      fi
+      local runner="${BASE_DIR:-${KINGDOM_BASE_DIR:-/opt/kingdom}}/bin/lib/soldier/codex-heartbeat-runner.sh"
       cat <<EOF
-cd '$work_dir' && $codex_cmd $args \
-  < '$prompt_file' \
-  > '$stdout_file' 2>'$stderr_file'; \
-jq -r '.session_id // .data.session_id // empty' '$stdout_file' | head -1 > '$session_id_file' 2>/dev/null || true
+'$runner' \
+  '$work_dir' \
+  '$prompt_file' \
+  '$stdout_file' \
+  '$stderr_file' \
+  '$session_id_file' \
+  '$resume_token' \
+  '$model' \
+  '$codex_cmd'
 EOF
       ;;
   esac

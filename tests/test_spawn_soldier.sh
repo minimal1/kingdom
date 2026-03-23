@@ -117,16 +117,16 @@ teardown() {
   [[ "$cmd" == *"--resume 'sess-123'"* ]]
   local codex_cmd
   codex_cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "sess-456")
-  [[ "$codex_cmd" == *"exec resume --json"* ]]
-  [[ "$codex_cmd" == *"--dangerously-bypass-approvals-and-sandbox"* ]]
-  [[ "$codex_cmd" == *"'sess-456' -"* ]]
+  [[ "$codex_cmd" == *"codex-heartbeat-runner.sh"* ]]
+  [[ "$codex_cmd" == *"'/tmp/session'"* ]]
+  [[ "$codex_cmd" == *"'sess-456'"* ]]
 }
 
 @test "spawn-soldier: supports codex runtime command" {
   local cmd
   cmd=$(runtime_prepare_command "codex" "/tmp/prompt.md" "/tmp/work" "/tmp/out.json" "/tmp/err" "/tmp/session" "")
-  [[ "$cmd" == *"codex exec"* ]]
-  [[ "$cmd" == *"--dangerously-bypass-approvals-and-sandbox"* ]]
+  [[ "$cmd" == *"codex-heartbeat-runner.sh"* ]]
+  [[ "$cmd" == *"'codex'"* ]]
   run grep 'runtime_prepare_command' "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh"
   assert_success
 }
@@ -141,7 +141,8 @@ teardown() {
   "${BATS_TEST_DIRNAME}/../bin/spawn-soldier.sh" "task-codex" "$prompt_file" "$BASE_DIR/workspace/gen-pr"
 
   run cat "$MOCK_LOG"
-  assert_output --partial "codex exec"
+  assert_output --partial "codex-heartbeat-runner.sh"
+  assert_output --partial "'codex'"
   unset KINGDOM_RUNTIME_ENGINE
   rm -f "$MOCK_LOG"
 }

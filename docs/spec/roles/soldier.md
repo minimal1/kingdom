@@ -50,6 +50,7 @@
 - workspace의 `AGENTS.md`를 사용
 - `codex exec resume` 기반 best-effort resume 지원
 - session token은 stdout JSONL에서 가능하면 추출
+- Claude hook이 없으므로 `codex-heartbeat-runner.sh`가 stdout/stderr activity를 heartbeat로 변환
 
 ## instruction 파일
 
