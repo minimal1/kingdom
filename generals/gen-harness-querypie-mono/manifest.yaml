@@ -9,6 +9,7 @@ mode: harnessed_dev
 
 supported_engines:
   - claude
+  - codex
 
 default_repo: chequer-io/querypie-mono
 

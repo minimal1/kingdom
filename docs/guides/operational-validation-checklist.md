@@ -21,7 +21,7 @@
 
 ## 공통 검증 항목
 
-모든 dual-engine 장군에 대해 Claude/Codex 각각 확인:
+모든 dual-engine 장군 및 active harness 장군에 대해 Claude/Codex 각각 확인:
 
 - [ ] manifest의 `supported_engines`와 실제 runtime 동작이 일치
 - [ ] engine별 prompt 자산이 올바르게 선택됨
@@ -134,6 +134,27 @@
 
 - 지나치게 길거나 generic한 답변
 - 브리핑 요청 유도가 어색함
+
+## gen-harness-querypie-mono
+
+### 성공 조건
+
+- [ ] Jira 이벤트에서 올바른 intake/plan이 생성됨
+- [ ] petition-routed Slack 요청도 동일한 하네스 흐름으로 처리됨
+- [ ] bootstrap knowledge가 실제 querypie-mono 문서를 충분히 반영함
+- [ ] Codex/Claude 모두에서 plan / validate / decide 품질이 과도하게 흔들리지 않음
+
+### 확인 포인트
+
+- [ ] repo-bound 범위를 벗어나지 않는지
+- [ ] `needs_human`이 너무 늦지 않은지
+- [ ] 계획이 과도하게 커지지 않는지
+
+### 실패 신호
+
+- bootstrap 없이 바로 구현으로 들어감
+- plan이 모호하거나 과하게 큼
+- validation이 형식적이거나 누락됨
 
 ## 운영 판단 기준
 

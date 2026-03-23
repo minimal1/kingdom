@@ -23,7 +23,9 @@
 
 ## 자산
 
+- `prompt-codex.md`
 - `prompt-claude.md`
+- `general-codex.md`
 - `general-claude.md`
 - `bootstrap-knowledge.md`
 - `repo-rules.md`
@@ -33,3 +35,8 @@
 활성 장군. `gen-jira`의 successor로 간주한다.
 
 공통 하네스 규칙은 package 안에 두지 않고 Kingdom 시스템의 `config/harness/*.md`를 사용한다.
+
+## 엔진 지원
+
+- Claude: 지원
+- Codex: 지원 (운영 검증 필요)
