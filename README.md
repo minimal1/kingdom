@@ -96,7 +96,7 @@ generals/gen-{name}/
 └── README.md       # 문서
 ```
 
-**빌트인 장군 6종 + draft harness 1종**:
+**빌트인 장군 7종**:
 
 | 장군 | 역할 | 트리거 |
 |------|------|--------|
@@ -106,7 +106,7 @@ generals/gen-{name}/
 | `gen-herald` | 일상 대화 및 범용 DM | `slack.channel.message`, `slack.app_mention` |
 | `gen-test-writer` | 테스트 자동 작성 → PR | 스케줄 (30분 주기) |
 | `gen-doctor` | 실패 태스크 진단 | DM petition |
-| `gen-harness-querypie-mono` | querypie-mono 개발 하네스 (draft) | `jira.ticket.assigned`, `jira.ticket.updated` + petition 라우팅 |
+| `gen-harness-querypie-mono` | querypie-mono 개발 하네스 | `jira.ticket.assigned`, `jira.ticket.updated` + petition 라우팅 |
 
 ### Multi-Engine Soldier Runtime
 
@@ -295,14 +295,14 @@ kingdom/
 │       ├── general/main-loop.sh # 장군 메인 루프
 │       ├── general/prompt-builder.sh  # Soul + 프롬프트 조립
 │       └── ...
-├── generals/                # 장군 패키지 (소스, 6종 + draft harness)
+├── generals/                # 장군 패키지 (소스, 7종)
 │   ├── gen-pr/              #   PR 리뷰
 │   ├── gen-catchup/         #   일간 PR 캐치업
 │   ├── gen-briefing/        #   시스템 브리핑
 │   ├── gen-herald/          #   범용 DM 응대
 │   ├── gen-test-writer/     #   테스트 자동 작성
 │   ├── gen-doctor/          #   실패 진단
-│   └── gen-harness-querypie-mono/ #   querypie-mono 개발 하네스 (draft)
+│   └── gen-harness-querypie-mono/ #   querypie-mono 개발 하네스
 ├── config/                  # 설정
 │   ├── workspace-claude.md  #   병사 CLAUDE.md (Soul + 팀 맥락 + 결과 보고)
 │   ├── *.yaml               #   역할별 설정

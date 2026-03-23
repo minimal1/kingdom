@@ -79,8 +79,8 @@ queue/events/pending/
   왕이 시작 시 각 장군 매니페스트의 subscribes를 읽어 ROUTING_TABLE 구성.
   예:
     github.pr.*           → gen-pr   (gen-pr.yaml의 subscribes에 선언)
-    jira.ticket.assigned  → gen-harness-querypie-mono  (draft successor)
-    jira.ticket.updated   → gen-harness-querypie-mono  (draft successor)
+    jira.ticket.assigned  → gen-harness-querypie-mono  (active harness successor)
+    jira.ticket.updated   → gen-harness-querypie-mono  (active harness successor)
     github.issue.*        → (현재 구독 장군 없음 — 파수꾼은 생성 가능)
   매칭 실패 시 → 경고 로그, 이벤트를 completed로 이동 (폐기)
 

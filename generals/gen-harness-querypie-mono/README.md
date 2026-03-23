@@ -1,6 +1,6 @@
 # gen-harness-querypie-mono
 
-`querypie-mono` 레포 전용 harnessed_dev 장군 초안.
+`querypie-mono` 레포 전용 harnessed_dev 장군.
 
 ## 목적
 
@@ -31,4 +31,4 @@
 
 ## 상태
 
-초안 패키지. `gen-jira`를 대체할 다음 세대 장군 후보.
+활성 장군. `gen-jira`의 successor로 간주한다.

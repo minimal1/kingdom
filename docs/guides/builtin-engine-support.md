@@ -10,7 +10,7 @@
 | `gen-pr` | Yes | Yes | dual-engine |
 | `gen-catchup` | Yes | Yes | dual-engine |
 | `gen-test-writer` | Yes | Yes | dual-engine |
-| `gen-harness-querypie-mono` | Yes | No | draft harness |
+| `gen-harness-querypie-mono` | Yes | No | active harness |
 
 ## Asset Rules
 

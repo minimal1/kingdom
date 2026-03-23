@@ -22,4 +22,4 @@
 장기적으로:
 
 - `gen-jira`는 legacy/deprecated
-- `gen-harness-querypie-mono`가 실질 successor
+- `gen-harness-querypie-mono`가 active successor
