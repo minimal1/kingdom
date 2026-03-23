@@ -262,6 +262,7 @@ bats tests/test_*.sh tests/lib/test_*.sh tests/lib/*/test_*.sh
 | 경로 | 내용 |
 |------|------|
 | [`docs/guides/`](docs/guides/) | 운영 가이드 — 설치, 로컬 개발 |
+| [`docs/guides/tencent-cloud-migration-guide.md`](docs/guides/tencent-cloud-migration-guide.md) | Tencent Cloud 마이그레이션 가이드 |
 | [`docs/guides/operational-validation-checklist.md`](docs/guides/operational-validation-checklist.md) | multi-engine 운영 검증 체크리스트 |
 | [`docs/spec/`](docs/spec/) | 설계 명세 — 아키텍처, 역할, 시스템 |
 | [`docs/analysis/`](docs/analysis/) | 분석 — OpenClaw 비교, 기술 선택 근거 |
