@@ -9,7 +9,7 @@
 - `automation`: 절차가 명확한 장군
 - `harnessed_dev`: 스스로 계획하고 구현하고 검증해야 하는 장군
 
-`gen-jira` 같은 장군은 후자에 해당한다. 이 문서는 그런 장군의 공통 하네스 모드를 정의한다.
+`gen-harness-querypie-mono` 같은 장군은 후자에 해당한다. 이 문서는 그런 장군의 공통 하네스 모드를 정의한다.
 
 ## 왜 필요한가
 
@@ -169,7 +169,7 @@ harness:
 
 예상 대상:
 
-- `gen-jira`
+- `gen-harness-querypie-mono`
 - 미래의 repo-bound 개발 장군
 - 큰 리팩터링 장군
 

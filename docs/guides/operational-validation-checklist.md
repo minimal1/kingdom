@@ -6,7 +6,7 @@
 
 - dual-engine 장군이 Claude/Codex 모두에서 기대한 품질로 동작하는지 확인
 - 스케줄, Slack, GitHub side effect가 실제 운영 환경에서도 안전한지 검증
-- `gen-jira`를 제외한 builtin 장군의 실사용 준비 상태를 판단
+- `gen-harness-querypie-mono`를 제외한 builtin 장군의 실사용 준비 상태를 판단
 
 ## 우선순위
 
@@ -151,4 +151,4 @@
 - `gen-briefing`: ready
 - `gen-doctor`: ready
 - `gen-herald`: ready
-- `gen-jira`: deferred
+- `gen-harness-querypie-mono`: draft harness

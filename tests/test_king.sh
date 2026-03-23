@@ -10,7 +10,7 @@ setup() {
   install_test_general "gen-pr"
   install_test_general "gen-briefing"
   install_test_general "gen-herald"
-  install_test_general "gen-jira"
+  install_test_general "gen-harness-querypie-mono"
 
   source "${BATS_TEST_DIRNAME}/../bin/lib/common.sh"
   source "${BATS_TEST_DIRNAME}/../bin/lib/king/router.sh"
@@ -721,7 +721,7 @@ EOF
   local event_file="$BASE_DIR/queue/events/pending/evt-jira-QP-1234-20260207.json"
   echo "$event" > "$event_file"
 
-  dispatch_new_task "$event" "gen-jira" "$event_file"
+  dispatch_new_task "$event" "gen-harness-querypie-mono" "$event_file"
 
   local task_file
   task_file=$(ls "$BASE_DIR/queue/tasks/pending/"*.json | head -1)

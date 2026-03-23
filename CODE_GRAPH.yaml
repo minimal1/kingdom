@@ -403,14 +403,14 @@ general_packages:
       cc_plugins: []
       timeout: 900
       has_claude_md: true  # generals/gen-catchup/general-claude.md
-    gen-jira:
-      path: "generals/gen-jira/"
-      description: "Jira 티켓 대응 장군 — kingdom 라벨 + In Progress 티켓을 friday:jira로 작업"
+    gen-harness-querypie-mono:
+      path: "generals/gen-harness-querypie-mono/"
+      description: "querypie-mono 전용 harnessed_dev 장군 초안"
       subscribes: ["jira.ticket.assigned", "jira.ticket.updated"]
       schedules: []
-      cc_plugins: ["friday@qp-plugin"]
+      cc_plugins: []
       timeout: 1800
-      has_claude_md: true  # generals/gen-jira/general-claude.md
+      has_claude_md: true
     gen-test-writer:
       path: "generals/gen-test-writer/"
       description: "30분 주기 테스트 자동 작성 → PR 오픈"
